@@ -251,15 +251,15 @@ function renderGeral(){
   if(ft){
     const yrs=getYears();
     const rows=D.meses.map((m,i)=>{
-      const e=totalE(),d=totalDiv(i),g=totalGrd(i),s=sobraM(i);
+      const e=totalE(),d=totalDiv(i),inv=invDisp(i),s=sobraM(i);const rg=calcSaldoInvestir(i).regra;const ri=rg==='negativo'?'🔴':rg==='menor_meta'?'🟡':'🟢';
       const yr=m.match(/\/(\d+)/);const yrN=yr?'20'+yr[1]:'';
       const clr=yrs.indexOf(yrN)===0?'rgba(74,158,255,.3)':'rgba(155,127,244,.3)';
-      return `<tr style="border-left:2px solid ${clr}"><td>${m}</td><td class="tr pos">${fmt(e)}</td><td class="tr neg">${fmt(d)}</td><td class="tr grd">${fmt(g)}</td><td class="tr neg">${fmt(d+g)}</td><td class="tr ${s>=0?'pos':'neg'}">${fmt(s)}</td></tr>`;
+      return `<tr style="border-left:2px solid ${clr}"><td>${m}</td><td class="tr pos">${fmt(e)}</td><td class="tr neg">${fmt(d)}</td><td class="tr grd">${fmt(inv)} ${ri}</td><td class="tr ${s>=0?'pos':'neg'}">${fmt(s)}</td></tr>`;
     }).join('');
     const tD=D.meses.reduce((s,_,i)=>s+totalDiv(i),0);
-    const tG=D.meses.reduce((s,_,i)=>s+totalGrd(i),0);
+    const tG=D.meses.reduce((s,_,i)=>s+invDisp(i),0); // usar invDisp
     const tS=D.meses.reduce((s,_,i)=>s+sobraM(i),0);
-    ft.innerHTML=`<thead><tr><th>Mês</th><th class="tr">Entradas</th><th class="tr">Dívidas</th><th class="tr" style="color:var(--teal)">Disponível p/ investir</th><th class="tr">Total saídas</th><th class="tr">Sobra</th></tr></thead><tbody>${rows}<tr><td class="bold">Total</td><td></td><td class="tr neg bold">${fmt(tD)}</td><td class="tr grd bold">${fmt(tG)}</td><td class="tr neg bold">${fmt(tD+tG)}</td><td class="tr bold ${tS>=0?'pos':'neg'}">${fmt(tS)}</td></tr></tbody>`;
+    ft.innerHTML=`<thead><tr><th>Mês</th><th class="tr">Entradas</th><th class="tr">Dívidas</th><th class="tr" style="color:var(--teal)">Disponível p/ investir</th><th class="tr">Sobra</th></tr></thead><tbody>${rows}<tr><td class="bold">Total</td><td></td><td class="tr neg bold">${fmt(tD)}</td><td class="tr grd bold">${fmt(tG)}</td><td class="tr neg bold">${fmt(tD+tG)}</td><td class="tr bold ${tS>=0?'pos':'neg'}">${fmt(tS)}</td></tr></tbody>`;
   }
 
   // Guard chart
@@ -363,7 +363,7 @@ function renderYearBlocks(){
 function renderMes(){
   const i=selDash;
   document.getElementById('dash-sec').textContent='Resumo — '+(D.meses[i]||'');
-  const e=totalE(),d=totalDiv(i),g=totalGrd(i),s=sobraM(i);
+  const e=totalE(),d=totalDiv(i),inv=invDisp(i),s=sobraM(i);const rg=calcSaldoInvestir(i).regra;const ri=rg==='negativo'?'🔴':rg==='menor_meta'?'🟡':'🟢';
 
   document.getElementById('dash-cards-top').innerHTML=`
     <div class="card"><div class="card-lbl">Entradas</div><div class="card-val g">${fmt(e)}</div></div>

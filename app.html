@@ -270,7 +270,9 @@ input:focus,select:focus{border-color:var(--green);background:var(--s1);}
 .proj-highlight{color:var(--green);font-weight:600;}
 
 /* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;font-weight:700;font-size:13px;padding:11px 20px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;display:flex;align-items:center;gap:8px;}
+.badge-admin{background:var(--purple-bg);color:var(--purple);}
+.badge-user{background:var(--blue-bg);color:var(--blue);}
+.toast{position:fixed;bottom:24px;right:24px;font-weight:700;font-size:13px;padding:11px 20px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast-ok{background:var(--green);color:#0d0d0d;box-shadow:0 4px 16px rgba(34,199,122,.35);}
 .toast-err{background:var(--red);color:#fff;box-shadow:0 4px 16px rgba(224,85,85,.35);}
@@ -294,11 +296,11 @@ input:focus,select:focus{border-color:var(--green);background:var(--s1);}
     <button class="tab"     onclick="go('carteira',this)">Carteira</button>
     <button class="tab"     onclick="go('saidas',this)">Saídas</button>
     <button class="tab"     onclick="go('invest',this)">Investimentos</button>
+    <button class="tab"     onclick="go('perfil',this)" id="tab-perfil">Perfil</button>
+    <button class="tab"     onclick="go('admin',this)" id="tab-admin" style="display:none">Admin</button>
   </div>
   <div class="nav-right">
-    <span id="nav-user" style="font-size:12px;color:var(--text2);background:var(--s2);padding:4px 12px;border-radius:20px;border:1px solid var(--border);display:none"></span>
     <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Alternar tema">🌙</button>
-    <button class="btn-ghost" id="btn-resetar">Resetar</button>
     <button class="btn-ghost" id="btn-sair" style="color:var(--red);border-color:rgba(224,85,85,.3)">Sair</button>
     <button class="btn" id="btn-salvar">Salvar</button>
   </div>
@@ -817,401 +819,95 @@ input[type=number],input[type=text],select{
   width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--rsm);
   color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;outline:none;transition:border .15s,background .15s;
 }
-input:focus,select:focus{border-color:var(--green);background:var(--s1);}
-.ind-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
-.div-wrap{overflow-x:auto;}
-.div-tbl{border-collapse:collapse;min-width:100%;}
-.div-tbl th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap;font-weight:600;}
-.div-tbl td{padding:4px 4px;border-bottom:1px solid var(--border);vertical-align:middle;}
-.div-tbl input[type=text]{width:130px;font-size:12px;padding:6px 8px;}
-.div-tbl select{width:88px;font-size:12px;padding:6px 6px;}
-.div-tbl select.cat-sel{width:130px;}
-.div-tbl input[type=number]{width:78px;font-size:12px;padding:6px 5px;text-align:right;}
-.div-tbl input.lim-inp{width:86px;}
-.btn-rm{background:var(--red-bg);color:var(--red);border:none;border-radius:5px;cursor:pointer;padding:5px 9px;font-size:12px;transition:opacity .15s;}
-.btn-rm:hover{opacity:.7;}
-.act-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;}
-.btn-add{border-radius:var(--rsm);cursor:pointer;padding:8px 14px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;transition:opacity .2s;border:1px solid;}
-.btn-add:hover{opacity:.8;}
-.btn-add.green{background:var(--green-bg);color:var(--green);border-color:rgba(34,199,122,.3);}
-.btn-add.teal{background:var(--teal-bg);color:var(--teal);border-color:rgba(45,212,191,.3);}
-.btn-add.blue{background:var(--blue-bg);color:var(--blue);border-color:rgba(74,158,255,.3);}
-.btn-add.red{background:var(--red-bg);color:var(--red);border-color:rgba(224,85,85,.3);}
-.btn-add.amber{background:var(--amber-bg);color:var(--amber);border-color:rgba(240,160,32,.3);}
-.btn-add.purple{background:var(--purple-bg);color:var(--purple);border-color:rgba(155,127,244,.3);}
 
-/* ARCA BUCKETS */
-.arca-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px;}
-.arca-card{border-radius:var(--r);padding:18px;border:1px solid var(--border);position:relative;overflow:hidden;}
-.arca-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
-.arca-A::after{background:#4a9eff;}
-.arca-R::after{background:#f97316;}
-.arca-C::after{background:#9ca3af;}
-.arca-A2::after{background:#f0a020;}
-.arca-lbl{font-size:11px;font-weight:600;letter-spacing:.04em;margin-bottom:4px;}
-.arca-A .arca-lbl{color:#4a9eff;}
-.arca-R .arca-lbl{color:#f97316;}
-.arca-C .arca-lbl{color:#9ca3af;}
-.arca-A2 .arca-lbl{color:#f0a020;}
-.arca-desc{font-size:10px;color:var(--text2);margin-bottom:10px;line-height:1.4;}
-.arca-val{font-size:22px;font-family:'DM Serif Display',serif;}
-.arca-meta{font-size:10px;color:var(--text3);margin-top:4px;}
-
-/* INVEST TABLE */
-.inv-tbl-wrap{overflow-x:auto;}
-.inv-tbl{min-width:900px;border-collapse:collapse;}
-.inv-tbl th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap;}
-.inv-tbl td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
-.inv-tbl tr:last-child td{border-bottom:none;}
-.inv-tbl tbody tr:hover td{background:var(--s2);}
-.inv-edit input[type=text]{width:140px;font-size:12px;padding:5px 8px;}
-.inv-edit input[type=number]{width:90px;font-size:12px;padding:5px 6px;text-align:right;}
-.inv-edit select{width:120px;font-size:12px;padding:5px 6px;}
-/* saldo para investir banner */
-.inv-banner{background:linear-gradient(135deg,rgba(45,212,191,.12),rgba(34,199,122,.08));border:1px solid rgba(45,212,191,.25);border-radius:var(--r);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
-.inv-banner-label{font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:4px;}
-.inv-banner-val{font-size:28px;font-family:'DM Serif Display',serif;color:var(--green);}
-.inv-banner-sub{font-size:11px;color:var(--text2);margin-top:3px;}
-.inv-banner-right{font-size:12px;color:var(--text2);text-align:right;}
-/* projeção */
-.proj-tbl{min-width:800px;}
-.proj-tbl th{background:var(--s2);}
-.proj-highlight{color:var(--green);font-weight:600;}
-
-/* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;font-weight:700;font-size:13px;padding:11px 20px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;display:flex;align-items:center;gap:8px;}
-.toast.show{opacity:1;transform:translateY(0);}
-.toast-ok{background:var(--green);color:#0d0d0d;box-shadow:0 4px 16px rgba(34,199,122,.35);}
-.toast-err{background:var(--red);color:#fff;box-shadow:0 4px 16px rgba(224,85,85,.35);}
-.toast-info{background:var(--s3);color:var(--text);border:1px solid var(--border2);}
-@keyframes spin{to{transform:rotate(360deg)}}
-.btn-spinner{width:14px;height:14px;border:2px solid rgba(0,0,0,.25);border-top-color:#0d0d0d;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;}
-
-@media(max-width:700px){
-  nav{padding:0 14px;}.page{padding:14px;}
-  .grid2,.grid3{grid-template-columns:1fr;}
-  .ind-grid{grid-template-columns:1fr 1fr;}
-}
-
-<!-- ════════════════════════════════════════
-     DASHBOARD
-════════════════════════════════════════ -->
-<div class="page on" id="page-dash">
-  <div class="subtab-bar">
-    <button class="stab on" onclick="switchSub('geral',this)">Visão Geral</button>
-    <button class="stab"    onclick="switchSub('mes',this)">Por Mês</button>
-  </div>
-
-  <!-- ── VISÃO GERAL ── -->
-  <div class="subpage on" id="sub-geral">
-    <div class="sec">Resumo — período completo</div>
-    <div class="annual-hero" id="annual-hero"></div>
-
-    <!-- ANOS COLAPSÁVEIS — renderizados via JS -->
-    <div id="year-blocks"></div>
-
-    <!-- RANKING + DOUGHNUT -->
-    <div class="cards-divider"><span>Dívidas — período completo</span></div>
-    <div class="grid2 mb">
-      <div class="panel">
-        <h3>Ranking de gastos acumulados</h3>
-        <div id="annual-rank"></div>
-      </div>
-      <div class="panel">
-        <h3>Distribuição das saídas</h3>
-        <div style="position:relative;height:240px"><canvas id="cAnnualDough"></canvas></div>
+<!-- ════════════ PERFIL ════════════ -->
+<div class="page" id="page-perfil">
+  <div style="max-width:500px;margin:0 auto">
+    <div class="ed-box" style="margin-bottom:14px">
+      <h3>Meu Perfil</h3>
+      <div class="ed-desc">Informações da sua conta.</div>
+      <div id="perfil-info" style="margin-bottom:20px"></div>
+      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+        <div style="font-size:13px;font-weight:500;margin-bottom:12px">Alterar senha</div>
+        <div class="alert alert-err" id="cp-err" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px"></div>
+        <div class="alert alert-ok" id="cp-ok" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px"></div>
+        <div class="field"><div class="field-lbl">Senha atual</div><input type="password" id="cp-current" placeholder="Senha atual"></div>
+        <div class="field"><div class="field-lbl">Nova senha</div><input type="password" id="cp-new" placeholder="Mínimo 6 caracteres"></div>
+        <div class="field"><div class="field-lbl">Confirmar nova senha</div><input type="password" id="cp-confirm" placeholder="Repita a nova senha"></div>
+        <button class="btn" id="btn-change-pass" style="width:100%">Alterar senha</button>
       </div>
     </div>
-    <div class="panel mb">
-      <h3>Evolução de cada dívida ao longo do período</h3>
-      <div style="position:relative;height:260px"><canvas id="cEvol"></canvas></div>
-    </div>
-
-    <!-- FLUXO -->
-    <div class="cards-divider"><span>Fluxo de caixa completo</span></div>
-    <div class="panel mb">
-      <div class="scroll-wrap"><table class="fx-tbl" id="fluxo-table"></table></div>
-    </div>
-
-    <!-- GUARDADO -->
-    <div class="cards-divider"><span>Guardado / Investido</span></div>
-    <div class="grid2 mb">
-      <div class="panel">
-        <h3>Guardado e investido por mês</h3>
-        <div style="position:relative;height:200px"><canvas id="cGuardAnual"></canvas></div>
-      </div>
-      <div class="panel">
-        <h3>Progresso das metas</h3>
-        <div id="annual-prog" style="padding-top:4px"></div>
-      </div>
-    </div>
-
-    <!-- INDICADORES -->
-    <div class="cards-divider"><span>Indicadores de mercado</span></div>
-    <div class="cards" id="ind-cards"></div>
-    <div class="grid2 mb">
-      <div class="panel"><h3>CDI (%)</h3><div style="position:relative;height:160px"><canvas id="cCdi"></canvas></div></div>
-      <div class="panel"><h3>IPCA (%)</h3><div style="position:relative;height:160px"><canvas id="cIpca"></canvas></div></div>
-    </div>
-
-    <!-- CARTÕES -->
-    <div class="cards-divider"><span>Cartões de crédito — saldo em aberto</span></div>
-    <div class="cartoes-grid" id="annual-cartoes"></div>
-  </div>
-
-  <!-- ── POR MÊS ── -->
-  <div class="subpage" id="sub-mes">
-    <div class="sec" id="dash-sec">Resumo</div>
-    <div class="month-sel" id="dash-months"></div>
-
-    <div class="cards-divider"><span>Entradas e saldo</span></div>
-    <div class="cards" id="dash-cards-top"></div>
-    <div class="cards-divider"><span>Dívidas do mês</span></div>
-    <div class="cards" id="dash-cards-div"></div>
-    <div class="cards-divider"><span>Guardado / Investido</span></div>
-    <div class="cards" id="dash-cards-guard"></div>
-    <div class="cards-divider"><span>Cartões de crédito</span></div>
-    <div class="cartoes-grid" id="dash-cartoes"></div>
-
-    <div class="cards-divider"><span>Detalhe do mês</span></div>
-    <div class="grid2 mb">
-      <div class="panel"><h3 id="div-detail-title">Dívidas</h3><table id="div-detail-table"></table></div>
-      <div class="panel"><h3 id="guard-detail-title">Guardado</h3><table id="guard-detail-table"></table></div>
-    </div>
-
-    <div class="cards-divider"><span>Gráficos do período</span></div>
-    <div class="grid3 mb">
-      <div class="panel"><h3>Dívidas vs Guardado — todos os meses</h3><div style="position:relative;height:210px"><canvas id="cFluxo"></canvas></div></div>
-      <div class="panel"><h3>Composição — mês selecionado</h3><div style="position:relative;height:210px"><canvas id="cTipo"></canvas></div></div>
-    </div>
-    <div class="grid2 mb">
-      <div class="panel"><h3>Dívidas variáveis ao longo do período</h3><div style="position:relative;height:180px"><canvas id="cVar"></canvas></div></div>
-      <div class="panel"><h3>Guardado / Investido por mês</h3><div style="position:relative;height:180px"><canvas id="cGuard"></canvas></div></div>
+    <div class="ed-box accent-red">
+      <h3>Zona de perigo</h3>
+      <div class="ed-desc">Apagar todos os seus dados financeiros. Esta ação não pode ser desfeita.</div>
+      <button id="btn-resetar" class="btn-add red" style="width:100%;padding:10px;border-radius:var(--rsm)">Apagar meus dados financeiros</button>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     CARTEIRA
-════════════════════════════════════════ -->
-<div class="page" id="page-carteira">
-  <div class="ed-wrap">
-
-    <!-- Linha 1: Saldo + Entradas -->
-    <div class="ed-top">
-      <div class="ed-box accent-green">
-        <h3>Saldo atual</h3>
-        <div class="ed-desc">Posição atual das suas contas.</div>
-        <div class="field"><div class="field-lbl">Conta corrente (R$)</div><input type="number" id="ef-saldo" step="0.01"></div>
-        <div class="field"><div class="field-lbl">Caixa atual (R$) — saldo já investido em C-Caixa</div><input type="number" id="ef-reserva" step="0.01" readonly style="opacity:.7;cursor:default"></div>
-        <div class="field"><div class="field-lbl">Investido A/R/A2 (R$) — saldo já investido nos demais buckets</div><input type="number" id="ef-invest" step="0.01" readonly style="opacity:.7;cursor:default"></div>
-      </div>
-      <div class="ed-box accent-blue">
-        <h3>Entradas mensais</h3>
-        <div class="ed-desc">Receitas que entram todo mês.</div>
-        <div class="field"><div class="field-lbl">Salário líquido (R$)</div><input type="number" id="ef-salario" step="0.01"></div>
-        <div class="field"><div class="field-lbl">Outras entradas (R$)</div><input type="number" id="ef-outras" step="0.01"></div>
-        <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="field-lbl" style="color:var(--green)">Meta conta corrente (R$)</div><input type="number" id="ef-metaCC" step="100" placeholder="2000"></div>
-        <div style="font-size:10px;color:var(--text2);margin-top:4px">Valor que você sempre quer manter em CC. O sistema calcula automaticamente o que sobra para investir.</div>
-      </div>
+<!-- ════════════ ADMIN ════════════ -->
+<div class="page" id="page-admin">
+  <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:22px">Painel de Administração</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">Gerencie usuários do sistema</div>
     </div>
+  </div>
 
-    <!-- Cartões de crédito / limite -->
-    <div class="ed-box accent-purple">
-      <h3>Cartões de crédito</h3>
-      <div class="ed-desc">Cadastre seus cartões aqui. Os limites serão lidos automaticamente na aba Saídas ao marcar uma dívida como "Cartão".</div>
-      <div class="div-wrap">
-        <table class="div-tbl" id="cartoes-edit-table"></table>
+  <div class="grid2" style="margin-bottom:14px">
+    <div class="ed-box accent-green">
+      <h3>Criar novo usuário</h3>
+      <div class="ed-desc">Cada usuário terá seus próprios dados financeiros separados.</div>
+      <div class="alert alert-err" id="admin-err" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px"></div>
+      <div class="alert alert-ok" id="admin-ok" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px"></div>
+      <div class="field"><div class="field-lbl">Nome de exibição</div><input type="text" id="adm-name" placeholder="Ex: João Silva"></div>
+      <div class="field"><div class="field-lbl">E-mail</div><input type="email" id="adm-email" placeholder="joao@email.com"></div>
+      <div class="field"><div class="field-lbl">Senha inicial</div><input type="password" id="adm-pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="field"><div class="field-lbl">Perfil</div>
+        <select id="adm-role">
+          <option value="user">Usuário comum</option>
+          <option value="superadmin">Super Admin</option>
+        </select>
       </div>
-      <div class="act-row">
-        <button class="btn-add purple" onclick="addCartao()">+ Novo cartão</button>
-      </div>
+      <button class="btn" id="btn-create-user" style="width:100%;padding:10px">Criar usuário</button>
     </div>
-
-    <!-- Resumo da carteira (somente leitura) -->
     <div class="ed-box">
-      <h3>Resumo da carteira</h3>
-      <div class="ed-desc">Calculado a partir dos dados cadastrados.</div>
-      <div class="cards" id="carteira-resumo"></div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════
-     SAÍDAS
-════════════════════════════════════════ -->
-<div class="page" id="page-saidas">
-  <div class="subtab-bar">
-    <button class="stab on" onclick="switchSubSai('fixas',this)">Contas Fixas</button>
-    <button class="stab"    onclick="switchSubSai('variaveis',this)">Contas Variáveis</button>
-    <button class="stab"    onclick="switchSubSai('periodos',this)">Gestão de Meses</button>
-  </div>
-
-  <!-- FIXAS -->
-  <div class="subpage on" id="sub-fixas">
-    <div class="ed-box accent-blue" style="margin-bottom:0">
-      <h3>Contas Fixas</h3>
-      <div class="ed-desc">Gastos que ocorrem todo mês com valor previsível: aluguel, assinaturas, mensalidades, planos, tributos fixos.</div>
-      <div class="div-wrap"><table class="div-tbl" id="div-fixas-table"></table></div>
-      <div class="act-row">
-        <button class="btn-add blue" onclick="addDividaTipo('Fixo')">+ Nova conta fixa</button>
-      </div>
+      <h3>Estatísticas</h3>
+      <div id="admin-stats" style="margin-top:8px"></div>
     </div>
   </div>
 
-  <!-- VARIÁVEIS -->
-  <div class="subpage" id="sub-variaveis">
-    <div class="ed-box accent-amber" style="margin-bottom:0">
-      <h3>Contas Variáveis</h3>
-      <div class="ed-desc">Faturas de cartão, parcelas, financiamentos e gastos que mudam mês a mês. Cartões cadastrados na aba Carteira terão limite associado automaticamente.</div>
-      <div class="div-wrap"><table class="div-tbl" id="div-var-table"></table></div>
-      <div class="act-row">
-        <button class="btn-add amber" onclick="addDividaTipo('Variável')">+ Nova conta variável</button>
-      </div>
+  <div class="panel">
+    <h3>Usuários cadastrados</h3>
+    <div style="overflow-x:auto">
+      <table id="admin-users-table">
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ações</th></tr></thead>
+        <tbody id="admin-users-tbody"><tr><td colspan="4" style="text-align:center;color:var(--text2);padding:20px">Carregando...</td></tr></tbody>
+      </table>
     </div>
   </div>
 
-  <!-- GESTÃO DE MESES -->
-  <div class="subpage" id="sub-periodos">
-    <div class="ed-box">
-      <h3>Gestão de meses do planejamento</h3>
-      <div class="ed-desc">Adicione ou remova meses do seu plano financeiro. Todos os meses são compartilhados entre Saídas e Investimentos.</div>
-      <div id="meses-list" style="margin-bottom:14px"></div>
-      <div class="act-row">
-        <button class="btn-add green" onclick="addMes()">+ Adicionar mês</button>
-        <button class="btn-add red" onclick="removeMes()">− Remover último mês</button>
+  <!-- Modal resetar senha -->
+  <div id="modal-reset-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:500;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:28px;width:100%;max-width:380px">
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:8px">Redefinir senha</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Usuário: <strong id="modal-reset-email"></strong></div>
+      <div class="field"><div class="field-lbl">Nova senha</div><input type="password" id="modal-reset-pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="alert alert-err" id="modal-err" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button class="btn-ghost" onclick="closeResetModal()">Cancelar</button>
+        <button class="btn" id="btn-confirm-reset">Redefinir</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     INVESTIMENTOS (ARCA)
-════════════════════════════════════════ -->
-<div class="page" id="page-invest">
-  <div class="subtab-bar">
-    <button class="stab on" onclick="switchSubInv('arca',this)">Método ARCA</button>
-    <button class="stab"    onclick="switchSubInv('carteira-inv',this)">Carteira de Ativos</button>
-    <button class="stab"    onclick="switchSubInv('indicadores',this)">Indicadores</button>
-  </div>
 
-  <!-- ARCA -->
-  <div class="subpage on" id="sub-arca">
-    <div class="sec">Método ARCA — Alocação por Bucket</div>
-    <div id="arca-alert" style="background:var(--amber-bg);border:1px solid rgba(240,160,32,.3);border-radius:var(--r);padding:16px;margin-bottom:14px;display:none"></div>
-    <div class="arca-grid" id="arca-cards"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-    <div class="grid2 mb">
-      <div class="panel">
-        <h3>Distribuição atual da carteira por bucket ARCA</h3>
-        <div style="position:relative;height:240px"><canvas id="cArcaDough"></canvas></div>
-      </div>
-      <div class="panel">
-        <h3>Meta de alocação ARCA (configurar)</h3>
-        <div id="arca-meta-config" style="padding-top:4px"></div>
-      </div>
-    </div>
-
-    <div class="panel mb">
-      <h3>Evolução dos aportes mensais por bucket (R$)</h3>
-      <div style="position:relative;height:220px"><canvas id="cArcaBar"></canvas></div>
-    </div>
-  </div>
-
-  <!-- CARTEIRA DE ATIVOS -->
-  <div class="subpage" id="sub-carteira-inv">
-
-    <!-- SALDO DISPONÍVEL PARA INVESTIR -->
-    <div class="cards mb" id="inv-saldo-cards"></div>
-
-    <!-- TABELA MÊS A MÊS -->
-    <div class="panel mb">
-      <h3>Disponível para investir — mês a mês</h3>
-      <div class="ed-desc" style="margin-bottom:10px;font-size:11px;color:var(--text2)">
-        🟢 sobra &gt; meta CC → investe 50% da sobra &nbsp;|&nbsp;
-        🟡 sobra ≤ meta CC → investe sobra − meta CC &nbsp;|&nbsp;
-        🔴 contas &gt; entradas → R$ 0
-      </div>
-      <div class="scroll-wrap"><table class="fx-tbl" id="inv-mes-table"></table></div>
-    </div>
-
-    <!-- CARTEIRA -->
-    <div class="ed-box accent-teal" style="margin-bottom:14px">
-      <h3>Carteira de ativos</h3>
-      <div class="ed-desc">Cadastre seus ativos com tipo, bucket ARCA, valor atual, índice de rendimento e percentual. O sistema calcula projeções de crescimento automaticamente.</div>
-      <div class="inv-tbl-wrap">
-        <table class="inv-tbl inv-edit" id="ativos-table"></table>
-      </div>
-      <div class="act-row">
-        <button class="btn-add teal" onclick="addAtivo()">+ Novo ativo</button>
-      </div>
-    </div>
-
-    <!-- RESUMO POR CLASSE -->
-    <div class="panel mb">
-      <h3>Resumo por classe de ativo</h3>
-      <div class="cards" id="ativos-resumo"></div>
-    </div>
-
-    <!-- PROJEÇÕES -->
-    <div class="panel mb">
-      <h3>Projeções de crescimento — juros compostos com reinvestimento</h3>
-      <div class="ed-desc" style="margin-bottom:14px;font-size:11px;color:var(--text2)">Calculado com base no valor atual de cada ativo, índice selecionado e percentual cadastrado. Considera reinvestimento integral dos rendimentos.</div>
-      <div class="scroll-wrap"><table class="fx-tbl" id="proj-table"></table></div>
-    </div>
-
-    <!-- GRÁFICO PROJEÇÃO -->
-    <div class="panel mb">
-      <h3>Evolução do patrimônio projetado (R$)</h3>
-      <div style="position:relative;height:280px"><canvas id="cProjLine"></canvas></div>
-    </div>
-
-  </div>
-
-  <!-- INDICADORES -->
-  <div class="subpage" id="sub-indicadores">
-    <div class="ed-top" style="margin-bottom:14px">
-      <div class="ed-box accent-green">
-        <h3>CDI</h3>
-        <div class="ed-desc">Taxa DI — referência para renda fixa.</div>
-        <div class="field"><div class="field-lbl">CDI acumulado 12m (%)</div><input type="number" id="ef-cdi12" step="0.01"></div>
-        <div class="field"><div class="field-lbl">CDI último mês ref. (%)</div><input type="number" id="ef-cdifev" step="0.01"></div>
-        <div class="field"><div class="field-lbl">CDI acumulado 2026 (%)</div><input type="number" id="ef-cdi26" step="0.01"></div>
-      </div>
-      <div class="ed-box accent-amber">
-        <h3>IPCA</h3>
-        <div class="ed-desc">Inflação oficial — referência para proteção do poder de compra.</div>
-        <div class="field"><div class="field-lbl">IPCA acumulado 12m (%)</div><input type="number" id="ef-ipca12" step="0.01"></div>
-        <div class="field"><div class="field-lbl">IPCA último mês ref. (%)</div><input type="number" id="ef-ipcafev" step="0.01"></div>
-        <div class="field"><div class="field-lbl">IPCA acumulado 2026 (%)</div><input type="number" id="ef-ipca26" step="0.01"></div>
-      </div>
-      <div class="ed-box accent-blue">
-        <h3>Metas ARCA (%)</h3>
-        <div class="ed-desc">Percentual alvo de cada bucket na sua carteira total.</div>
-        <div class="field"><div class="field-lbl">A — Ações Brasileiras (%)</div><input type="number" id="ef-arca-a" step="1" min="0" max="100"></div>
-        <div class="field"><div class="field-lbl">R — Real Estate (%)</div><input type="number" id="ef-arca-r" step="1" min="0" max="100"></div>
-        <div class="field"><div class="field-lbl">C — Caixa (%)</div><input type="number" id="ef-arca-c" step="1" min="0" max="100"></div>
-        <div class="field"><div class="field-lbl">A — Ativos Internacionais (%)</div><input type="number" id="ef-arca-a2" step="1" min="0" max="100"></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h3>CDI vs IPCA — comparativo</h3>
-      <div style="position:relative;height:200px"><canvas id="cIndComp"></canvas></div>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast">Dados salvos! ✓</div>
-
-<script src="app.js"></script>
-
-<!-- FIREBASE SDK -->
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyBG_wVVcAdqbLTetgYllAmbiJ8rQ6lLRsE",
   authDomain: "controle-financeiro-900a7.firebaseapp.com",
@@ -1220,13 +916,29 @@ const firebaseConfig = {
   messagingSenderId: "361900607129",
   appId: "1:361900607129:web:901ff0ee9e3053a144da08"
 };
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+let _currentUser = null;
+let _currentRole = null;
 
-const fbApp = initializeApp(firebaseConfig);
-const auth  = getAuth(fbApp);
-const db    = getFirestore(fbApp);
-let _fbUser = null;
-
-function migrateD(d) {
+// ─── HELPERS ───
+function showToast(msg, ok=true){
+  const t=document.getElementById('toast');if(!t)return;
+  t.textContent=(ok?'✓ ':'✕ ')+msg;
+  t.className='toast show '+(ok?'toast-ok':'toast-err');
+  setTimeout(()=>t.className='toast',3000);
+}
+function showAlert(id,msg,ok=false){
+  const el=document.getElementById(id);if(!el)return;
+  el.textContent=msg;
+  el.style.display='';
+  el.style.background=ok?'var(--green-bg)':'var(--red-bg)';
+  el.style.color=ok?'var(--green)':'var(--red)';
+  el.style.border='1px solid '+(ok?'rgba(34,199,122,.3)':'rgba(224,85,85,.3)');
+  setTimeout(()=>el.style.display='none',4000);
+}
+function migrateD(d){
   if(!d.guardado){d.guardado=[{nome:'Reserva de Emergência',arcaBucket:'C',vals:Array(d.meses.length).fill(0)},{nome:'Investimento',arcaBucket:'A',vals:Array(d.meses.length).fill(0)}];d.dividas=d.dividas.filter(x=>!x.nome.toLowerCase().includes('reserv')&&!x.nome.toLowerCase().includes('invest'));}
   if(!d.cartoes) d.cartoes=JSON.parse(JSON.stringify(DEFAULT.cartoes));
   if(!d.ativos)  d.ativos=JSON.parse(JSON.stringify(DEFAULT.ativos));
@@ -1238,109 +950,214 @@ function migrateD(d) {
   return d;
 }
 
-function showToast(msg, ok=true) {
-  const t = document.getElementById('toast');
-  if(!t) return;
-  t.textContent = (ok ? '✓ ' : '✕ ') + msg;
-  t.className = 'toast show ' + (ok ? 'toast-ok' : 'toast-err');
-  setTimeout(() => t.className = 'toast', 3000);
+// ─── SALVAR ───
+function saveToFirestore(){
+  if(!_currentUser){showToast('Não autenticado',false);return;}
+  const btn=document.getElementById('btn-salvar');
+  if(btn){btn.textContent='Salvando...';btn.disabled=true;}
+  db.collection('userData').doc(_currentUser.uid).set({
+    data:JSON.stringify(D),
+    updatedAt:new Date().toISOString()
+  }).then(()=>{
+    showToast('Dados salvos com sucesso!');
+  }).catch(e=>{
+    showToast('Erro ao salvar: '+e.message,false);
+    console.error(e);
+  }).finally(()=>{
+    if(btn){btn.textContent='Salvar';btn.disabled=false;}
+  });
 }
 
-window.saveToFirebase = async function() {
-  if(!_fbUser) { showToast('Não autenticado', false); return; }
-  const btnSalvar = document.getElementById('btn-salvar');
-  if(btnSalvar) { btnSalvar.textContent = 'Salvando...'; btnSalvar.disabled = true; }
-  try {
-    await setDoc(doc(db,'userData',_fbUser.uid), {
-      data: JSON.stringify(D),
-      updatedAt: new Date().toISOString()
-    });
-    showToast('Dados salvos com sucesso!', true);
-  } catch(e) {
-    showToast('Erro ao salvar: ' + e.message, false);
-    console.error('saveToFirebase:', e);
-  } finally {
-    if(btnSalvar) { btnSalvar.textContent = 'Salvar'; btnSalvar.disabled = false; }
-  }
-};
-
-window.clearFirebaseData = async function() {
-  if(!_fbUser) return;
-  try { await deleteDoc(doc(db,'userData',_fbUser.uid)); } catch(e){}
-};
-
-onAuthStateChanged(auth, async user => {
-  if(!user) { window.location.href='index.html'; return; }
-  _fbUser = user;
-
-  // ── Wire nav buttons ──
-  const btnSair = document.getElementById('btn-sair');
-  if(btnSair) {
-    btnSair.onclick = async () => {
-      btnSair.textContent = 'Saindo...';
-      btnSair.disabled = true;
-      try { await signOut(auth); } catch(e){}
-      window.location.href = 'index.html';
-    };
-  }
-
-  const btnSalvar = document.getElementById('btn-salvar');
-  if(btnSalvar) {
-    btnSalvar.onclick = () => {
-      collectFormFields();
-      window.saveToFirebase();
-      renderAll();
-    };
-  }
-
-  const btnResetar = document.getElementById('btn-resetar');
-  if(btnResetar) {
-    btnResetar.onclick = () => {
-      if(!confirm('Apagar todos os dados e voltar ao padrão?')) return;
-      window.clearFirebaseData();
-      D = JSON.parse(JSON.stringify(DEFAULT));
-      selDash = 0; yrCollapsed = {};
-      renderAll();
-    };
-  }
-
-  // ── Show user info ──
-  try {
-    const snap = await getDoc(doc(db,'users',user.uid));
-    const navEl = document.getElementById('nav-user');
-    if(snap.exists() && navEl) {
-      navEl.textContent = '👤 ' + (snap.data().displayName || user.email);
-      navEl.style.display = '';
-    }
-  } catch(e){ console.warn('user profile:', e); }
-
-  // ── Load financial data ──
-  try {
-    const snap = await getDoc(doc(db,'userData',user.uid));
-    if(snap.exists() && snap.data().data) {
-      D = migrateD(JSON.parse(snap.data().data));
-    } else {
-      D = JSON.parse(JSON.stringify(DEFAULT));
-    }
-  } catch(e) {
-    console.warn('load data:', e);
-    D = JSON.parse(JSON.stringify(DEFAULT));
-  }
-
-  // ── Render dashboard ──
-  // First render to populate DOM
+// ─── BOTÕES NAV ───
+document.getElementById('btn-salvar').onclick = function(){
+  collectFormFields();
+  saveToFirestore();
   renderAll();
+};
+document.getElementById('btn-sair').onclick = function(){
+  this.textContent='Saindo...';this.disabled=true;
+  auth.signOut().finally(()=>{ window.location.href='index.html'; });
+};
 
-  // Force chart redraw after a short delay (charts need visible containers)
-  setTimeout(() => {
-    Object.keys(CH).forEach(id => dc(id));
-    renderGeral();
-    renderMes();
-    renderIndicadores();
-    renderArca();
-    renderAtivos();
-    window.dispatchEvent(new Event('resize'));
-  }, 300);
+// ─── PERFIL ───
+function renderPerfil(){
+  const el=document.getElementById('perfil-info');
+  if(!el||!_currentUser)return;
+  el.innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">Nome</span><strong>${_currentUser.displayName||'—'}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">E-mail</span><strong>${_currentUser.email}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">Perfil</span><span class="badge ${_currentRole==='superadmin'?'badge-admin':'badge-user'}">${_currentRole==='superadmin'?'Super Admin':'Usuário'}</span></div>
+    </div>`;
+}
+document.getElementById('btn-change-pass').onclick = function(){
+  const current=document.getElementById('cp-current').value;
+  const newP=document.getElementById('cp-new').value;
+  const conf=document.getElementById('cp-confirm').value;
+  if(!current||!newP||!conf){showAlert('cp-err','Preencha todos os campos.');return;}
+  if(newP!==conf){showAlert('cp-err','Nova senha e confirmação não coincidem.');return;}
+  if(newP.length<6){showAlert('cp-err','Senha deve ter pelo menos 6 caracteres.');return;}
+  const cred=firebase.auth.EmailAuthProvider.credential(_currentUser.email,current);
+  _currentUser.reauthenticateWithCredential(cred).then(()=>{
+    return _currentUser.updatePassword(newP);
+  }).then(()=>{
+    document.getElementById('cp-current').value='';
+    document.getElementById('cp-new').value='';
+    document.getElementById('cp-confirm').value='';
+    showAlert('cp-ok','Senha alterada com sucesso!',true);
+  }).catch(e=>{
+    const msgs={'auth/wrong-password':'Senha atual incorreta.','auth/invalid-credential':'Senha atual incorreta.'};
+    showAlert('cp-err',msgs[e.code]||'Erro: '+e.message);
+  });
+};
+document.getElementById('btn-resetar').onclick = function(){
+  if(!confirm('Apagar todos os dados financeiros? Esta ação não pode ser desfeita.'))return;
+  if(_currentUser) db.collection('userData').doc(_currentUser.uid).delete().catch(()=>{});
+  D=JSON.parse(JSON.stringify(DEFAULT));
+  selDash=0;yrCollapsed={};
+  renderAll();
+  showToast('Dados apagados.');
+};
+
+// ─── ADMIN ───
+let _resetTargetUid='';
+let _resetTargetEmail='';
+
+function renderAdmin(){
+  if(_currentRole!=='superadmin')return;
+  db.collection('users').get().then(snap=>{
+    const users=[];
+    snap.forEach(d=>users.push({uid:d.id,...d.data()}));
+    // Stats
+    const statsEl=document.getElementById('admin-stats');
+    if(statsEl) statsEl.innerHTML=`
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">Total usuários</span><strong>${users.length}</strong></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">Super Admins</span><strong style="color:var(--purple)">${users.filter(u=>u.role==='superadmin').length}</strong></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">Usuários comuns</span><strong style="color:var(--blue)">${users.filter(u=>u.role!=='superadmin').length}</strong></div>
+      </div>`;
+    // Table
+    const tbody=document.getElementById('admin-users-tbody');
+    if(tbody) tbody.innerHTML=users.map(u=>`<tr>
+      <td><strong>${u.displayName||'—'}</strong></td>
+      <td style="color:var(--text2);font-size:12px">${u.email||'—'}</td>
+      <td><span class="badge ${u.role==='superadmin'?'badge-admin':'badge-user'}">${u.role==='superadmin'?'Super Admin':'Usuário'}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="openResetModal('${u.uid}','${u.email}')" style="background:var(--blue-bg);color:var(--blue);border:1px solid rgba(74,158,255,.25);font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer">Redefinir senha</button>
+        ${u.uid!==_currentUser.uid?`<button onclick="deleteUser('${u.uid}','${u.displayName||u.email}')" style="background:var(--red-bg);color:var(--red);border:1px solid rgba(224,85,85,.25);font-family:'DM Sans',sans-serif;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer">Remover</button>`:''}
+      </td>
+    </tr>`).join('');
+  }).catch(e=>console.error('admin load users:',e));
+}
+
+document.getElementById('btn-create-user').onclick = function(){
+  const name=document.getElementById('adm-name').value.trim();
+  const email=document.getElementById('adm-email').value.trim();
+  const pass=document.getElementById('adm-pass').value;
+  const role=document.getElementById('adm-role').value;
+  if(!name||!email||!pass){showAlert('admin-err','Preencha todos os campos.');return;}
+  if(pass.length<6){showAlert('admin-err','Senha deve ter pelo menos 6 caracteres.');return;}
+  // Create via secondary app to avoid logging out current admin
+  const secondaryApp=firebase.initializeApp(firebaseConfig,'secondary_'+Date.now());
+  const secondaryAuth=secondaryApp.auth();
+  secondaryAuth.createUserWithEmailAndPassword(email,pass).then(cred=>{
+    return db.collection('users').doc(cred.user.uid).set({
+      email,displayName:name,role,uid:cred.user.uid,createdAt:new Date().toISOString()
+    }).then(()=>secondaryAuth.signOut()).then(()=>{
+      document.getElementById('adm-name').value='';
+      document.getElementById('adm-email').value='';
+      document.getElementById('adm-pass').value='';
+      showAlert('admin-ok','Usuário criado com sucesso!',true);
+      renderAdmin();
+    });
+  }).catch(e=>{
+    const msgs={'auth/email-already-in-use':'E-mail já em uso.','auth/invalid-email':'E-mail inválido.'};
+    showAlert('admin-err',msgs[e.code]||'Erro: '+e.message);
+  });
+};
+
+function openResetModal(uid,email){
+  _resetTargetUid=uid;_resetTargetEmail=email;
+  document.getElementById('modal-reset-email').textContent=email;
+  document.getElementById('modal-reset-pass').value='';
+  document.getElementById('modal-err').style.display='none';
+  document.getElementById('modal-reset-overlay').style.display='flex';
+}
+function closeResetModal(){
+  document.getElementById('modal-reset-overlay').style.display='none';
+}
+document.getElementById('btn-confirm-reset').onclick = function(){
+  const newPass=document.getElementById('modal-reset-pass').value;
+  if(newPass.length<6){showAlert('modal-err','Mínimo 6 caracteres.');return;}
+  // Store pending reset in Firestore - user will be prompted on next login
+  db.collection('pendingReset').doc(_resetTargetUid).set({
+    newPassword:newPass,requestedAt:new Date().toISOString(),requestedBy:_currentUser.uid
+  }).then(()=>{
+    closeResetModal();
+    showToast('Redefinição registrada. Usuário deverá fazer login novamente.');
+  }).catch(e=>showAlert('modal-err','Erro: '+e.message));
+};
+function deleteUser(uid,name){
+  if(!confirm(`Remover "${name}" e todos os seus dados?`))return;
+  Promise.all([
+    db.collection('users').doc(uid).delete(),
+    db.collection('userData').doc(uid).delete().catch(()=>{})
+  ]).then(()=>{
+    showToast('Usuário removido.');
+    renderAdmin();
+  }).catch(e=>showToast('Erro: '+e.message,false));
+}
+
+// ─── OVERRIDE go() to also render perfil/admin ───
+const _origGo = go;
+window.go = function(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('page-'+id).classList.add('on');
+  el.classList.add('on');
+  if(id==='perfil') renderPerfil();
+  else if(id==='admin') renderAdmin();
+  else renderAll();
+};
+
+// ─── AUTH STATE ───
+auth.onAuthStateChanged(function(user){
+  if(!user){window.location.href='index.html';return;}
+  _currentUser=user;
+
+  // Load user profile
+  db.collection('users').doc(user.uid).get().then(snap=>{
+    if(snap.exists){
+      const ud=snap.data();
+      _currentRole=ud.role||'user';
+      // Show admin tab only for superadmin
+      const adminTab=document.getElementById('tab-admin');
+      if(adminTab&&_currentRole==='superadmin') adminTab.style.display='';
+    }
+  }).catch(()=>{});
+
+  // Load financial data
+  db.collection('userData').doc(user.uid).get().then(snap=>{
+    if(snap.exists&&snap.data().data){
+      D=migrateD(JSON.parse(snap.data().data));
+    } else {
+      D=JSON.parse(JSON.stringify(DEFAULT));
+    }
+    renderAll();
+    // Re-render charts after DOM stabilizes
+    setTimeout(()=>{
+      Object.keys(CH).forEach(id=>dc(id));
+      renderGeral();
+      renderMes();
+      renderIndicadores();
+      renderArca();
+      renderAtivos();
+    },400);
+  }).catch(e=>{
+    console.error('load data:',e);
+    D=JSON.parse(JSON.stringify(DEFAULT));
+    renderAll();
+  });
 });
 </script>
 
