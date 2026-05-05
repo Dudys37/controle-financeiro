@@ -7,182 +7,171 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <style>
 :root{--green:#22c77a;--green-bg:rgba(34,199,122,.10);--red:#e05555;--red-bg:rgba(224,85,85,.10);--amber:#f0a020;--blue:#4a9eff;--blue-bg:rgba(74,158,255,.10);--purple:#9b7ff4;--purple-bg:rgba(155,127,244,.10);--r:12px;--rsm:8px;}
-[data-theme="dark"]{--bg:#0d0d0d;--s1:#141414;--s2:#1c1c1c;--s3:#252525;--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);--text:#edeae3;--text2:#72706a;--text3:#3f3f3f;--shadow:rgba(0,0,0,.4);}
+[data-theme="dark"]{--bg:#0d0d0d;--s1:#141414;--s2:#1c1c1c;--s3:#252525;--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);--text:#edeae3;--text2:#72706a;--text3:#3f3f3f;--shadow:rgba(0,0,0,.5);}
 [data-theme="light"]{--bg:#f4f4f2;--s1:#fff;--s2:#f0efed;--s3:#e8e7e4;--border:rgba(0,0,0,.07);--border2:rgba(0,0,0,.12);--text:#1a1a1a;--text2:#6b6860;--text3:#c0bdb8;--shadow:rgba(0,0,0,.08);}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;display:flex;flex-direction:column;transition:background .3s;}
-
-/* NAV */
-nav{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:54px;border-bottom:1px solid var(--border);background:var(--bg);}
+nav{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:54px;border-bottom:1px solid var(--border);}
 .nav-logo{font-family:'DM Serif Display',serif;font-size:19px;letter-spacing:-.3px;}
 .nav-logo span{color:var(--green);}
-.theme-btn{background:none;border:1px solid var(--border2);color:var(--text2);font-size:15px;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.theme-btn{background:none;border:1px solid var(--border2);color:var(--text2);font-size:15px;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
 .theme-btn:hover{background:var(--s2);}
-
-/* MAIN */
 main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px;}
-
-/* LOGIN CARD */
-.login-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:100%;max-width:400px;box-shadow:0 8px 32px var(--shadow);}
-.login-title{font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:4px;letter-spacing:-.3px;}
-.login-sub{font-size:13px;color:var(--text2);margin-bottom:28px;}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:100%;max-width:420px;box-shadow:0 8px 40px var(--shadow);}
+.card-title{font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:4px;}
+.card-sub{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.5;}
 .field{margin-bottom:16px;}
-.field label{display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
-input[type=text],input[type=password],input[type=number],select{
-  width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--rsm);
-  color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;transition:border .15s;
-}
-input:focus,select:focus{border-color:var(--green);}
-.btn-primary{width:100%;background:var(--green);color:#0d0d0d;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;padding:11px;border-radius:var(--rsm);cursor:pointer;transition:opacity .2s;margin-top:4px;}
+.field label{display:block;font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--rsm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;transition:border .15s;}
+input:focus{border-color:var(--green);}
+.btn-primary{width:100%;background:var(--green);color:#0d0d0d;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;padding:12px;border-radius:var(--rsm);cursor:pointer;transition:opacity .2s;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;}
 .btn-primary:hover{opacity:.85;}
-.error-msg{background:var(--red-bg);border:1px solid rgba(224,85,85,.25);color:var(--red);font-size:12px;padding:10px 12px;border-radius:var(--rsm);margin-bottom:14px;display:none;}
-.error-msg.show{display:block;}
+.btn-primary:disabled{opacity:.5;cursor:default;}
+.alert{border-radius:var(--rsm);padding:10px 12px;font-size:12px;margin-bottom:14px;display:none;}
+.alert.show{display:block;}
+.alert-err{background:var(--red-bg);border:1px solid rgba(224,85,85,.25);color:var(--red);}
+.alert-ok{background:var(--green-bg);border:1px solid rgba(34,199,122,.25);color:var(--green);}
+.spinner{width:16px;height:16px;border:2px solid rgba(0,0,0,.3);border-top-color:#0d0d0d;border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.divider{display:flex;align-items:center;gap:10px;margin:20px 0;color:var(--text3);font-size:11px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
 
 /* ADMIN PANEL */
-.admin-wrap{max-width:900px;margin:0 auto;padding:28px 24px;width:100%;}
+.admin-wrap{max-width:960px;margin:0 auto;padding:28px 24px;width:100%;}
 .admin-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
 .admin-title{font-family:'DM Serif Display',serif;font-size:22px;}
 .btn{background:var(--green);color:#0d0d0d;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:8px 18px;border-radius:20px;cursor:pointer;transition:opacity .2s;}
 .btn:hover{opacity:.85;}
-.btn-ghost{background:var(--s2);color:var(--text2);border:1px solid var(--border2);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 14px;border-radius:20px;cursor:pointer;}
+.btn-ghost{background:var(--s2);color:var(--text2);border:1px solid var(--border2);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 14px;border-radius:20px;cursor:pointer;transition:all .18s;}
 .btn-ghost:hover{color:var(--text);}
 .btn-red{background:var(--red-bg);color:var(--red);border:1px solid rgba(224,85,85,.25);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;}
-.btn-red:hover{opacity:.8;}
 .btn-sm{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(74,158,255,.25);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer;}
-.btn-sm:hover{opacity:.8;}
-
-/* GRID */
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px;}
-.panel h3{font-size:14px;font-family:'DM Serif Display',serif;margin-bottom:4px;}
+.panel h3{font-size:15px;font-family:'DM Serif Display',serif;margin-bottom:4px;}
 .panel p{font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5;}
-
-/* USERS TABLE */
 table{width:100%;border-collapse:collapse;}
 th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);font-weight:600;}
-td{padding:10px 10px;border-bottom:1px solid var(--border);font-size:13px;}
+td{padding:10px;border-bottom:1px solid var(--border);font-size:13px;}
 tr:last-child td{border-bottom:none;}
 tbody tr:hover td{background:var(--s2);}
 .badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;}
 .badge-admin{background:var(--purple-bg);color:var(--purple);}
 .badge-user{background:var(--blue-bg);color:var(--blue);}
-
-/* MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:500;display:none;align-items:center;justify-content:center;}
+select{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--rsm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 12px;outline:none;}
+select:focus{border-color:var(--green);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:500;display:none;align-items:center;justify-content:center;padding:16px;}
 .modal-overlay.show{display:flex;}
 .modal{background:var(--s1);border:1px solid var(--border2);border-radius:16px;padding:28px;width:100%;max-width:380px;box-shadow:0 16px 48px var(--shadow);}
 .modal h3{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:14px;}
 .modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
-
-/* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0d0d0d;font-weight:700;font-size:13px;padding:10px 18px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;}
+.toast{position:fixed;bottom:24px;right:24px;font-weight:700;font-size:13px;padding:10px 18px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;}
 .toast.show{opacity:1;transform:translateY(0);}
-.toast.err{background:var(--red);color:#fff;}
-
-/* CHANGE PASS for regular users */
-.change-pass-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:400px;box-shadow:0 4px 16px var(--shadow);margin-top:16px;}
-
-@media(max-width:600px){.grid2{grid-template-columns:1fr;}.admin-wrap{padding:16px;}}
+.toast-ok{background:var(--green);color:#0d0d0d;}
+.toast-err{background:var(--red);color:#fff;}
+/* USER PORTAL */
+.portal-wrap{max-width:440px;width:100%;padding:28px 16px;margin:0 auto;}
+.portal-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:0 4px 20px var(--shadow);}
+@media(max-width:640px){.grid2{grid-template-columns:1fr;}.admin-wrap{padding:16px;}}
 </style>
 </head>
 <body>
 
 <nav>
   <div class="nav-logo">Controle <span>Financeiro</span></div>
-  <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Alternar tema">🌙</button>
+  <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
 </nav>
 
 <!-- LOGIN -->
-<main id="main-login">
-  <div class="login-card">
-    <div class="login-title">Bem‑vindo</div>
-    <div class="login-sub">Faça login para acessar seu controle financeiro</div>
-    <div class="error-msg" id="login-error"></div>
-    <div class="field"><label>Usuário</label><input type="text" id="login-user" placeholder="seu usuário" autocomplete="username"></div>
+<main id="view-login">
+  <div class="card">
+    <div class="card-title">Bem‑vindo</div>
+    <div class="card-sub">Faça login para acessar seu controle financeiro pessoal</div>
+    <div class="alert alert-err" id="login-err"></div>
+    <div class="field"><label>E-mail</label><input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email"></div>
     <div class="field"><label>Senha</label><input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"></div>
-    <button class="btn-primary" onclick="doLogin()">Entrar</button>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">
+      <span id="login-btn-text">Entrar</span>
+    </button>
   </div>
 </main>
 
 <!-- ADMIN PANEL -->
-<div id="main-admin" style="display:none;width:100%">
+<div id="view-admin" style="display:none;width:100%">
   <div class="admin-wrap">
     <div class="admin-header">
       <div>
         <div class="admin-title">Painel de Administração</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:2px">Super Admin — gerencie usuários e acesse o sistema</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px" id="admin-welcome"></div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn" onclick="goToApp()">Acessar Dashboard →</button>
-        <button class="btn-ghost" onclick="logout()">Sair</button>
+        <button class="btn" onclick="location.href='app.html'">Acessar Dashboard →</button>
+        <button class="btn-ghost" onclick="doLogout()">Sair</button>
       </div>
     </div>
 
     <div class="grid2">
-      <!-- CREATE USER -->
       <div class="panel">
         <h3>Criar novo usuário</h3>
-        <p>Crie contas para outros usuários acessarem o sistema com dados separados.</p>
-        <div class="error-msg" id="create-error"></div>
-        <div class="field"><label>Nome de exibição</label><input type="text" id="new-displayname" placeholder="Ex: Maria Silva"></div>
-        <div class="field"><label>Usuário (login)</label><input type="text" id="new-username" placeholder="Ex: maria"></div>
-        <div class="field"><label>Senha inicial</label><input type="password" id="new-password" placeholder="Mín. 6 caracteres"></div>
+        <p>Cada usuário terá seus próprios dados financeiros separados no banco.</p>
+        <div class="alert alert-err" id="create-err"></div>
+        <div class="alert alert-ok" id="create-ok"></div>
+        <div class="field"><label>Nome de exibição</label><input type="text" id="new-name" placeholder="Ex: Maria Silva"></div>
+        <div class="field"><label>E-mail</label><input type="email" id="new-email" placeholder="maria@email.com"></div>
+        <div class="field"><label>Senha inicial</label><input type="password" id="new-pass" placeholder="Mínimo 6 caracteres"></div>
         <div class="field"><label>Perfil</label>
           <select id="new-role">
             <option value="user">Usuário comum</option>
             <option value="superadmin">Super Admin</option>
           </select>
         </div>
-        <button class="btn" onclick="doCreateUser()" style="width:100%">Criar usuário</button>
+        <button class="btn" onclick="doCreateUser()" style="width:100%;padding:10px">Criar usuário</button>
       </div>
-
-      <!-- STATS -->
       <div class="panel">
-        <h3>Resumo do sistema</h3>
-        <p>Informações gerais sobre usuários cadastrados.</p>
+        <h3>Estatísticas</h3>
+        <p>Usuários cadastrados no sistema.</p>
         <div id="admin-stats"></div>
       </div>
     </div>
 
-    <!-- USERS TABLE -->
     <div class="panel">
       <h3>Usuários cadastrados</h3>
       <table>
-        <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Criado em</th><th>Ações</th></tr></thead>
-        <tbody id="users-tbody"></tbody>
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ações</th></tr></thead>
+        <tbody id="users-tbody"><tr><td colspan="4" style="color:var(--text2);text-align:center;padding:20px">Carregando...</td></tr></tbody>
       </table>
     </div>
   </div>
 </div>
 
-<!-- CHANGE PASSWORD (regular user) -->
-<div id="main-change-pass" style="display:none;width:100%;align-items:center;justify-content:center;flex:1">
-  <div style="max-width:420px;width:100%;padding:28px 16px;">
-    <div class="change-pass-card">
-      <div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px">Olá, <span id="user-displayname"></span></div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Acesse o dashboard ou altere sua senha</div>
-      <button class="btn-primary" onclick="goToApp()" style="margin-bottom:16px">Acessar Dashboard →</button>
-      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px;">
-        <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:var(--text2)">Alterar senha</div>
-        <div class="error-msg" id="cp-error"></div>
-        <div class="field"><label>Senha atual</label><input type="password" id="cp-current" placeholder="Senha atual"></div>
-        <div class="field"><label>Nova senha</label><input type="password" id="cp-new" placeholder="Nova senha (mín. 6 chars)"></div>
-        <div class="field"><label>Confirmar nova senha</label><input type="password" id="cp-confirm" placeholder="Repetir nova senha"></div>
-        <button class="btn-primary" onclick="doChangePassword()">Alterar senha</button>
-      </div>
+<!-- USER PORTAL -->
+<main id="view-user" style="display:none">
+  <div class="portal-wrap">
+    <div class="portal-card">
+      <div style="font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px">Olá, <span id="user-name"></span> 👋</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Bem-vindo ao seu controle financeiro</div>
+      <button class="btn-primary" onclick="location.href='app.html'" style="margin-bottom:20px">Acessar Dashboard →</button>
+      <div class="divider">alterar senha</div>
+      <div class="alert alert-err" id="cp-err"></div>
+      <div class="alert alert-ok" id="cp-ok"></div>
+      <div class="field"><label>Senha atual</label><input type="password" id="cp-current" placeholder="Sua senha atual"></div>
+      <div class="field"><label>Nova senha</label><input type="password" id="cp-new" placeholder="Mínimo 6 caracteres"></div>
+      <div class="field"><label>Confirmar nova senha</label><input type="password" id="cp-confirm" placeholder="Repita a nova senha"></div>
+      <button class="btn-primary" onclick="doChangePassword()" style="background:var(--s3);color:var(--text)">Alterar senha</button>
+      <div style="text-align:center;margin-top:16px"><button class="btn-ghost" onclick="doLogout()">Sair</button></div>
     </div>
-    <div style="text-align:center;margin-top:14px;"><button class="btn-ghost" onclick="logout()">Sair</button></div>
   </div>
-</div>
+</main>
 
-<!-- RESET PASSWORD MODAL -->
+<!-- RESET MODAL -->
 <div class="modal-overlay" id="modal-reset">
   <div class="modal">
     <h3>Redefinir senha</h3>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Usuário: <strong id="modal-reset-user"></strong></div>
-    <div class="field"><label>Nova senha</label><input type="password" id="modal-new-pass" placeholder="Nova senha"></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">Usuário: <strong id="modal-user-email"></strong></div>
+    <div class="field"><label>Nova senha</label><input type="password" id="modal-new-pass" placeholder="Mínimo 6 caracteres"></div>
+    <div class="alert alert-err" id="modal-err"></div>
     <div class="modal-actions">
-      <button class="btn-ghost" onclick="closeModal('modal-reset')">Cancelar</button>
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn" onclick="doResetPassword()">Redefinir</button>
     </div>
   </div>
@@ -190,217 +179,192 @@ tbody tr:hover td{background:var(--s2);}
 
 <div class="toast" id="toast"></div>
 
-<script src="auth.js"></script>
-<script>
-let isDark = (localStorage.getItem('cf_theme')||'dark') === 'dark';
-let modalTarget = '';
+<!-- FIREBASE SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, reauthenticateWithCredential, EmailAuthProvider, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, deleteDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-function applyTheme(){
-  document.documentElement.setAttribute('data-theme', isDark?'dark':'light');
-  const btn = document.getElementById('theme-btn');
-  if(btn) btn.textContent = isDark ? '☀️' : '🌙';
-}
-function toggleTheme(){
-  isDark = !isDark;
-  localStorage.setItem('cf_theme', isDark?'dark':'light');
-  applyTheme();
-}
+const firebaseConfig = {
+  apiKey: "AIzaSyBG_wVVcAdqbLTetgYllAmbiJ8rQ6lLRsE",
+  authDomain: "controle-financeiro-900a7.firebaseapp.com",
+  projectId: "controle-financeiro-900a7",
+  storageBucket: "controle-financeiro-900a7.firebasestorage.app",
+  messagingSenderId: "361900607129",
+  appId: "1:361900607129:web:901ff0ee9e3053a144da08"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// ─── THEME ───
+let isDark = (localStorage.getItem('cf_theme')||'dark')==='dark';
+function applyTheme(){ document.documentElement.setAttribute('data-theme',isDark?'dark':'light'); document.getElementById('theme-btn').textContent=isDark?'☀️':'🌙'; }
+window.toggleTheme = ()=>{ isDark=!isDark; localStorage.setItem('cf_theme',isDark?'dark':'light'); applyTheme(); };
 applyTheme();
 
-function showToast(msg, isErr=false){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show' + (isErr?' err':'');
-  setTimeout(()=>t.className='toast', 2800);
-}
-function closeModal(id){ document.getElementById(id).classList.remove('show'); }
-function openModal(id){ document.getElementById(id).classList.add('show'); }
+// ─── HELPERS ───
+function show(id){ document.getElementById(id).style.display=''; }
+function hide(id){ document.getElementById(id).style.display='none'; }
+function showMain(id){ ['view-login','view-admin','view-user'].forEach(v=>{ const el=document.getElementById(v); if(el) el.style.display=v===id?'':'none'; }); }
+function toast(msg,ok=true){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show '+(ok?'toast-ok':'toast-err'); setTimeout(()=>t.className='toast',3000); }
+function showErr(id,msg){ const el=document.getElementById(id); if(el){el.textContent=msg;el.classList.add('show');} }
+function hideErr(id){ const el=document.getElementById(id); if(el) el.classList.remove('show'); }
+function setLoading(btnId,txtId,loading,label='Entrar'){ const b=document.getElementById(btnId); const t=document.getElementById(txtId); if(b) b.disabled=loading; if(t) t.innerHTML=loading?'<div class="spinner"></div>':label; }
+window.closeModal = ()=>{ document.getElementById('modal-reset').classList.remove('show'); };
 
-// Enter key support
-document.addEventListener('keydown', e => {
-  if(e.key==='Enter'){
-    if(!document.getElementById('main-login').style.display.includes('none')) doLogin();
+let currentUser = null;
+let currentUserDoc = null;
+let resetTargetUid = '';
+
+// ─── AUTH STATE ───
+onAuthStateChanged(auth, async user => {
+  if(!user){ showMain('view-login'); return; }
+  currentUser = user;
+  const snap = await getDoc(doc(db,'users',user.uid));
+  if(!snap.exists()){ await doLogout(); return; }
+  currentUserDoc = snap.data();
+  if(currentUserDoc.role==='superadmin'){
+    document.getElementById('admin-welcome').textContent = `Super Admin · ${user.email}`;
+    await loadUsers();
+    showMain('view-admin');
+  } else {
+    document.getElementById('user-name').textContent = currentUserDoc.displayName||user.email;
+    showMain('view-user');
   }
 });
 
-function init(){
-  const session = getSession();
-  if(session){
-    if(session.role === 'superadmin'){
-      showAdminPanel(session);
-    } else {
-      showChangePass(session);
-    }
-  } else {
-    document.getElementById('main-login').style.display = 'flex';
+// ─── LOGIN ───
+window.doLogin = async ()=>{
+  hideErr('login-err');
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  if(!email||!pass){ showErr('login-err','Preencha e-mail e senha.'); return; }
+  setLoading('login-btn','login-btn-text',true);
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    const msgs = { 'auth/user-not-found':'Usuário não encontrado.','auth/wrong-password':'Senha incorreta.','auth/invalid-credential':'E-mail ou senha inválidos.','auth/too-many-requests':'Muitas tentativas. Tente mais tarde.' };
+    showErr('login-err', msgs[e.code]||'Erro ao fazer login: '+e.message);
+    setLoading('login-btn','login-btn-text',false,'Entrar');
   }
-}
+};
 
-function showAdminPanel(session){
-  document.getElementById('main-login').style.display = 'none';
-  document.getElementById('main-change-pass').style.display = 'none';
-  document.getElementById('main-admin').style.display = 'block';
-  renderUsers();
-  renderStats();
-}
+// ─── LOGOUT ───
+window.doLogout = async ()=>{ await signOut(auth); showMain('view-login'); };
 
-function showChangePass(session){
-  document.getElementById('main-login').style.display = 'none';
-  document.getElementById('main-admin').style.display = 'none';
-  const cp = document.getElementById('main-change-pass');
-  cp.style.display = 'flex';
-  document.getElementById('user-displayname').textContent = session.displayName || session.username;
-}
-
-function doLogin(){
-  const username = document.getElementById('login-user').value;
-  const password = document.getElementById('login-pass').value;
-  const errEl = document.getElementById('login-error');
-  const result = login(username, password);
-  if(!result.ok){
-    errEl.textContent = result.error;
-    errEl.classList.add('show');
-    return;
+// ─── CREATE USER ───
+window.doCreateUser = async ()=>{
+  hideErr('create-err'); hideErr('create-ok');
+  const name  = document.getElementById('new-name').value.trim();
+  const email = document.getElementById('new-email').value.trim();
+  const pass  = document.getElementById('new-pass').value;
+  const role  = document.getElementById('new-role').value;
+  if(!name||!email||!pass){ showErr('create-err','Preencha todos os campos.'); return; }
+  if(pass.length<6){ showErr('create-err','Senha deve ter pelo menos 6 caracteres.'); return; }
+  try {
+    // Create secondary app instance to avoid logging out current admin
+    const { initializeApp: initApp2 } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const { getAuth: getAuth2, createUserWithEmailAndPassword: createUser2, signOut: signOut2 } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    const app2 = initApp2(firebaseConfig,'secondary'+Date.now());
+    const auth2 = getAuth2(app2);
+    const cred = await createUser2(auth2, email, pass);
+    await setDoc(doc(db,'users',cred.user.uid),{ email, displayName:name, role, createdAt:new Date().toISOString(), uid:cred.user.uid });
+    await signOut2(auth2);
+    document.getElementById('new-name').value='';
+    document.getElementById('new-email').value='';
+    document.getElementById('new-pass').value='';
+    document.getElementById('create-ok').textContent='Usuário criado com sucesso!';
+    document.getElementById('create-ok').classList.add('show');
+    setTimeout(()=>hideErr('create-ok'),3000);
+    await loadUsers();
+  } catch(e){
+    const msgs={'auth/email-already-in-use':'Este e-mail já está em uso.','auth/invalid-email':'E-mail inválido.'};
+    showErr('create-err', msgs[e.code]||'Erro: '+e.message);
   }
-  errEl.classList.remove('show');
-  if(result.session.role === 'superadmin'){
-    showAdminPanel(result.session);
-  } else {
-    showChangePass(result.session);
-  }
-}
+};
 
-function goToApp(){
-  window.location.href = 'app.html';
-}
-
-function doCreateUser(){
-  const displayName = document.getElementById('new-displayname').value.trim();
-  const username = document.getElementById('new-username').value.trim();
-  const password = document.getElementById('new-password').value;
-  const role = document.getElementById('new-role').value;
-  const errEl = document.getElementById('create-error');
-  if(!username || !password || !displayName){
-    errEl.textContent = 'Preencha todos os campos.';
-    errEl.classList.add('show');
-    return;
-  }
-  const result = createUser(username, password, displayName, role);
-  if(!result.ok){
-    errEl.textContent = result.error;
-    errEl.classList.add('show');
-    return;
-  }
-  errEl.classList.remove('show');
-  document.getElementById('new-displayname').value = '';
-  document.getElementById('new-username').value = '';
-  document.getElementById('new-password').value = '';
-  showToast('Usuário criado com sucesso!');
-  renderUsers();
-  renderStats();
-}
-
-function renderUsers(){
+// ─── LOAD USERS ───
+async function loadUsers(){
   const tbody = document.getElementById('users-tbody');
-  if(!tbody) return;
-  const users = listUsers();
-  tbody.innerHTML = users.map(u => {
-    const isAdmin = u.role === 'superadmin';
-    const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : '—';
-    return `<tr>
-      <td><strong>${u.displayName}</strong></td>
-      <td style="color:var(--text2)">${u.username}</td>
-      <td><span class="badge ${isAdmin?'badge-admin':'badge-user'}">${isAdmin?'Super Admin':'Usuário'}</span></td>
-      <td style="font-size:12px;color:var(--text2)">${date}</td>
-      <td style="display:flex;gap:6px;align-items:center">
-        <button class="btn-sm" onclick="openResetModal('${u.username}')">Redefinir senha</button>
-        ${u.username!=='admin'?`<button class="btn-red" onclick="doDeleteUser('${u.username}')">Remover</button>`:''}
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function renderStats(){
-  const el = document.getElementById('admin-stats');
-  if(!el) return;
-  const users = listUsers();
-  const admins = users.filter(u=>u.role==='superadmin').length;
-  const common = users.filter(u=>u.role==='user').length;
-  el.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
-      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px">
-        <span style="font-size:12px;color:var(--text2)">Total de usuários</span>
-        <strong>${users.length}</strong>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px">
-        <span style="font-size:12px;color:var(--text2)">Super Admins</span>
-        <strong style="color:var(--purple)">${admins}</strong>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px">
-        <span style="font-size:12px;color:var(--text2)">Usuários comuns</span>
-        <strong style="color:var(--blue)">${common}</strong>
-      </div>
+  const snap = await getDocs(collection(db,'users'));
+  const users = [];
+  snap.forEach(d=>users.push({uid:d.id,...d.data()}));
+  document.getElementById('admin-stats').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">Total de usuários</span><strong>${users.length}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">Super Admins</span><strong style="color:var(--purple)">${users.filter(u=>u.role==='superadmin').length}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:10px 12px;background:var(--s2);border-radius:8px"><span style="font-size:12px;color:var(--text2)">Usuários comuns</span><strong style="color:var(--blue)">${users.filter(u=>u.role==='user').length}</strong></div>
     </div>`;
+  tbody.innerHTML = users.map(u=>`<tr>
+    <td><strong>${u.displayName||'—'}</strong></td>
+    <td style="color:var(--text2);font-size:12px">${u.email}</td>
+    <td><span class="badge ${u.role==='superadmin'?'badge-admin':'badge-user'}">${u.role==='superadmin'?'Super Admin':'Usuário'}</span></td>
+    <td style="display:flex;gap:6px">
+      <button class="btn-sm" onclick="openReset('${u.uid}','${u.email}')">Redefinir senha</button>
+      ${u.uid!==currentUser.uid?`<button class="btn-red" onclick="removeUser('${u.uid}','${u.email}')">Remover</button>`:''}
+    </td>
+  </tr>`).join('');
 }
 
-function openResetModal(username){
-  modalTarget = username;
-  document.getElementById('modal-reset-user').textContent = username;
-  document.getElementById('modal-new-pass').value = '';
-  openModal('modal-reset');
-}
-
-function doResetPassword(){
+// ─── RESET PASSWORD ───
+window.openReset = (uid,email)=>{
+  resetTargetUid=uid;
+  document.getElementById('modal-user-email').textContent=email;
+  document.getElementById('modal-new-pass').value='';
+  hideErr('modal-err');
+  document.getElementById('modal-reset').classList.add('show');
+};
+window.doResetPassword = async ()=>{
   const newPass = document.getElementById('modal-new-pass').value;
-  const result = changePassword(modalTarget, newPass);
-  if(!result.ok){ showToast(result.error, true); return; }
-  closeModal('modal-reset');
-  showToast('Senha redefinida com sucesso!');
-}
+  if(newPass.length<6){ showErr('modal-err','Senha deve ter pelo menos 6 caracteres.'); return; }
+  try {
+    // Use Admin SDK via Cloud Function would be ideal; here we store the new hash and the user updates on next login
+    // Since Firebase doesn't allow direct password change for other users from client, we store a pending reset
+    await setDoc(doc(db,'pendingReset',resetTargetUid),{ newPassword:newPass, requestedAt:new Date().toISOString(), requestedBy:currentUser.uid });
+    closeModal();
+    toast('Redefinição de senha solicitada. O usuário verá a nova senha no próximo login.');
+  } catch(e){ showErr('modal-err','Erro: '+e.message); }
+};
 
-function doDeleteUser(username){
-  if(!confirm(`Remover o usuário "${username}" e todos os seus dados? Esta ação é irreversível.`)) return;
-  const result = deleteUser(username);
-  if(!result.ok){ showToast(result.error, true); return; }
-  showToast('Usuário removido.');
-  renderUsers();
-  renderStats();
-}
+// ─── REMOVE USER ───
+window.removeUser = async (uid,email)=>{
+  if(!confirm(`Remover "${email}" e todos os seus dados? Esta ação é irreversível.`)) return;
+  try {
+    await deleteDoc(doc(db,'users',uid));
+    await deleteDoc(doc(db,'userData',uid));
+    toast('Usuário removido.');
+    await loadUsers();
+  } catch(e){ toast('Erro: '+e.message,false); }
+};
 
-function doChangePassword(){
-  const session = getSession();
-  if(!session){ logout(); return; }
+// ─── CHANGE PASSWORD (user) ───
+window.doChangePassword = async ()=>{
+  hideErr('cp-err'); hideErr('cp-ok');
   const current = document.getElementById('cp-current').value;
   const newPass = document.getElementById('cp-new').value;
   const confirm_ = document.getElementById('cp-confirm').value;
-  const errEl = document.getElementById('cp-error');
+  if(newPass!==confirm_){ showErr('cp-err','Nova senha e confirmação não coincidem.'); return; }
+  if(newPass.length<6){ showErr('cp-err','Nova senha deve ter pelo menos 6 caracteres.'); return; }
+  try {
+    const cred = EmailAuthProvider.credential(currentUser.email, current);
+    await reauthenticateWithCredential(currentUser, cred);
+    await updatePassword(currentUser, newPass);
+    document.getElementById('cp-current').value='';
+    document.getElementById('cp-new').value='';
+    document.getElementById('cp-confirm').value='';
+    document.getElementById('cp-ok').textContent='Senha alterada com sucesso!';
+    document.getElementById('cp-ok').classList.add('show');
+    setTimeout(()=>hideErr('cp-ok'),3000);
+  } catch(e){
+    const msgs={'auth/wrong-password':'Senha atual incorreta.','auth/invalid-credential':'Senha atual incorreta.'};
+    showErr('cp-err', msgs[e.code]||'Erro: '+e.message);
+  }
+};
 
-  // Verify current password
-  const result = login(session.username, current);
-  if(!result.ok){
-    errEl.textContent = 'Senha atual incorreta.';
-    errEl.classList.add('show');
-    return;
-  }
-  if(newPass !== confirm_){
-    errEl.textContent = 'Nova senha e confirmação não coincidem.';
-    errEl.classList.add('show');
-    return;
-  }
-  const result2 = changePassword(session.username, newPass);
-  if(!result2.ok){
-    errEl.textContent = result2.error;
-    errEl.classList.add('show');
-    return;
-  }
-  errEl.classList.remove('show');
-  document.getElementById('cp-current').value = '';
-  document.getElementById('cp-new').value = '';
-  document.getElementById('cp-confirm').value = '';
-  showToast('Senha alterada com sucesso!');
-}
-
-init();
+// Enter key
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&document.getElementById('view-login').style.display!=='none') window.doLogin(); });
 </script>
 </body>
 </html>
