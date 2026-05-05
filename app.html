@@ -270,8 +270,13 @@ input:focus,select:focus{border-color:var(--green);background:var(--s1);}
 .proj-highlight{color:var(--green);font-weight:600;}
 
 /* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0d0d0d;font-weight:700;font-size:13px;padding:11px 20px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;box-shadow:0 4px 16px rgba(34,199,122,.3);}
+.toast{position:fixed;bottom:24px;right:24px;font-weight:700;font-size:13px;padding:11px 20px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;display:flex;align-items:center;gap:8px;}
 .toast.show{opacity:1;transform:translateY(0);}
+.toast-ok{background:var(--green);color:#0d0d0d;box-shadow:0 4px 16px rgba(34,199,122,.35);}
+.toast-err{background:var(--red);color:#fff;box-shadow:0 4px 16px rgba(224,85,85,.35);}
+.toast-info{background:var(--s3);color:var(--text);border:1px solid var(--border2);}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn-spinner{width:14px;height:14px;border:2px solid rgba(0,0,0,.25);border-top-color:#0d0d0d;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;}
 
 @media(max-width:700px){
   nav{padding:0 14px;}.page{padding:14px;}
@@ -291,9 +296,11 @@ input:focus,select:focus{border-color:var(--green);background:var(--s1);}
     <button class="tab"     onclick="go('invest',this)">Investimentos</button>
   </div>
   <div class="nav-right">
-    <span id="nav-user" style="font-size:12px;color:var(--text2)"></span><button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Alternar tema">🌙</button>
-    <button class="btn-ghost" onclick="resetData()">Resetar</button><button class="btn-ghost" id="btn-sair" style="color:var(--red)">Sair</button>
-    <button class="btn" onclick="saveData()">Salvar</button>
+    <span id="nav-user" style="font-size:12px;color:var(--text2);background:var(--s2);padding:4px 12px;border-radius:20px;border:1px solid var(--border);display:none"></span>
+    <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Alternar tema">🌙</button>
+    <button class="btn-ghost" onclick="resetData()">Resetar</button>
+    <button class="btn-ghost" id="btn-sair" style="color:var(--red);border-color:rgba(224,85,85,.3)">Sair</button>
+    <button class="btn" onclick="saveData()" id="btn-salvar">Salvar</button>
   </div>
 </nav>
 
@@ -872,8 +879,13 @@ input:focus,select:focus{border-color:var(--green);background:var(--s1);}
 .proj-highlight{color:var(--green);font-weight:600;}
 
 /* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0d0d0d;font-weight:700;font-size:13px;padding:11px 20px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;box-shadow:0 4px 16px rgba(34,199,122,.3);}
+.toast{position:fixed;bottom:24px;right:24px;font-weight:700;font-size:13px;padding:11px 20px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;display:flex;align-items:center;gap:8px;}
 .toast.show{opacity:1;transform:translateY(0);}
+.toast-ok{background:var(--green);color:#0d0d0d;box-shadow:0 4px 16px rgba(34,199,122,.35);}
+.toast-err{background:var(--red);color:#fff;box-shadow:0 4px 16px rgba(224,85,85,.35);}
+.toast-info{background:var(--s3);color:var(--text);border:1px solid var(--border2);}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn-spinner{width:14px;height:14px;border:2px solid rgba(0,0,0,.25);border-top-color:#0d0d0d;border-radius:50%;animation:spin .6s linear infinite;display:inline-block;}
 
 @media(max-width:700px){
   nav{padding:0 14px;}.page{padding:14px;}
@@ -1226,17 +1238,29 @@ function migrateD(d) {
   return d;
 }
 
+function showToast(msg, ok=true) {
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = (ok ? '✓ ' : '✕ ') + msg;
+  t.className = 'toast show ' + (ok ? 'toast-ok' : 'toast-err');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
 window.saveToFirebase = async function() {
-  if(!_fbUser) return;
+  if(!_fbUser) { showToast('Não autenticado', false); return; }
+  const btnSalvar = document.getElementById('btn-salvar');
+  if(btnSalvar) { btnSalvar.textContent = 'Salvando...'; btnSalvar.disabled = true; }
   try {
-    await setDoc(doc(db,'userData',_fbUser.uid),{data:JSON.stringify(D),updatedAt:new Date().toISOString()});
-    const t=document.getElementById('toast');
-    t.textContent='Dados salvos! ✓';t.className='toast show';
-    setTimeout(()=>t.className='toast',2500);
+    await setDoc(doc(db,'userData',_fbUser.uid), {
+      data: JSON.stringify(D),
+      updatedAt: new Date().toISOString()
+    });
+    showToast('Dados salvos com sucesso!', true);
   } catch(e) {
-    const t=document.getElementById('toast');
-    t.textContent='Erro ao salvar: '+e.message;t.className='toast show';
-    setTimeout(()=>t.className='toast',3500);
+    showToast('Erro ao salvar: ' + e.message, false);
+    console.error('saveToFirebase:', e);
+  } finally {
+    if(btnSalvar) { btnSalvar.textContent = 'Salvar'; btnSalvar.disabled = false; }
   }
 };
 
@@ -1249,27 +1273,34 @@ onAuthStateChanged(auth, async user => {
   if(!user) { window.location.href='index.html'; return; }
   _fbUser = user;
 
-  // Expose signOut globally so onclick handlers work
-  window._fbSignOut = async () => {
-    await signOut(auth);
-    window.location.href='index.html';
-  };
+  // ── Wire Sair button directly ──
+  const btnSair = document.getElementById('btn-sair');
+  if(btnSair) {
+    btnSair.onclick = async () => {
+      btnSair.textContent = 'Saindo...';
+      btnSair.disabled = true;
+      try { await signOut(auth); } catch(e){}
+      window.location.href = 'index.html';
+    };
+  }
 
-  // Wire ALL buttons that say "Sair"
-  document.querySelectorAll('button').forEach(btn => {
-    if(btn.textContent.trim() === 'Sair') {
-      btn.onclick = window._fbSignOut;
-    }
-  });
+  // ── Wire Salvar button feedback ──
+  const btnSalvar = document.getElementById('btn-salvar');
+  if(btnSalvar) {
+    btnSalvar.onclick = () => saveData();
+  }
 
-  // Show user info
+  // ── Show user info ──
   try {
     const snap = await getDoc(doc(db,'users',user.uid));
     const navEl = document.getElementById('nav-user');
-    if(snap.exists() && navEl) navEl.textContent = '👤 '+(snap.data().displayName||user.email);
+    if(snap.exists() && navEl) {
+      navEl.textContent = '👤 ' + (snap.data().displayName || user.email);
+      navEl.style.display = '';
+    }
   } catch(e){ console.warn('user profile:', e); }
 
-  // Load financial data
+  // ── Load financial data ──
   try {
     const snap = await getDoc(doc(db,'userData',user.uid));
     if(snap.exists() && snap.data().data) {
@@ -1278,19 +1309,12 @@ onAuthStateChanged(auth, async user => {
       D = JSON.parse(JSON.stringify(DEFAULT));
     }
   } catch(e) {
-    console.warn('load data error:', e);
+    console.warn('load data:', e);
     D = JSON.parse(JSON.stringify(DEFAULT));
   }
 
-  // Render now that data is ready
+  // ── Render dashboard ──
   renderAll();
-
-  // Re-wire Sair after renderAll (in case buttons were re-rendered)
-  setTimeout(()=>{
-    document.querySelectorAll('button').forEach(btn => {
-      if(btn.textContent.trim() === 'Sair') btn.onclick = window._fbSignOut;
-    });
-  }, 500);
 });
 </script>
 

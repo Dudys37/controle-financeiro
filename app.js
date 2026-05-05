@@ -161,6 +161,8 @@ function renderAll(){
   renderArca();
   renderAtivos();
   renderIndicadores();
+  // Trigger resize so Chart.js redraws charts in initially hidden containers
+  setTimeout(()=>window.dispatchEvent(new Event('resize')),150);
 }
 
 function buildMonths(cid,sel,cb){
@@ -829,7 +831,7 @@ function saveData(){
     window.saveToFirebase();
   } else {
     const t=document.getElementById('toast');
-    if(t){t.textContent='Aguarde — conectando ao banco...';t.className='toast show';setTimeout(()=>t.className='toast',2000);}
+    if(t){t.textContent='✕ Firebase não conectado';t.className='toast show toast-err';setTimeout(()=>t.className='toast',2500);}
   }
   renderAll();
 }
