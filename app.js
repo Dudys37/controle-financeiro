@@ -821,21 +821,15 @@ function collectFormFields(){
   Object.entries(arcaF).forEach(([id,k])=>{const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0;});
 }
 function saveData(){
-  // collect all form fields
-  const fmap={salario:'ef-salario',outras:'ef-outras',saldo:'ef-saldo',cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
-  Object.entries(fmap).forEach(([k,id])=>{const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0;});
-  const mcEl=document.getElementById('ef-metaCC');if(mcEl)D.metaCC=parseFloat(mcEl.value)||2000;
-  const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
-  Object.entries(arcaF).forEach(([id,k])=>{const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0;});
-  saveUserData(_session, D);
-  const t=document.getElementById('toast');
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
+  collectFormFields();
+  if(typeof window.saveToFirebase === 'function'){
+    window.saveToFirebase();
+  }
   renderAll();
 }
 function resetData(){
   if(!confirm('Apagar todos os dados e voltar ao padrão?'))return;
-  saveUserData(_session, null);
-  localStorage.removeItem(_session.dataKey);
+  if(typeof window.clearFirebaseData === 'function') window.clearFirebaseData();
   D=JSON.parse(JSON.stringify(DEFAULT));
   selDash=0;yrCollapsed={};
   renderAll();
