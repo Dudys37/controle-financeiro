@@ -101,7 +101,10 @@ function applyTheme(){
   const btn=document.getElementById('theme-btn');
   if(btn) btn.textContent=isDark?'☀️':'🌙';
 }
-function logout(){ if(window._fbSignOut) window._fbSignOut(); else window.location.href="index.html"; }
+function logout(){
+  if(typeof window._fbSignOut === 'function') window._fbSignOut();
+  else window.location.href='index.html';
+}
 function toggleTheme(){
   isDark=!isDark;
   localStorage.setItem('cf_theme',isDark?'dark':'light');
@@ -824,6 +827,9 @@ function saveData(){
   collectFormFields();
   if(typeof window.saveToFirebase === 'function'){
     window.saveToFirebase();
+  } else {
+    const t=document.getElementById('toast');
+    if(t){t.textContent='Aguarde — conectando ao banco...';t.className='toast show';setTimeout(()=>t.className='toast',2000);}
   }
   renderAll();
 }

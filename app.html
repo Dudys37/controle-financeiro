@@ -1248,17 +1248,28 @@ window.clearFirebaseData = async function() {
 onAuthStateChanged(auth, async user => {
   if(!user) { window.location.href='index.html'; return; }
   _fbUser = user;
-  window._fbSignOut = async ()=>{ await signOut(auth); window.location.href='index.html'; };
-  const _sb=document.getElementById('btn-sair');if(_sb)_sb.onclick=window._fbSignOut;
+
+  // Expose signOut globally so onclick handlers work
+  window._fbSignOut = async () => {
+    await signOut(auth);
+    window.location.href='index.html';
+  };
+
+  // Wire ALL buttons that say "Sair"
+  document.querySelectorAll('button').forEach(btn => {
+    if(btn.textContent.trim() === 'Sair') {
+      btn.onclick = window._fbSignOut;
+    }
+  });
 
   // Show user info
   try {
     const snap = await getDoc(doc(db,'users',user.uid));
     const navEl = document.getElementById('nav-user');
     if(snap.exists() && navEl) navEl.textContent = '👤 '+(snap.data().displayName||user.email);
-  } catch(e){}
+  } catch(e){ console.warn('user profile:', e); }
 
-  // Load data
+  // Load financial data
   try {
     const snap = await getDoc(doc(db,'userData',user.uid));
     if(snap.exists() && snap.data().data) {
@@ -1267,19 +1278,19 @@ onAuthStateChanged(auth, async user => {
       D = JSON.parse(JSON.stringify(DEFAULT));
     }
   } catch(e) {
+    console.warn('load data error:', e);
     D = JSON.parse(JSON.stringify(DEFAULT));
   }
 
-  // Wire logout
-  const logoutBtn = document.getElementById('logout-btn');
-  if(logoutBtn) logoutBtn.onclick = async ()=>{ await signOut(auth); window.location.href='index.html'; };
-  document.querySelectorAll('button').forEach(btn=>{
-    if(btn.textContent.trim()==='Sair' && btn.id!=='logout-btn')
-      btn.onclick = async ()=>{ await signOut(auth); window.location.href='index.html'; };
-  });
-
   // Render now that data is ready
   renderAll();
+
+  // Re-wire Sair after renderAll (in case buttons were re-rendered)
+  setTimeout(()=>{
+    document.querySelectorAll('button').forEach(btn => {
+      if(btn.textContent.trim() === 'Sair') btn.onclick = window._fbSignOut;
+    });
+  }, 500);
 });
 </script>
 
