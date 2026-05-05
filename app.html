@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Controle Financeiro</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">//]]>
+</script>
 <style>
 :root{
   --green:#22c77a;--green-bg:rgba(34,199,122,.10);
@@ -607,845 +608,609 @@ input:focus,select:focus{border-color:var(--green);background:var(--s1);}
 
 <div class="toast" id="toast">Dados salvos! ✓</div>
 
-<script>
-/* ═══════════════════════════════
-   DEFAULT DATA
-═══════════════════════════════ */
-const DEFAULT = {
-  salario:6500, outras:0,
-  saldo:0, reserva:500, invest:0,
-  cdi12:14.80, cdifev:1.21, cdi26:3.41,
-  ipca12:4.14, ipcafev:0.88, ipca26:1.92,
-  arcaMeta:{a:25,r:25,c:25,a2:25},
-  metaCC:2000,
-  meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26','Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27','Set/27','Out/27','Nov/27','Dez/27'],
-  cartoes:[
-    {nome:'Nubank PF',    limite:3700,  bandeira:'Mastercard'},
-    {nome:'Nubank PJ',    limite:9700,  bandeira:'Mastercard'},
-    {nome:'Mercado Pago', limite:11000, bandeira:'Mastercard'},
-    {nome:'Renner',       limite:7200,  bandeira:'Mastercard'},
-    {nome:'Amazon',       limite:2580,  bandeira:'Visa'},
-    {nome:'SICREDI',      limite:6300,  bandeira:'Visa'},
-  ],
-  dividas:[
-    {nome:'Faculdade',    tipo:'Fixo',     cat:'sem',    limCartao:'',  vals:[0,644.05,644.05,644.05,644.05,644.05,644.05,644.05,400,400,400,400,400,400,400,400,400,400,400,400]},
-    {nome:'Claro',        tipo:'Fixo',     cat:'sem',    limCartao:'',  vals:[120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120]},
-    {nome:'DAS',          tipo:'Fixo',     cat:'sem',    limCartao:'',  vals:[0,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85]},
-    {nome:'IR',           tipo:'Fixo',     cat:'sem',    limCartao:'',  vals:[0,96.47,96.47,96.47,96.47,96.47,96.47,96.47,0,0,0,0,0,0,0,0,0,0,0,0]},
-    {nome:'Nubank PF',    tipo:'Variável', cat:'cartao', limCartao:'Nubank PF',   vals:[2148.08,366.78,117.34,117.34,117.34,117.34,117.34,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-    {nome:'Nubank PJ',    tipo:'Variável', cat:'cartao', limCartao:'Nubank PJ',   vals:[961.41,678.08,678.08,565.09,298.16,298.16,298.16,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-    {nome:'SICREDI',      tipo:'Variável', cat:'limite', limCartao:'SICREDI',     vals:[1370.44,355.26,229.26,74.9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-    {nome:'Mercado Pago', tipo:'Variável', cat:'cartao', limCartao:'Mercado Pago',vals:[527.45,527.45,527.45,527.45,527.45,527.45,527.45,527.45,527.45,485.38,485.38,122.63,115.55,0,0,0,0,0,0,0]},
-    {nome:'Renner',       tipo:'Variável', cat:'cartao', limCartao:'Renner',       vals:[467.86,362.27,314.31,314.31,200.35,200.35,200.35,200.35,0,0,0,0,0,0,0,0,0,0,0,0]},
-    {nome:'Amazon',       tipo:'Variável', cat:'limite', limCartao:'Amazon',       vals:[105.7,105.7,105.7,105.7,105.7,105.7,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
-  ],
-  guardado:[
-    {nome:'Reserva de Emergência', arcaBucket:'C', vals:[500,1200,1600,1800,2300,2300,2400,2800,3300,3400,3400,3700,3700,3800,2800,2000,2000,2000,2000,2000]},
-    {nome:'Investimento',          arcaBucket:'A', vals:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1000,1800,1800,1800,1800,1800]},
-  ],
-  ativos:[
-    {nome:'Tesouro Selic',  classe:'Renda Fixa', bucket:'C',  valor:0, indice:'SELIC', pct:100, obs:'Caixa / reserva'},
-    {nome:'FII XPML11',     classe:'FII',        bucket:'R',  valor:0, indice:'CDI',   pct:100, obs:'Real Estate'},
-    {nome:'IVVB11',         classe:'ETF',        bucket:'A2', valor:0, indice:'CDI',   pct:100, obs:'Ativos internacionais'},
-  ]
-};
-
-/* ═══════════════════════════════
-   STATE
-═══════════════════════════════ */
-let D = JSON.parse(JSON.stringify(DEFAULT)); // Will be overwritten by Firebase
-// migrate
-if(!D.guardado){D.guardado=[{nome:'Reserva de Emergência',arcaBucket:'R',vals:Array(D.meses.length).fill(0)},{nome:'Investimento',arcaBucket:'A',vals:Array(D.meses.length).fill(0)}];D.dividas=D.dividas.filter(d=>!d.nome.toLowerCase().includes('reserv')&&!d.nome.toLowerCase().includes('invest'));}
-if(!D.cartoes) D.cartoes=JSON.parse(JSON.stringify(DEFAULT.cartoes));
-if(!D.ativos)  D.ativos=JSON.parse(JSON.stringify(DEFAULT.ativos));
-if(!D.arcaMeta)D.arcaMeta={a:25,r:25,c:25,a2:25};
-if(!D.metaCC) D.metaCC=2000;
-D.dividas.forEach(d=>{if(!d.cat)d.cat='sem';if(!d.limCartao)d.limCartao='';});
-D.guardado.forEach(g=>{if(!g.arcaBucket)g.arcaBucket='R';});
-D.ativos.forEach(a=>{if(!a.indice)a.indice='CDI';if(a.pct===undefined)a.pct=100;if(a.rentab!==undefined&&!a.pct){a.pct=a.rentab;}});;
-
-let selDash=0; let CH={};
-let isDark=(localStorage.getItem('cf_theme')||'dark')==='dark';
-// year collapse state: default collapsed
-let yrCollapsed={};
-applyTheme();
-
-/* ═══════════════════════════════
-   HELPERS
-═══════════════════════════════ */
-const fmt  = v=>isNaN(v)||v===null?'—':'R$\u00a0'+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-const fmtK = v=>'R$\u00a0'+Number(v).toLocaleString('pt-BR',{maximumFractionDigits:0});
-const fmtP = v=>Number(v).toFixed(2)+'%';
-const nm   = ()=>D.meses.length;
-const totalE   = ()=>(D.salario||0)+(D.outras||0);
-const totalDiv = i=>D.dividas.reduce((s,d)=>s+(d.vals[i]||0),0);
-const totalGrd = i=>D.guardado.reduce((s,d)=>s+(d.vals[i]||0),0);
-// What was actually available to invest this month (per business rules)
-const invDisp  = i=>calcSaldoInvestir(i).saldo;
-const sobraM   = i=>totalE()-totalDiv(i);
-const dc = id=>{if(CH[id]){CH[id].destroy();delete CH[id];}};
-const gc = ()=>getComputedStyle(document.documentElement).getPropertyValue('--gc').trim();
-const tc = ()=>getComputedStyle(document.documentElement).getPropertyValue('--tc').trim();
-function shortL(m){const p=m.split('/');return(p[0]||m).slice(0,1)+(p[1]||'');}
-function scO(shortX){return{x:{grid:{color:gc()},ticks:{color:tc(),autoSkip:false,maxRotation:0,font:{size:10},callback:function(val,i){return shortX?shortL(D.meses[i]||''):D.meses[i]||'';}}},y:{grid:{color:gc()},ticks:{color:tc(),callback:v=>fmtK(v)}}};}
-function scOL(){return{x:{grid:{color:gc()},ticks:{color:tc(),autoSkip:false,maxRotation:0,font:{size:10}}},y:{grid:{color:gc()},ticks:{color:tc(),callback:v=>fmtK(v)}}};}
-const COLORS=['#e05555','#e8a020','#4a9eff','#9b7ff4','#e87e3a','#2dd4bf','#78c83a','#c84a8e','#c8c83a','#3a78c8','#22c77a','#c83a7a'];
-const ARCA_COLORS={A:'#4a9eff',R:'#f97316',C:'#9ca3af',A2:'#f0a020'};
-const ARCA_NAMES={A:'A — Ações Brasileiras',R:'R — Real Estate',C:'C — Caixa',A2:'A — Ativos Internacionais'};
-const ARCA_DESC={A:'Ações de empresas brasileiras listadas na B3 — crescimento de longo prazo no mercado nacional',R:'Fundos Imobiliários (FIIs) — geração de renda passiva e exposição ao mercado imobiliário',C:'Reserva de liquidez: Tesouro Selic, CDBs, fundos DI — proteção e disponibilidade imediata',A2:'ETFs internacionais, BDRs, fundos globais — diversificação fora do Brasil'};
-
-function reservaAcum(i){const r=D.guardado.find(d=>d.nome.toLowerCase().includes('reserv'));return(D.reserva||0)+(r?r.vals.slice(0,i+1).reduce((s,v)=>s+(v||0),0):0);}
-function investAcum(i){const inv=D.guardado.find(d=>d.nome.toLowerCase().includes('invest'));return(D.invest||0)+(inv?inv.vals.slice(0,i+1).reduce((s,v)=>s+(v||0),0):0);}
-function saldoAbertoCartao(d){
-  const cartao=D.cartoes.find(c=>c.nome===d.limCartao);
-  const lim=cartao?cartao.limite:(d.limite||0);
-  return{aberto:d.vals.reduce((s,v)=>s+(v||0),0),lim};
+<script src="app.js"></script>
+<style>
+:root{
+  --green:#22c77a;--green-bg:rgba(34,199,122,.10);
+  --red:#e05555;--red-bg:rgba(224,85,85,.10);
+  --amber:#f0a020;--amber-bg:rgba(240,160,32,.10);
+  --blue:#4a9eff;--blue-bg:rgba(74,158,255,.10);
+  --purple:#9b7ff4;--purple-bg:rgba(155,127,244,.10);
+  --teal:#2dd4bf;--teal-bg:rgba(45,212,191,.10);
+  --orange:#f97316;--orange-bg:rgba(249,115,22,.10);
+  --r:12px;--rsm:8px;
 }
-function getLimite(d){const c=D.cartoes.find(x=>x.nome===d.limCartao);return c?c.limite:(d.limite||0);}
-
-/* ═══════════════════════════════
-   THEME
-═══════════════════════════════ */
-function applyTheme(){
-  document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
-  const btn=document.getElementById('theme-btn');
-  if(btn) btn.textContent=isDark?'☀️':'🌙';
+[data-theme="dark"]{
+  --bg:#0d0d0d;--s1:#141414;--s2:#1c1c1c;--s3:#252525;--s4:#2f2f2f;
+  --border:rgba(255,255,255,.055);--border2:rgba(255,255,255,.10);
+  --text:#edeae3;--text2:#72706a;--text3:#3f3f3f;
+  --shadow:rgba(0,0,0,.4);--gc:rgba(255,255,255,.04);--tc:#444;
 }
-function logout(){ if(window._fbSignOut) window._fbSignOut(); else window.location.href="index.html"; }
-function toggleTheme(){
-  isDark=!isDark;
-  localStorage.setItem('cf_theme',isDark?'dark':'light');
-  applyTheme();
-  Object.keys(CH).forEach(id=>dc(id));
-  renderAll();
+[data-theme="light"]{
+  --bg:#f4f4f2;--s1:#fff;--s2:#f0efed;--s3:#e8e7e4;--s4:#dddbd7;
+  --border:rgba(0,0,0,.07);--border2:rgba(0,0,0,.12);
+  --text:#1a1a1a;--text2:#6b6860;--text3:#c0bdb8;
+  --shadow:rgba(0,0,0,.08);--gc:rgba(0,0,0,.04);--tc:#aaa;
 }
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;transition:background .3s,color .3s;}
 
-/* ═══════════════════════════════
-   NAV / ROUTING
-═══════════════════════════════ */
-function go(id,el){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('page-'+id).classList.add('on');
-  el.classList.add('on');
-  renderAll();
+/* NAV */
+nav{display:flex;align-items:center;gap:8px;padding:0 24px;height:54px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);backdrop-filter:blur(12px);z-index:200;}
+.nav-logo{font-family:'DM Serif Display',serif;font-size:19px;margin-right:6px;white-space:nowrap;letter-spacing:-.3px;}
+.nav-logo span{color:var(--green);}
+.nav-tabs{display:flex;gap:2px;flex:1;overflow-x:auto;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.tab{background:none;border:none;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .18s;white-space:nowrap;}
+.tab:hover{color:var(--text);background:var(--s2);}
+.tab.on{color:var(--text);background:var(--s2);border:1px solid var(--border2);}
+.nav-right{display:flex;gap:6px;align-items:center;}
+.btn{background:var(--green);color:#0d0d0d;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:7px 18px;border-radius:20px;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
+.btn:hover{opacity:.82;}
+.btn-ghost{background:var(--s2);color:var(--text2);border:1px solid var(--border2);font-family:'DM Sans',sans-serif;font-size:13px;padding:7px 14px;border-radius:20px;cursor:pointer;transition:all .18s;white-space:nowrap;}
+.btn-ghost:hover{color:var(--text);}
+.theme-btn{background:none;border:1px solid var(--border2);color:var(--text2);font-size:15px;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.theme-btn:hover{background:var(--s2);}
+
+/* PAGES */
+.page{display:none;padding:24px;max-width:1200px;margin:0 auto;}
+.page.on{display:block;}
+
+/* SUBTABS */
+.subtab-bar{display:flex;gap:0;margin-bottom:24px;border-bottom:1px solid var(--border);overflow-x:auto;}
+.subtab-bar::-webkit-scrollbar{display:none;}
+.stab{background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:10px 18px 12px;cursor:pointer;transition:all .18s;margin-bottom:-1px;white-space:nowrap;}
+.stab:hover{color:var(--text);}
+.stab.on{color:var(--green);border-bottom-color:var(--green);}
+.subpage{display:none;}.subpage.on{display:block;}
+
+/* LAYOUT */
+.sec{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px;}
+.cards-divider{display:flex;align-items:center;gap:12px;margin:20px 0 12px;}
+.cards-divider span{font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap;}
+.cards-divider::before,.cards-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.mb{margin-bottom:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.grid3{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;}
+
+/* COLLAPSIBLE YEAR SECTION */
+.yr-block{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden;}
+.yr-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;transition:background .15s;}
+.yr-header:hover{background:var(--s2);}
+.yr-title{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;}
+.yr-pill{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;}
+.yr-pill.y26{background:var(--blue-bg);color:var(--blue);}
+.yr-pill.y27{background:var(--purple-bg);color:var(--purple);}
+.yr-meta{font-size:11px;color:var(--text2);display:flex;gap:16px;}
+.yr-meta span{display:flex;align-items:center;gap:4px;}
+.yr-chevron{color:var(--text3);font-size:14px;transition:transform .25s;}
+.yr-chevron.open{transform:rotate(180deg);}
+.yr-body{padding:0 18px 18px;}
+.yr-body.hidden{display:none;}
+
+/* CARDS */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-bottom:12px;}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:16px;transition:border-color .2s,transform .15s;box-shadow:0 1px 3px var(--shadow);}
+.card:hover{border-color:var(--border2);transform:translateY(-1px);}
+.card-lbl{font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:500;}
+.card-val{font-size:20px;font-family:'DM Serif Display',serif;line-height:1.1;}
+.card-val.g{color:var(--green);}.card-val.r{color:var(--red);}
+.card-val.a{color:var(--amber);}.card-val.b{color:var(--blue);}
+.card-val.p{color:var(--purple);}.card-val.t{color:var(--teal);}
+.card-sub{font-size:10px;color:var(--text3);margin-top:5px;}
+
+/* HERO */
+.annual-hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:14px;}
+.hero-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:18px 16px;position:relative;overflow:hidden;box-shadow:0 1px 4px var(--shadow);}
+.hero-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.hero-card.hg::after{background:var(--green);}
+.hero-card.hr::after{background:var(--red);}
+.hero-card.ht::after{background:var(--teal);}
+.hero-card.hp::after{background:var(--purple);}
+.hero-card.hb::after{background:var(--blue);}
+.hero-card.ha::after{background:var(--amber);}
+.hero-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;font-weight:500;}
+.hero-val{font-size:23px;font-family:'DM Serif Display',serif;line-height:1;}
+.hero-val.g{color:var(--green);}.hero-val.r{color:var(--red);}
+.hero-val.a{color:var(--amber);}.hero-val.t{color:var(--teal);}
+.hero-val.p{color:var(--purple);}.hero-val.b{color:var(--blue);}
+.hero-sub{font-size:10px;color:var(--text3);margin-top:6px;}
+
+/* TIMELINE */
+.timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:5px;margin-bottom:14px;}
+.tl-cell{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:8px 5px;text-align:center;transition:all .15s;}
+.tl-cell:hover{border-color:var(--border2);}
+.tl-cell.tl-pos{border-color:rgba(34,199,122,.25);background:rgba(34,199,122,.05);}
+.tl-cell.tl-neg{border-color:rgba(224,85,85,.25);background:rgba(224,85,85,.05);}
+.tl-mes{font-size:9px;color:var(--text2);margin-bottom:3px;font-weight:500;text-transform:uppercase;}
+.tl-val{font-size:11px;font-weight:600;}
+.tl-val.pos{color:var(--green);}.tl-val.neg{color:var(--red);}
+
+/* PANEL */
+.panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:0 1px 3px var(--shadow);}
+.panel h3{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:14px;}
+
+/* TABLES */
+table{width:100%;border-collapse:collapse;}
+th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap;}
+td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text);font-size:13px;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--s2);}
+.tr{text-align:right;font-variant-numeric:tabular-nums;}
+.bold{font-weight:600;}
+.pos{color:var(--green);}.neg{color:var(--red);}.grd{color:var(--teal);}
+.badge{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;}
+.bf{background:var(--blue-bg);color:var(--blue);}
+.bv{background:var(--amber-bg);color:var(--amber);}
+.bc{background:var(--purple-bg);color:var(--purple);}
+.bl{background:var(--red-bg);color:var(--red);}
+.bs{background:var(--s3);color:var(--text2);}
+
+/* MONTH SEL */
+.month-sel{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:18px;}
+.msb{background:var(--s2);border:1px solid var(--border);color:var(--text2);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;padding:5px 11px;border-radius:20px;cursor:pointer;transition:all .15s;}
+.msb:hover{color:var(--text);border-color:var(--border2);}
+.msb.on{background:var(--green-bg);color:var(--green);border-color:rgba(34,199,122,.3);}
+
+/* RANKING */
+.rank-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.rank-row:last-child{border-bottom:none;}
+.rank-num{font-size:11px;color:var(--text3);min-width:18px;font-weight:600;}
+.rank-name{flex:1;font-size:13px;}
+.rank-bar-bg{width:90px;height:4px;background:var(--s3);border-radius:2px;overflow:hidden;}
+.rank-bar-fg{height:4px;border-radius:2px;}
+.rank-val{font-size:12px;min-width:100px;text-align:right;font-variant-numeric:tabular-nums;}
+
+/* PROGRESS */
+.prog-item{margin-bottom:14px;}
+.prog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.prog-name{font-size:12px;color:var(--text);}
+.prog-vals{font-size:11px;color:var(--text2);}
+.prog-bar-bg{height:6px;background:var(--s3);border-radius:3px;overflow:hidden;}
+.prog-bar-fg{height:6px;border-radius:3px;transition:width .5s;}
+
+/* LIMIT BAR */
+.limit-bar-bg{height:4px;background:var(--s3);border-radius:2px;overflow:hidden;margin-top:4px;}
+.limit-bar-fg{height:4px;border-radius:2px;transition:width .3s;}
+.limit-label{font-size:10px;color:var(--text3);margin-top:3px;}
+
+/* CARTÕES */
+.cartoes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:14px;}
+.cartao-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:0 1px 3px var(--shadow);transition:border-color .2s;}
+.cartao-card.alerta{border-color:rgba(224,85,85,.4);}
+.cartao-card.aviso{border-color:rgba(240,160,32,.35);}
+.cartao-nome{font-size:13px;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.cartao-vals{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;}
+.cartao-vals .usado{color:var(--red);}
+.cartao-vals .livre{color:var(--green);}
+.parcelas-wrap{display:flex;flex-wrap:wrap;gap:3px;margin-top:7px;}
+.parcela-chip{font-size:10px;background:var(--s3);border-radius:4px;padding:2px 6px;color:var(--text2);}
+
+/* FLUXO */
+.scroll-wrap{overflow-x:auto;}
+.fx-tbl{min-width:680px;}
+.fx-tbl th,.fx-tbl td{font-size:12px;padding:8px 10px;white-space:nowrap;}
+
+/* EDITOR SHARED */
+.ed-wrap{display:flex;flex-direction:column;gap:16px;}
+.ed-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
+.ed-box{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:0 1px 3px var(--shadow);}
+.ed-box.accent-green{border-color:rgba(34,199,122,.25);}
+.ed-box.accent-teal{border-color:rgba(45,212,191,.25);}
+.ed-box.accent-blue{border-color:rgba(74,158,255,.25);}
+.ed-box.accent-amber{border-color:rgba(240,160,32,.25);}
+.ed-box.accent-purple{border-color:rgba(155,127,244,.25);}
+.ed-box.accent-red{border-color:rgba(224,85,85,.25);}
+.ed-box h3{font-size:15px;font-family:'DM Serif Display',serif;margin-bottom:4px;letter-spacing:-.2px;}
+.ed-desc{font-size:11px;color:var(--text2);margin-bottom:14px;line-height:1.55;}
+.field{margin-bottom:10px;}
+.field-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;font-weight:600;}
+input[type=number],input[type=text],select{
+  width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:var(--rsm);
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:8px 10px;outline:none;transition:border .15s,background .15s;
 }
-function switchSub(id,el){
-  document.querySelectorAll('#page-dash .subpage').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('#page-dash .stab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('sub-'+id).classList.add('on');
-  el.classList.add('on');
-  if(id==='geral'){renderGeral();}
-  if(id==='mes'){buildMonths('dash-months',selDash,i=>{selDash=i;renderMes();});renderMes();}
+input:focus,select:focus{border-color:var(--green);background:var(--s1);}
+.ind-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.div-wrap{overflow-x:auto;}
+.div-tbl{border-collapse:collapse;min-width:100%;}
+.div-tbl th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap;font-weight:600;}
+.div-tbl td{padding:4px 4px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.div-tbl input[type=text]{width:130px;font-size:12px;padding:6px 8px;}
+.div-tbl select{width:88px;font-size:12px;padding:6px 6px;}
+.div-tbl select.cat-sel{width:130px;}
+.div-tbl input[type=number]{width:78px;font-size:12px;padding:6px 5px;text-align:right;}
+.div-tbl input.lim-inp{width:86px;}
+.btn-rm{background:var(--red-bg);color:var(--red);border:none;border-radius:5px;cursor:pointer;padding:5px 9px;font-size:12px;transition:opacity .15s;}
+.btn-rm:hover{opacity:.7;}
+.act-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;}
+.btn-add{border-radius:var(--rsm);cursor:pointer;padding:8px 14px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;transition:opacity .2s;border:1px solid;}
+.btn-add:hover{opacity:.8;}
+.btn-add.green{background:var(--green-bg);color:var(--green);border-color:rgba(34,199,122,.3);}
+.btn-add.teal{background:var(--teal-bg);color:var(--teal);border-color:rgba(45,212,191,.3);}
+.btn-add.blue{background:var(--blue-bg);color:var(--blue);border-color:rgba(74,158,255,.3);}
+.btn-add.red{background:var(--red-bg);color:var(--red);border-color:rgba(224,85,85,.3);}
+.btn-add.amber{background:var(--amber-bg);color:var(--amber);border-color:rgba(240,160,32,.3);}
+.btn-add.purple{background:var(--purple-bg);color:var(--purple);border-color:rgba(155,127,244,.3);}
+
+/* ARCA BUCKETS */
+.arca-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px;}
+.arca-card{border-radius:var(--r);padding:18px;border:1px solid var(--border);position:relative;overflow:hidden;}
+.arca-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.arca-A::after{background:#4a9eff;}
+.arca-R::after{background:#f97316;}
+.arca-C::after{background:#9ca3af;}
+.arca-A2::after{background:#f0a020;}
+.arca-lbl{font-size:11px;font-weight:600;letter-spacing:.04em;margin-bottom:4px;}
+.arca-A .arca-lbl{color:#4a9eff;}
+.arca-R .arca-lbl{color:#f97316;}
+.arca-C .arca-lbl{color:#9ca3af;}
+.arca-A2 .arca-lbl{color:#f0a020;}
+.arca-desc{font-size:10px;color:var(--text2);margin-bottom:10px;line-height:1.4;}
+.arca-val{font-size:22px;font-family:'DM Serif Display',serif;}
+.arca-meta{font-size:10px;color:var(--text3);margin-top:4px;}
+
+/* INVEST TABLE */
+.inv-tbl-wrap{overflow-x:auto;}
+.inv-tbl{min-width:900px;border-collapse:collapse;}
+.inv-tbl th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap;}
+.inv-tbl td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+.inv-tbl tr:last-child td{border-bottom:none;}
+.inv-tbl tbody tr:hover td{background:var(--s2);}
+.inv-edit input[type=text]{width:140px;font-size:12px;padding:5px 8px;}
+.inv-edit input[type=number]{width:90px;font-size:12px;padding:5px 6px;text-align:right;}
+.inv-edit select{width:120px;font-size:12px;padding:5px 6px;}
+/* saldo para investir banner */
+.inv-banner{background:linear-gradient(135deg,rgba(45,212,191,.12),rgba(34,199,122,.08));border:1px solid rgba(45,212,191,.25);border-radius:var(--r);padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.inv-banner-label{font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:4px;}
+.inv-banner-val{font-size:28px;font-family:'DM Serif Display',serif;color:var(--green);}
+.inv-banner-sub{font-size:11px;color:var(--text2);margin-top:3px;}
+.inv-banner-right{font-size:12px;color:var(--text2);text-align:right;}
+/* projeção */
+.proj-tbl{min-width:800px;}
+.proj-tbl th{background:var(--s2);}
+.proj-highlight{color:var(--green);font-weight:600;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0d0d0d;font-weight:700;font-size:13px;padding:11px 20px;border-radius:var(--r);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:999;box-shadow:0 4px 16px rgba(34,199,122,.3);}
+.toast.show{opacity:1;transform:translateY(0);}
+
+@media(max-width:700px){
+  nav{padding:0 14px;}.page{padding:14px;}
+  .grid2,.grid3{grid-template-columns:1fr;}
+  .ind-grid{grid-template-columns:1fr 1fr;}
 }
-function switchSubSai(id,el){
-  document.querySelectorAll('#page-saidas .subpage').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('#page-saidas .stab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('sub-'+id).classList.add('on');
-  el.classList.add('on');
-  if(id==='fixas') renderSaidas('Fixo','div-fixas-table');
-  if(id==='variaveis') renderSaidas('Variável','div-var-table');
-  if(id==='periodos') renderPeriodos();
-}
-function switchSubInv(id,el){
-  document.querySelectorAll('#page-invest .subpage').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('#page-invest .stab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('sub-'+id).classList.add('on');
-  el.classList.add('on');
-  if(id==='arca') renderArca();
-  if(id==='carteira-inv') renderAtivos();
-  if(id==='indicadores') renderIndicadores();
-}
+</style>
+</head>
+<body>
 
-function renderAll(){
-  buildMonths('dash-months',selDash,i=>{selDash=i;renderMes();});
-  renderGeral();
-  renderMes();
-  renderCarteira();
-  renderSaidas('Fixo','div-fixas-table');
-  renderSaidas('Variável','div-var-table');
-  renderPeriodos();
-  renderArca();
-  renderAtivos();
-  renderIndicadores();
-}
+<nav>
+  <div class="nav-logo">Controle <span>Financeiro</span></div>
+  <div class="nav-tabs">
+    <button class="tab on"  onclick="go('dash',this)">Dashboard</button>
+    <button class="tab"     onclick="go('carteira',this)">Carteira</button>
+    <button class="tab"     onclick="go('saidas',this)">Saídas</button>
+    <button class="tab"     onclick="go('invest',this)">Investimentos</button>
+  </div>
+  <div class="nav-right">
+    <span id="nav-user" style="font-size:12px;color:var(--text2)"></span><button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Alternar tema">🌙</button>
+    <button class="btn-ghost" onclick="resetData()">Resetar</button><button class="btn-ghost" id="btn-sair" style="color:var(--red)">Sair</button>
+    <button class="btn" onclick="saveData()">Salvar</button>
+  </div>
+</nav>
 
-function buildMonths(cid,sel,cb){
-  const el=document.getElementById(cid);if(!el)return;
-  el.innerHTML=D.meses.map((m,i)=>`<button class="msb${i===sel?' on':''}" onclick='(${cb.toString()})(${i})'>${m}</button>`).join('');
-}
+<!-- ════════════════════════════════════════
+     DASHBOARD
+════════════════════════════════════════ -->
+<div class="page on" id="page-dash">
+  <div class="subtab-bar">
+    <button class="stab on" onclick="switchSub('geral',this)">Visão Geral</button>
+    <button class="stab"    onclick="switchSub('mes',this)">Por Mês</button>
+  </div>
 
-/* ═══════════════════════════════
-   YEAR HELPERS
-═══════════════════════════════ */
-function getYears(){
-  const yrs=new Set();
-  D.meses.forEach(m=>{const p=m.match(/\/(\d+)/);if(p)yrs.add('20'+p[1]);});
-  return [...yrs].sort();
-}
-function getMesesDoAno(yr){
-  const suf='/'+yr.slice(2);
-  return D.meses.map((m,i)=>({m,i})).filter(({m})=>m.includes(suf));
-}
-function heroAno(idxs){
-  const n=idxs.length;
-  const ent=totalE()*n;
-  const div=idxs.reduce((s,{i})=>s+totalDiv(i),0);
-  const grd=idxs.reduce((s,{i})=>s+totalGrd(i),0);
-  const sob=idxs.reduce((s,{i})=>s+sobraM(i),0);
-  const mel=idxs.reduce((b,x)=>sobraM(x.i)>sobraM(b.i)?x:b,idxs[0]);
-  const pio=idxs.reduce((b,x)=>sobraM(x.i)<sobraM(b.i)?x:b,idxs[0]);
-  return{n,ent,div,grd,sob,mel,pio};
-}
-function toggleYr(yr){
-  yrCollapsed[yr]=!yrCollapsed[yr];
-  renderYearBlocks();
-}
+  <!-- ── VISÃO GERAL ── -->
+  <div class="subpage on" id="sub-geral">
+    <div class="sec">Resumo — período completo</div>
+    <div class="annual-hero" id="annual-hero"></div>
 
-/* ═══════════════════════════════
-   VISÃO GERAL
-═══════════════════════════════ */
-function renderGeral(){
-  const n=nm();
-  const totE=totalE()*n;
-  const totD=D.meses.reduce((s,_,i)=>s+totalDiv(i),0);
-  const totG=D.meses.reduce((s,_,i)=>s+totalGrd(i),0);
-  const totS=D.meses.reduce((s,_,i)=>s+sobraM(i),0);
-  const rFinal=reservaAcum(n-1);
-  const invFinal=investAcum(n-1);
-  const melI=D.meses.reduce((b,_,i)=>sobraM(i)>sobraM(b)?i:b,0);
-  const pioI=D.meses.reduce((b,_,i)=>sobraM(i)<sobraM(b)?i:b,0);
+    <!-- ANOS COLAPSÁVEIS — renderizados via JS -->
+    <div id="year-blocks"></div>
 
-  const hero=document.getElementById('annual-hero');
-  if(hero) hero.innerHTML=`
-    <div class="hero-card hg"><div class="hero-lbl">Total entradas</div><div class="hero-val g">${fmtK(totE)}</div><div class="hero-sub">${n} meses × ${fmtK(totalE())}</div></div>
-    <div class="hero-card hr"><div class="hero-lbl">Total dívidas</div><div class="hero-val r">${fmtK(totD)}</div><div class="hero-sub">contas e parcelas</div></div>
-    <div class="hero-card ht"><div class="hero-lbl">Total guardado</div><div class="hero-val t">${fmtK(totG)}</div><div class="hero-sub">reserva + investimento</div></div>
-    <div class="hero-card ${totS>=0?'hg':'hr'}"><div class="hero-lbl">Sobra total</div><div class="hero-val ${totS>=0?'g':'r'}">${fmtK(totS)}</div><div class="hero-sub">ao fim do período</div></div>
-    <div class="hero-card ht"><div class="hero-lbl">Reserva final</div><div class="hero-val t">${fmtK(rFinal)}</div><div class="hero-sub">saldo acumulado</div></div>
-    <div class="hero-card hp"><div class="hero-lbl">Investido final</div><div class="hero-val p">${fmtK(invFinal)}</div><div class="hero-sub">saldo acumulado</div></div>
-    <div class="hero-card hg"><div class="hero-lbl">Melhor mês</div><div class="hero-val g" style="font-size:18px">${D.meses[melI]}</div><div class="hero-sub">sobra: ${fmt(sobraM(melI))}</div></div>
-    <div class="hero-card hr"><div class="hero-lbl">Pior mês</div><div class="hero-val r" style="font-size:18px">${D.meses[pioI]}</div><div class="hero-sub">sobra: ${fmt(sobraM(pioI))}</div></div>
-  `;
-
-  renderYearBlocks();
-
-  // Ranking
-  const rank=document.getElementById('annual-rank');
-  if(rank){
-    const tots=D.dividas.map(d=>({nome:d.nome,total:d.vals.reduce((s,v)=>s+(v||0),0),cat:d.cat})).filter(d=>d.total>0).sort((a,b)=>b.total-a.total);
-    const maxT=tots[0]?.total||1;
-    rank.innerHTML=tots.map((d,i)=>{
-      const barC=d.cat==='cartao'?'var(--purple)':d.cat==='limite'?'var(--red)':'var(--amber)';
-      return `<div class="rank-row"><span class="rank-num">${i+1}</span><span class="rank-name">${d.nome}</span><div class="rank-bar-bg"><div class="rank-bar-fg" style="width:${Math.round((d.total/maxT)*100)}%;background:${barC}"></div></div><span class="rank-val neg">${fmt(d.total)}</span></div>`;
-    }).join('');
-  }
-
-  // Doughnut
-  dc('annualDough');
-  const fixT=D.dividas.filter(d=>d.tipo==='Fixo').reduce((s,d)=>s+d.vals.reduce((a,v)=>a+(v||0),0),0);
-  const varT=D.dividas.filter(d=>d.tipo==='Variável').reduce((s,d)=>s+d.vals.reduce((a,v)=>a+(v||0),0),0);
-  const grdT=D.meses.reduce((s,_,i)=>s+totalGrd(i),0);
-  const cAD=document.getElementById('cAnnualDough');
-  if(cAD) CH['annualDough']=new Chart(cAD,{type:'doughnut',data:{labels:['Fixo','Variável','Guardado/Inv.'],datasets:[{data:[fixT,varT,grdT],backgroundColor:['#4a9eff','#e8a020','#2dd4bf'],borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:11},boxWidth:10,padding:10}},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)}}}}});
-
-  // Evolução
-  dc('evol');
-  const cEv=document.getElementById('cEvol');
-  if(cEv) CH['evol']=new Chart(cEv,{type:'line',data:{labels:D.meses,datasets:D.dividas.map((d,idx)=>({label:d.nome,data:d.vals.map(v=>v||0),borderColor:COLORS[idx%COLORS.length],backgroundColor:'transparent',tension:.35,pointRadius:2,borderWidth:1.5}))},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}}},scales:scO(true)}});
-
-  // Fluxo table
-  const ft=document.getElementById('fluxo-table');
-  if(ft){
-    const yrs=getYears();
-    const rows=D.meses.map((m,i)=>{
-      const e=totalE(),d=totalDiv(i),g=totalGrd(i),s=sobraM(i);
-      const yr=m.match(/\/(\d+)/);const yrN=yr?'20'+yr[1]:'';
-      const clr=yrs.indexOf(yrN)===0?'rgba(74,158,255,.3)':'rgba(155,127,244,.3)';
-      return `<tr style="border-left:2px solid ${clr}"><td>${m}</td><td class="tr pos">${fmt(e)}</td><td class="tr neg">${fmt(d)}</td><td class="tr grd">${fmt(g)}</td><td class="tr neg">${fmt(d+g)}</td><td class="tr ${s>=0?'pos':'neg'}">${fmt(s)}</td></tr>`;
-    }).join('');
-    const tD=D.meses.reduce((s,_,i)=>s+totalDiv(i),0);
-    const tG=D.meses.reduce((s,_,i)=>s+totalGrd(i),0);
-    const tS=D.meses.reduce((s,_,i)=>s+sobraM(i),0);
-    ft.innerHTML=`<thead><tr><th>Mês</th><th class="tr">Entradas</th><th class="tr">Dívidas</th><th class="tr" style="color:var(--teal)">Disponível p/ investir</th><th class="tr">Total saídas</th><th class="tr">Sobra</th></tr></thead><tbody>${rows}<tr><td class="bold">Total</td><td></td><td class="tr neg bold">${fmt(tD)}</td><td class="tr grd bold">${fmt(tG)}</td><td class="tr neg bold">${fmt(tD+tG)}</td><td class="tr bold ${tS>=0?'pos':'neg'}">${fmt(tS)}</td></tr></tbody>`;
-  }
-
-  // Guard chart
-  dc('guardAnual');
-  const cGA=document.getElementById('cGuardAnual');
-  if(cGA) CH['guardAnual']=new Chart(cGA,{type:'bar',data:{labels:D.meses,datasets:D.guardado.map((g,gi)=>({label:g.nome,data:g.vals.map(v=>v||0),backgroundColor:gi===0?'rgba(45,212,191,.75)':'rgba(155,127,244,.75)',borderRadius:3}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}}},scales:scO(true)}});
-
-  // Metas
-  const prog=document.getElementById('annual-prog');
-  if(prog){
-    const totG=D.meses.reduce((s,_,i)=>s+totalGrd(i),0);
-    prog.innerHTML=D.guardado.map((g,gi)=>{
-      const real=g.vals.reduce((s,v)=>s+(v||0),0);
-      const pct=totG>0?Math.min(100,Math.round((real/totG)*100)):0;
-      const barC=gi===0?'var(--teal)':'var(--purple)';
-      const acum=gi===0?reservaAcum(nm()-1):investAcum(nm()-1);
-      return `<div class="prog-item"><div class="prog-header"><span class="prog-name">${g.nome}</span><span class="prog-vals">${fmt(real)} aportado · ${fmt(acum)} acumulado</span></div><div class="prog-bar-bg"><div class="prog-bar-fg" style="width:${pct}%;background:${barC}"></div></div></div>`;
-    }).join('');
-  }
-
-  renderIndicadores();
-  const cartEl=document.getElementById('annual-cartoes');
-  if(cartEl) renderCartoesTo(cartEl,0);
-}
-
-/* ═══════════════════════════════
-   YEAR BLOCKS (collapsible)
-═══════════════════════════════ */
-function renderYearBlocks(){
-  const container=document.getElementById('year-blocks');
-  if(!container)return;
-  const yrs=getYears();
-  container.innerHTML='';
-  yrs.forEach((yr,yi)=>{
-    const meses=getMesesDoAno(yr);
-    if(!meses.length)return;
-    const h=heroAno(meses);
-    const isCollapsed=yrCollapsed[yr]!==false; // default collapsed
-    const pill=yi===0?'y26':'y27';
-    const acorC=yi===0?'b':'p';
-    const chevCls=isCollapsed?'yr-chevron':'yr-chevron open';
-    const block=document.createElement('div');
-    block.className='yr-block mb';
-    block.id='yr-block-'+yr;
-    block.innerHTML=`
-      <div class="yr-header" onclick="toggleYr('${yr}')">
-        <div class="yr-title">
-          <span class="yr-pill ${pill}">${yr}</span>
-          <span style="color:var(--text2);font-size:13px">${meses.length} meses</span>
-        </div>
-        <div class="yr-meta">
-          <span>Entradas: <strong style="color:var(--green)">${fmtK(h.ent)}</strong></span>
-          <span>Dívidas: <strong style="color:var(--red)">${fmtK(h.div)}</strong></span>
-          <span>Sobra: <strong style="color:${h.sob>=0?'var(--green)':'var(--red)'}">${fmtK(h.sob)}</strong></span>
-        </div>
-        <span class="${chevCls}">▾</span>
+    <!-- RANKING + DOUGHNUT -->
+    <div class="cards-divider"><span>Dívidas — período completo</span></div>
+    <div class="grid2 mb">
+      <div class="panel">
+        <h3>Ranking de gastos acumulados</h3>
+        <div id="annual-rank"></div>
       </div>
-      <div class="yr-body${isCollapsed?' hidden':''}" id="yr-body-${yr}">
-        <div class="annual-hero" id="hero-${yr}" style="margin-top:4px"></div>
-        <div class="timeline" id="tl-${yr}"></div>
-        <div class="grid2 mb">
-          <div class="panel"><h3>Entradas vs Dívidas vs Guardado — ${yr}</h3><div style="position:relative;height:190px"><canvas id="cBar${yr}"></canvas></div></div>
-          <div class="panel"><h3>Sobra acumulada — ${yr}</h3><div style="position:relative;height:190px"><canvas id="cAcum${yr}"></canvas></div></div>
-        </div>
-      </div>`;
-    container.appendChild(block);
+      <div class="panel">
+        <h3>Distribuição das saídas</h3>
+        <div style="position:relative;height:240px"><canvas id="cAnnualDough"></canvas></div>
+      </div>
+    </div>
+    <div class="panel mb">
+      <h3>Evolução de cada dívida ao longo do período</h3>
+      <div style="position:relative;height:260px"><canvas id="cEvol"></canvas></div>
+    </div>
 
-    // Populate hero, timeline, charts
-    const heroEl=document.getElementById('hero-'+yr);
-    if(heroEl) heroEl.innerHTML=`
-      <div class="hero-card ${yi===0?'hb':'hp'}"><div class="hero-lbl">Entradas ${yr}</div><div class="hero-val ${acorC}">${fmtK(h.ent)}</div><div class="hero-sub">${h.n} meses</div></div>
-      <div class="hero-card hr"><div class="hero-lbl">Dívidas ${yr}</div><div class="hero-val r">${fmtK(h.div)}</div></div>
-      <div class="hero-card ht"><div class="hero-lbl">Guardado ${yr}</div><div class="hero-val t">${fmtK(h.grd)}</div></div>
-      <div class="hero-card ${h.sob>=0?'hg':'hr'}"><div class="hero-lbl">Sobra ${yr}</div><div class="hero-val ${h.sob>=0?'g':'r'}">${fmtK(h.sob)}</div></div>
-      <div class="hero-card hg"><div class="hero-lbl">Melhor mês</div><div class="hero-val g" style="font-size:16px">${h.mel.m}</div><div class="hero-sub">${fmt(sobraM(h.mel.i))}</div></div>
-      <div class="hero-card hr"><div class="hero-lbl">Pior mês</div><div class="hero-val r" style="font-size:16px">${h.pio.m}</div><div class="hero-sub">${fmt(sobraM(h.pio.i))}</div></div>
-    `;
+    <!-- FLUXO -->
+    <div class="cards-divider"><span>Fluxo de caixa completo</span></div>
+    <div class="panel mb">
+      <div class="scroll-wrap"><table class="fx-tbl" id="fluxo-table"></table></div>
+    </div>
 
-    const tlEl=document.getElementById('tl-'+yr);
-    if(tlEl) tlEl.innerHTML=meses.map(({m,i})=>{const s=sobraM(i);return `<div class="tl-cell ${s>=0?'tl-pos':'tl-neg'}"><div class="tl-mes">${m}</div><div class="tl-val ${s>=0?'pos':'neg'}">${fmtK(s)}</div></div>`;}).join('');
+    <!-- GUARDADO -->
+    <div class="cards-divider"><span>Guardado / Investido</span></div>
+    <div class="grid2 mb">
+      <div class="panel">
+        <h3>Guardado e investido por mês</h3>
+        <div style="position:relative;height:200px"><canvas id="cGuardAnual"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Progresso das metas</h3>
+        <div id="annual-prog" style="padding-top:4px"></div>
+      </div>
+    </div>
 
-    const labels=meses.map(x=>x.m);
-    const divArr=meses.map(x=>totalDiv(x.i));
-    const grdArr=meses.map(x=>totalGrd(x.i));
-    const entArr=meses.map(_=>totalE());
-    dc('cBar'+yr);
-    const cB=document.getElementById('cBar'+yr);
-    if(cB) CH['cBar'+yr]=new Chart(cB,{type:'bar',data:{labels,datasets:[{label:'Entradas',data:entArr,backgroundColor:'rgba(34,199,122,.2)',borderColor:'#22c77a',borderWidth:1,borderRadius:3},{label:'Dívidas',data:divArr,backgroundColor:'rgba(224,85,85,.75)',borderRadius:3},{label:'Guardado',data:grdArr,backgroundColor:'rgba(45,212,191,.75)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}}},scales:scOL()}});
+    <!-- INDICADORES -->
+    <div class="cards-divider"><span>Indicadores de mercado</span></div>
+    <div class="cards" id="ind-cards"></div>
+    <div class="grid2 mb">
+      <div class="panel"><h3>CDI (%)</h3><div style="position:relative;height:160px"><canvas id="cCdi"></canvas></div></div>
+      <div class="panel"><h3>IPCA (%)</h3><div style="position:relative;height:160px"><canvas id="cIpca"></canvas></div></div>
+    </div>
 
-    let acc=0;
-    const acumArr=meses.map(({i})=>{acc+=sobraM(i);return Math.round(acc*100)/100;});
-    dc('cAcum'+yr);
-    const cA=document.getElementById('cAcum'+yr);
-    if(cA) CH['cAcum'+yr]=new Chart(cA,{type:'line',data:{labels,datasets:[{data:acumArr,borderColor:yi===0?'#4a9eff':'#9b7ff4',backgroundColor:yi===0?'rgba(74,158,255,.08)':'rgba(155,127,244,.08)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:acumArr.map(v=>v>=0?'#22c77a':'#e05555'),borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:scOL()}});
-  });
-}
+    <!-- CARTÕES -->
+    <div class="cards-divider"><span>Cartões de crédito — saldo em aberto</span></div>
+    <div class="cartoes-grid" id="annual-cartoes"></div>
+  </div>
 
-/* ═══════════════════════════════
-   POR MÊS
-═══════════════════════════════ */
-function renderMes(){
-  const i=selDash;
-  document.getElementById('dash-sec').textContent='Resumo — '+(D.meses[i]||'');
-  const e=totalE(),d=totalDiv(i),g=totalGrd(i),s=sobraM(i);
+  <!-- ── POR MÊS ── -->
+  <div class="subpage" id="sub-mes">
+    <div class="sec" id="dash-sec">Resumo</div>
+    <div class="month-sel" id="dash-months"></div>
 
-  document.getElementById('dash-cards-top').innerHTML=`
-    <div class="card"><div class="card-lbl">Entradas</div><div class="card-val g">${fmt(e)}</div></div>
-    <div class="card"><div class="card-lbl">Sobra prevista</div><div class="card-val ${s>=0?'g':'r'}">${fmt(s)}</div></div>
-    <div class="card"><div class="card-lbl">Saldo em conta</div><div class="card-val a">${fmt(D.saldo)}</div></div>
-  `;
+    <div class="cards-divider"><span>Entradas e saldo</span></div>
+    <div class="cards" id="dash-cards-top"></div>
+    <div class="cards-divider"><span>Dívidas do mês</span></div>
+    <div class="cards" id="dash-cards-div"></div>
+    <div class="cards-divider"><span>Guardado / Investido</span></div>
+    <div class="cards" id="dash-cards-guard"></div>
+    <div class="cards-divider"><span>Cartões de crédito</span></div>
+    <div class="cartoes-grid" id="dash-cartoes"></div>
 
-  document.getElementById('dash-cards-div').innerHTML=`
-    <div class="card"><div class="card-lbl">Total dívidas</div><div class="card-val r">${fmt(d)}</div><div class="card-sub">contas e parcelas</div></div>
-    ${D.dividas.filter(dv=>dv.vals[i]>0).map(dv=>{
-      const lim=getLimite(dv);
-      const totAb=dv.vals.reduce((s,v)=>s+(v||0),0);
-      const pct=(dv.cat==='cartao'||dv.cat==='limite')&&lim>0?Math.min(100,Math.round((totAb/lim)*100)):null;
-      const barC=pct>=80?'var(--red)':pct>=50?'var(--amber)':'var(--green)';
-      const bar=pct!==null?`<div class="limit-bar-bg"><div class="limit-bar-fg" style="width:${pct}%;background:${barC}"></div></div><div class="limit-label">${pct}% limite (aberto: ${fmt(totAb)})</div>`:'';
-      const catB=dv.cat==='cartao'?'<span class="badge bc">Cartão</span>':dv.cat==='limite'?'<span class="badge bl">Limite</span>':'<span class="badge bs">Sem limite</span>';
-      return `<div class="card"><div class="card-lbl">${dv.nome}</div><div class="card-val r" style="font-size:16px">${fmt(dv.vals[i])}</div><div style="display:flex;gap:4px;margin-top:5px;">${catB} <span class="badge ${dv.tipo==='Fixo'?'bf':'bv'}">${dv.tipo}</span></div>${bar}</div>`;
-    }).join('')}
-  `;
+    <div class="cards-divider"><span>Detalhe do mês</span></div>
+    <div class="grid2 mb">
+      <div class="panel"><h3 id="div-detail-title">Dívidas</h3><table id="div-detail-table"></table></div>
+      <div class="panel"><h3 id="guard-detail-title">Guardado</h3><table id="guard-detail-table"></table></div>
+    </div>
 
-  document.getElementById('dash-cards-guard').innerHTML=`
-    <div class="card"><div class="card-lbl">Total guardado</div><div class="card-val t">${fmt(g)}</div><div class="card-sub">este mês</div></div>
-    ${D.guardado.map((gd,gi)=>{
-      const acum=gi===0?reservaAcum(i):investAcum(i);
-      return `<div class="card"><div class="card-lbl">${gd.nome}</div><div class="card-val t" style="font-size:16px">${fmt(gd.vals[i]||0)}</div><div class="card-sub">acumulado: ${fmt(acum)}</div></div>`;
-    }).join('')}
-  `;
+    <div class="cards-divider"><span>Gráficos do período</span></div>
+    <div class="grid3 mb">
+      <div class="panel"><h3>Dívidas vs Guardado — todos os meses</h3><div style="position:relative;height:210px"><canvas id="cFluxo"></canvas></div></div>
+      <div class="panel"><h3>Composição — mês selecionado</h3><div style="position:relative;height:210px"><canvas id="cTipo"></canvas></div></div>
+    </div>
+    <div class="grid2 mb">
+      <div class="panel"><h3>Dívidas variáveis ao longo do período</h3><div style="position:relative;height:180px"><canvas id="cVar"></canvas></div></div>
+      <div class="panel"><h3>Guardado / Investido por mês</h3><div style="position:relative;height:180px"><canvas id="cGuard"></canvas></div></div>
+    </div>
+  </div>
+</div>
 
-  renderCartoesTo(document.getElementById('dash-cartoes'),i);
+<!-- ════════════════════════════════════════
+     CARTEIRA
+════════════════════════════════════════ -->
+<div class="page" id="page-carteira">
+  <div class="ed-wrap">
 
-  const el=document.getElementById('div-detail-table');
-  if(el){
-    document.getElementById('div-detail-title').textContent=`Dívidas — ${D.meses[i]||''}`;
-    const rows=D.dividas.map(dv=>{
-      const v=dv.vals[i]||0;
-      const b=dv.tipo==='Fixo'?'<span class="badge bf">Fixo</span>':'<span class="badge bv">Variável</span>';
-      const cat=dv.cat==='cartao'?'<span class="badge bc">Cartão</span>':dv.cat==='limite'?'<span class="badge bl">Limite</span>':'<span class="badge bs">Sem limite</span>';
-      return `<tr><td>${dv.nome}</td><td>${cat} ${b}</td><td class="tr ${v>0?'neg':''}">${v>0?fmt(v):'—'}</td></tr>`;
-    }).join('');
-    el.innerHTML=`<thead><tr><th>Dívida</th><th>Categoria</th><th class="tr">Valor</th></tr></thead><tbody>${rows}<tr><td class="bold">Total</td><td></td><td class="tr neg bold">${fmt(d)}</td></tr></tbody>`;
-  }
-  const el2=document.getElementById('guard-detail-table');
-  if(el2){
-    document.getElementById('guard-detail-title').textContent=`Guardado — ${D.meses[i]||''}`;
-    const rows2=D.guardado.map((gd,gi)=>{const v=gd.vals[i]||0;const acum=gi===0?reservaAcum(i):investAcum(i);return `<tr><td>${gd.nome}</td><td class="tr grd">${v>0?fmt(v):'—'}</td><td class="tr" style="color:var(--text2);font-size:11px">${fmt(acum)}</td></tr>`;}).join('');
-    el2.innerHTML=`<thead><tr><th>Destino</th><th class="tr">Este mês</th><th class="tr">Acumulado</th></tr></thead><tbody>${rows2}<tr><td class="bold">Total</td><td class="tr grd bold">${fmt(g)}</td><td></td></tr></tbody>`;
-  }
+    <!-- Linha 1: Saldo + Entradas -->
+    <div class="ed-top">
+      <div class="ed-box accent-green">
+        <h3>Saldo atual</h3>
+        <div class="ed-desc">Posição atual das suas contas.</div>
+        <div class="field"><div class="field-lbl">Conta corrente (R$)</div><input type="number" id="ef-saldo" step="0.01"></div>
+        <div class="field"><div class="field-lbl">Caixa atual (R$) — saldo já investido em C-Caixa</div><input type="number" id="ef-reserva" step="0.01" readonly style="opacity:.7;cursor:default"></div>
+        <div class="field"><div class="field-lbl">Investido A/R/A2 (R$) — saldo já investido nos demais buckets</div><input type="number" id="ef-invest" step="0.01" readonly style="opacity:.7;cursor:default"></div>
+      </div>
+      <div class="ed-box accent-blue">
+        <h3>Entradas mensais</h3>
+        <div class="ed-desc">Receitas que entram todo mês.</div>
+        <div class="field"><div class="field-lbl">Salário líquido (R$)</div><input type="number" id="ef-salario" step="0.01"></div>
+        <div class="field"><div class="field-lbl">Outras entradas (R$)</div><input type="number" id="ef-outras" step="0.01"></div>
+        <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div class="field-lbl" style="color:var(--green)">Meta conta corrente (R$)</div><input type="number" id="ef-metaCC" step="100" placeholder="2000"></div>
+        <div style="font-size:10px;color:var(--text2);margin-top:4px">Valor que você sempre quer manter em CC. O sistema calcula automaticamente o que sobra para investir.</div>
+      </div>
+    </div>
 
-  const n=nm();
-  const divA=Array.from({length:n},(_,j)=>totalDiv(j));
-  const grdA=Array.from({length:n},(_,j)=>totalGrd(j));
-  const varA=Array.from({length:n},(_,j)=>D.dividas.filter(dv=>dv.tipo==='Variável').reduce((s,dv)=>s+(dv.vals[j]||0),0));
-  const fixT=D.dividas.filter(dv=>dv.tipo==='Fixo').reduce((s,dv)=>s+(dv.vals[i]||0),0);
-  const varT=D.dividas.filter(dv=>dv.tipo==='Variável').reduce((s,dv)=>s+(dv.vals[i]||0),0);
-  const grdT=totalGrd(i);
+    <!-- Cartões de crédito / limite -->
+    <div class="ed-box accent-purple">
+      <h3>Cartões de crédito</h3>
+      <div class="ed-desc">Cadastre seus cartões aqui. Os limites serão lidos automaticamente na aba Saídas ao marcar uma dívida como "Cartão".</div>
+      <div class="div-wrap">
+        <table class="div-tbl" id="cartoes-edit-table"></table>
+      </div>
+      <div class="act-row">
+        <button class="btn-add purple" onclick="addCartao()">+ Novo cartão</button>
+      </div>
+    </div>
 
-  dc('fluxo');
-  const cFl=document.getElementById('cFluxo');
-  if(cFl) CH['fluxo']=new Chart(cFl,{type:'bar',data:{labels:D.meses,datasets:[{label:'Dívidas',data:divA,backgroundColor:'rgba(224,85,85,.75)',borderRadius:3},{label:'Guardado',data:grdA,backgroundColor:'rgba(45,212,191,.75)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}}},scales:scO(true)}});
+    <!-- Resumo da carteira (somente leitura) -->
+    <div class="ed-box">
+      <h3>Resumo da carteira</h3>
+      <div class="ed-desc">Calculado a partir dos dados cadastrados.</div>
+      <div class="cards" id="carteira-resumo"></div>
+    </div>
 
-  dc('tipo');
-  const cTi=document.getElementById('cTipo');
-  if(cTi) CH['tipo']=new Chart(cTi,{type:'doughnut',data:{labels:['Fixo','Variável','Guardado/Inv.'],datasets:[{data:[fixT,varT,grdT],backgroundColor:['#4a9eff','#e8a020','#2dd4bf'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)}}}}});
+  </div>
+</div>
 
-  dc('var');
-  const cVr=document.getElementById('cVar');
-  if(cVr) CH['var']=new Chart(cVr,{type:'line',data:{labels:D.meses,datasets:[{data:varA,borderColor:'#e05555',backgroundColor:'rgba(224,85,85,.08)',tension:.35,fill:true,pointRadius:2,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:scO(true)}});
+<!-- ════════════════════════════════════════
+     SAÍDAS
+════════════════════════════════════════ -->
+<div class="page" id="page-saidas">
+  <div class="subtab-bar">
+    <button class="stab on" onclick="switchSubSai('fixas',this)">Contas Fixas</button>
+    <button class="stab"    onclick="switchSubSai('variaveis',this)">Contas Variáveis</button>
+    <button class="stab"    onclick="switchSubSai('periodos',this)">Gestão de Meses</button>
+  </div>
 
-  dc('guard');
-  const cGu=document.getElementById('cGuard');
-  if(cGu) CH['guard']=new Chart(cGu,{type:'bar',data:{labels:D.meses,datasets:D.guardado.map((gd,gi)=>({label:gd.nome,data:gd.vals.map(v=>v||0),backgroundColor:gi===0?'rgba(45,212,191,.75)':'rgba(155,127,244,.75)',borderRadius:3}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}}},scales:scO(true)}});
-}
+  <!-- FIXAS -->
+  <div class="subpage on" id="sub-fixas">
+    <div class="ed-box accent-blue" style="margin-bottom:0">
+      <h3>Contas Fixas</h3>
+      <div class="ed-desc">Gastos que ocorrem todo mês com valor previsível: aluguel, assinaturas, mensalidades, planos, tributos fixos.</div>
+      <div class="div-wrap"><table class="div-tbl" id="div-fixas-table"></table></div>
+      <div class="act-row">
+        <button class="btn-add blue" onclick="addDividaTipo('Fixo')">+ Nova conta fixa</button>
+      </div>
+    </div>
+  </div>
 
-/* ═══════════════════════════════
-   CARTEIRA
-═══════════════════════════════ */
-function renderCarteira(){
-  const fmap={salario:'ef-salario',outras:'ef-outras',saldo:'ef-saldo'};
-  Object.entries(fmap).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.value=D[k]||0;});
-  // Auto-compute from ativos
-  const _caixaEl=document.getElementById('ef-reserva');if(_caixaEl)_caixaEl.value=caixaAtual().toFixed(2);
-  const _invEl=document.getElementById('ef-invest');if(_invEl)_invEl.value=D.ativos.filter(a=>a.bucket!=='C').reduce((s,a)=>s+(a.valor||0),0).toFixed(2);
-  const mcEl=document.getElementById('ef-metaCC');if(mcEl)mcEl.value=D.metaCC||2000;
+  <!-- VARIÁVEIS -->
+  <div class="subpage" id="sub-variaveis">
+    <div class="ed-box accent-amber" style="margin-bottom:0">
+      <h3>Contas Variáveis</h3>
+      <div class="ed-desc">Faturas de cartão, parcelas, financiamentos e gastos que mudam mês a mês. Cartões cadastrados na aba Carteira terão limite associado automaticamente.</div>
+      <div class="div-wrap"><table class="div-tbl" id="div-var-table"></table></div>
+      <div class="act-row">
+        <button class="btn-add amber" onclick="addDividaTipo('Variável')">+ Nova conta variável</button>
+      </div>
+    </div>
+  </div>
 
-  // Tabela de cartões
-  const ct=document.getElementById('cartoes-edit-table');
-  if(ct){
-    const rows=D.cartoes.map((c,ci)=>`<tr>
-      <td><input type="text" value="${c.nome}" onchange="D.cartoes[${ci}].nome=this.value;syncCartaoNomes()" placeholder="Nome do cartão"></td>
-      <td><select onchange="D.cartoes[${ci}].bandeira=this.value"><option${c.bandeira==='Mastercard'?' selected':''}>Mastercard</option><option${c.bandeira==='Visa'?' selected':''}>Visa</option><option${c.bandeira==='Elo'?' selected':''}>Elo</option><option${c.bandeira==='Amex'?' selected':''}>Amex</option><option${c.bandeira==='Hipercard'?' selected':''}>Hipercard</option></select></td>
-      <td><input type="number" step="1" value="${c.limite||0}" onchange="D.cartoes[${ci}].limite=parseFloat(this.value)||0" placeholder="Limite"></td>
-      <td><button class="btn-rm" onclick="removeCartao(${ci})">✕</button></td>
-    </tr>`).join('');
-    ct.innerHTML=`<thead><tr><th>Nome</th><th>Bandeira</th><th>Limite (R$)</th><th></th></tr></thead><tbody>${rows}</tbody>`;
-  }
+  <!-- GESTÃO DE MESES -->
+  <div class="subpage" id="sub-periodos">
+    <div class="ed-box">
+      <h3>Gestão de meses do planejamento</h3>
+      <div class="ed-desc">Adicione ou remova meses do seu plano financeiro. Todos os meses são compartilhados entre Saídas e Investimentos.</div>
+      <div id="meses-list" style="margin-bottom:14px"></div>
+      <div class="act-row">
+        <button class="btn-add green" onclick="addMes()">+ Adicionar mês</button>
+        <button class="btn-add red" onclick="removeMes()">− Remover último mês</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  // Resumo
-  const res=document.getElementById('carteira-resumo');
-  if(res){
-    const totalLimites=D.cartoes.reduce((s,c)=>s+(c.limite||0),0);
-    const totalAberto=D.dividas.filter(d=>d.cat==='cartao'||d.cat==='limite').reduce((s,d)=>s+d.vals.reduce((a,v)=>a+(v||0),0),0);
-    const totalGrdAcum=reservaAcum(nm()-1)+investAcum(nm()-1);
-    res.innerHTML=`
-      <div class="card"><div class="card-lbl">Salário + entradas</div><div class="card-val g">${fmt(totalE())}</div><div class="card-sub">por mês</div></div>
-      <div class="card"><div class="card-lbl">Saldo conta corrente</div><div class="card-val a">${fmt(D.saldo)}</div></div>
-      <div class="card"><div class="card-lbl">Total limite cartões</div><div class="card-val b">${fmt(totalLimites)}</div><div class="card-sub">${D.cartoes.length} cartões</div></div>
-      <div class="card"><div class="card-lbl">Total em aberto cartões</div><div class="card-val r">${fmt(totalAberto)}</div></div>
-      <div class="card"><div class="card-lbl">Reserva + Investido</div><div class="card-val t">${fmt(totalGrdAcum)}</div><div class="card-sub">acumulado ao final</div></div>
-    `;
-  }
-}
+<!-- ════════════════════════════════════════
+     INVESTIMENTOS (ARCA)
+════════════════════════════════════════ -->
+<div class="page" id="page-invest">
+  <div class="subtab-bar">
+    <button class="stab on" onclick="switchSubInv('arca',this)">Método ARCA</button>
+    <button class="stab"    onclick="switchSubInv('carteira-inv',this)">Carteira de Ativos</button>
+    <button class="stab"    onclick="switchSubInv('indicadores',this)">Indicadores</button>
+  </div>
 
-function syncCartaoNomes(){/* cartoes table already updates D.cartoes[i].nome via onchange */}
-function addCartao(){D.cartoes.push({nome:'Novo Cartão',bandeira:'Mastercard',limite:0});renderCarteira();}
-function removeCartao(i){if(!confirm(`Remover "${D.cartoes[i].nome}"?`))return;D.cartoes.splice(i,1);renderCarteira();}
+  <!-- ARCA -->
+  <div class="subpage on" id="sub-arca">
+    <div class="sec">Método ARCA — Alocação por Bucket</div>
+    <div id="arca-alert" style="background:var(--amber-bg);border:1px solid rgba(240,160,32,.3);border-radius:var(--r);padding:16px;margin-bottom:14px;display:none"></div>
+    <div class="arca-grid" id="arca-cards"></div>
 
-/* ═══════════════════════════════
-   SAÍDAS
-═══════════════════════════════ */
-function renderSaidas(tipo,tableId){
-  const el=document.getElementById(tableId);if(!el)return;
-  const arr=D.dividas.filter(d=>d.tipo===tipo);
-  const heads=D.meses.map(m=>`<th>${m}</th>`).join('');
-  const catOptions=`
-    <option value="sem">Sem limite</option>
-    <option value="cartao">Cartão de Crédito</option>
-    <option value="limite">Consome Limite</option>`;
-  const cartaoOpts=['',  ...D.cartoes.map(c=>c.nome)].map(n=>`<option value="${n}">${n||'— nenhum —'}</option>`).join('');
+    <div class="grid2 mb">
+      <div class="panel">
+        <h3>Distribuição atual da carteira por bucket ARCA</h3>
+        <div style="position:relative;height:240px"><canvas id="cArcaDough"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Meta de alocação ARCA (configurar)</h3>
+        <div id="arca-meta-config" style="padding-top:4px"></div>
+      </div>
+    </div>
 
-  const rows=arr.map((d)=>{
-    const di=D.dividas.indexOf(d);
-    const cells=D.meses.map((_,mi)=>`<td><input type="number" step="0.01" value="${d.vals[mi]||0}" onchange="D.dividas[${di}].vals[${mi}]=parseFloat(this.value)||0"></td>`).join('');
-    const catCell=`<td><select class="cat-sel" onchange="D.dividas[${di}].cat=this.value">${catOptions.replace(`value="${d.cat}"`,`value="${d.cat}" selected`)}</select></td>`;
-    const cartCell=`<td><select class="cat-sel" onchange="D.dividas[${di}].limCartao=this.value">${['',  ...D.cartoes.map(c=>c.nome)].map(n=>`<option value="${n}"${d.limCartao===n?' selected':''}>${n||'— nenhum —'}</option>`).join('')}</select></td>`;
-    return `<tr>
-      <td><input type="text" value="${d.nome}" onchange="D.dividas[${di}].nome=this.value" placeholder="Nome"></td>
-      ${catCell}${cartCell}${cells}
-      <td><button class="btn-rm" onclick="removeDivida(${di})">✕</button></td>
-    </tr>`;
-  }).join('');
-  el.innerHTML=`<thead><tr><th>Nome</th><th>Categoria</th><th>Cartão vinculado</th>${heads}<th></th></tr></thead><tbody>${rows}</tbody>`;
-}
+    <div class="panel mb">
+      <h3>Evolução dos aportes mensais por bucket (R$)</h3>
+      <div style="position:relative;height:220px"><canvas id="cArcaBar"></canvas></div>
+    </div>
+  </div>
 
-function renderPeriodos(){
-  const el=document.getElementById('meses-list');if(!el)return;
-  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;">${D.meses.map((m,i)=>`<span style="background:var(--s2);border:1px solid var(--border2);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--text2)">${i+1}. ${m}</span>`).join('')}</div>`;
-}
+  <!-- CARTEIRA DE ATIVOS -->
+  <div class="subpage" id="sub-carteira-inv">
 
-function addDividaTipo(tipo){D.dividas.push({nome:'Nova conta',tipo,cat:'sem',limCartao:'',vals:Array(nm()).fill(0)});renderSaidas(tipo,tipo==='Fixo'?'div-fixas-table':'div-var-table');}
-function removeDivida(i){if(!confirm(`Remover "${D.dividas[i].nome}"?`))return;D.dividas.splice(i,1);renderSaidas('Fixo','div-fixas-table');renderSaidas('Variável','div-var-table');}
-function addMes(){const nome=prompt('Abreviação do mês (ex: Jan/27):');if(!nome||!nome.trim())return;D.meses.push(nome.trim());D.dividas.forEach(d=>d.vals.push(0));D.guardado.forEach(d=>d.vals.push(0));renderAll();}
-function removeMes(){if(nm()<=1){alert('É necessário ter ao menos 1 mês.');return;}if(!confirm(`Remover "${D.meses[nm()-1]}"?`))return;D.meses.pop();D.dividas.forEach(d=>d.vals.pop());D.guardado.forEach(d=>d.vals.pop());if(selDash>=nm())selDash=nm()-1;renderAll();}
+    <!-- SALDO DISPONÍVEL PARA INVESTIR -->
+    <div class="cards mb" id="inv-saldo-cards"></div>
 
-/* ═══════════════════════════════
-   INDICADORES
-═══════════════════════════════ */
-function renderIndicadores(){
-  const fmap={cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
-  Object.entries(fmap).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.value=D[k]||0;});
-  const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
-  Object.entries(arcaF).forEach(([id,k])=>{const el=document.getElementById(id);if(el)el.value=D.arcaMeta[k]||0;});
+    <!-- TABELA MÊS A MÊS -->
+    <div class="panel mb">
+      <h3>Disponível para investir — mês a mês</h3>
+      <div class="ed-desc" style="margin-bottom:10px;font-size:11px;color:var(--text2)">
+        🟢 sobra &gt; meta CC → investe 50% da sobra &nbsp;|&nbsp;
+        🟡 sobra ≤ meta CC → investe sobra − meta CC &nbsp;|&nbsp;
+        🔴 contas &gt; entradas → R$ 0
+      </div>
+      <div class="scroll-wrap"><table class="fx-tbl" id="inv-mes-table"></table></div>
+    </div>
 
-  const el=document.getElementById('ind-cards');
-  if(el) el.innerHTML=`
-    <div class="card"><div class="card-lbl">CDI acumulado 12m</div><div class="card-val g">${fmtP(D.cdi12)}</div></div>
-    <div class="card"><div class="card-lbl">CDI mês referência</div><div class="card-val">${fmtP(D.cdifev)}</div></div>
-    <div class="card"><div class="card-lbl">CDI acum. 2026</div><div class="card-val">${fmtP(D.cdi26)}</div></div>
-    <div class="card"><div class="card-lbl">IPCA acumulado 12m</div><div class="card-val a">${fmtP(D.ipca12)}</div></div>
-    <div class="card"><div class="card-lbl">IPCA mês referência</div><div class="card-val">${fmtP(D.ipcafev)}</div></div>
-    <div class="card"><div class="card-lbl">IPCA acum. 2026</div><div class="card-val">${fmtP(D.ipca26)}</div></div>
-  `;
-  const pOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc()},ticks:{color:tc()}},y:{grid:{color:gc()},ticks:{color:tc(),callback:v=>v+'%'}}}};
-  dc('cdi');const cCdi=document.getElementById('cCdi');
-  if(cCdi) CH['cdi']=new Chart(cCdi,{type:'bar',data:{labels:['12m','Mês ref.','Acum.'],datasets:[{data:[D.cdi12,D.cdifev,D.cdi26],backgroundColor:['rgba(34,199,122,.8)','rgba(74,158,255,.8)','rgba(155,127,244,.8)'],borderRadius:6}]},options:pOpts});
-  dc('ipca');const cIpca=document.getElementById('cIpca');
-  if(cIpca) CH['ipca']=new Chart(cIpca,{type:'bar',data:{labels:['12m','Mês ref.','Acum.'],datasets:[{data:[D.ipca12,D.ipcafev,D.ipca26],backgroundColor:['rgba(240,160,32,.8)','rgba(224,85,85,.8)','rgba(155,127,244,.8)'],borderRadius:6}]},options:pOpts});
+    <!-- CARTEIRA -->
+    <div class="ed-box accent-teal" style="margin-bottom:14px">
+      <h3>Carteira de ativos</h3>
+      <div class="ed-desc">Cadastre seus ativos com tipo, bucket ARCA, valor atual, índice de rendimento e percentual. O sistema calcula projeções de crescimento automaticamente.</div>
+      <div class="inv-tbl-wrap">
+        <table class="inv-tbl inv-edit" id="ativos-table"></table>
+      </div>
+      <div class="act-row">
+        <button class="btn-add teal" onclick="addAtivo()">+ Novo ativo</button>
+      </div>
+    </div>
 
-  // Comparativo CDI vs IPCA
-  dc('indComp');const cIC=document.getElementById('cIndComp');
-  if(cIC) CH['indComp']=new Chart(cIC,{type:'bar',data:{labels:['12 meses','Mês ref.','Acum. 2026'],datasets:[{label:'CDI',data:[D.cdi12,D.cdifev,D.cdi26],backgroundColor:'rgba(34,199,122,.8)',borderRadius:4},{label:'IPCA',data:[D.ipca12,D.ipcafev,D.ipca26],backgroundColor:'rgba(240,160,32,.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}}},scales:{x:{grid:{color:gc()},ticks:{color:tc()}},y:{grid:{color:gc()},ticks:{color:tc(),callback:v=>v+'%'}}}}});
-}
+    <!-- RESUMO POR CLASSE -->
+    <div class="panel mb">
+      <h3>Resumo por classe de ativo</h3>
+      <div class="cards" id="ativos-resumo"></div>
+    </div>
 
-/* ═══════════════════════════════
-   ARCA
-═══════════════════════════════ */
-function renderArca(){
-  const buckets=['A','R','C','A2'];
-  const totAtivos=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-  const bloqueado=arcaBloqueado();
-  const custoFixo=custoFixoMensal();
-  const caixaAtu=caixaAtual();
-  const metaEmerg=metaEmergencia();
+    <!-- PROJEÇÕES -->
+    <div class="panel mb">
+      <h3>Projeções de crescimento — juros compostos com reinvestimento</h3>
+      <div class="ed-desc" style="margin-bottom:14px;font-size:11px;color:var(--text2)">Calculado com base no valor atual de cada ativo, índice selecionado e percentual cadastrado. Considera reinvestimento integral dos rendimentos.</div>
+      <div class="scroll-wrap"><table class="fx-tbl" id="proj-table"></table></div>
+    </div>
 
-  // ALERTA EMERGÊNCIA
-  const alertEl=document.getElementById('arca-alert');
-  if(alertEl){
-    if(bloqueado){
-      const pct=metaEmerg>0?Math.min(100,Math.round((caixaAtu/metaEmerg)*100)):0;
-      alertEl.style.display='';
-      alertEl.innerHTML=`<div style="display:flex;align-items:flex-start;gap:12px;"><span style="font-size:24px">⚠️</span><div>
-        <div style="font-weight:600;font-size:14px;color:var(--amber);margin-bottom:4px">Reserva de emergência insuficiente</div>
-        <div style="font-size:12px;color:var(--text2);line-height:1.6">
-          Custo fixo mensal: <strong style="color:var(--text)">${fmt(custoFixo)}</strong> · Meta 6 meses: <strong style="color:var(--text)">${fmt(metaEmerg)}</strong><br>
-          Caixa atual: <strong style="color:var(--teal)">${fmt(caixaAtu)}</strong> (${pct}% da meta)<br>
-          <strong style="color:var(--amber)">Recomendação: invista 100% em C — Caixa até atingir a meta.</strong>
-        </div>
-        <div style="margin-top:8px;"><div style="height:6px;background:var(--s3);border-radius:3px;overflow:hidden;max-width:300px"><div style="height:6px;background:var(--amber);border-radius:3px;width:${pct}%"></div></div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px">${fmt(caixaAtu)} de ${fmt(metaEmerg)} (${pct}%)</div></div>
-      </div></div>`;
-    } else { alertEl.style.display='none'; }
-  }
+    <!-- GRÁFICO PROJEÇÃO -->
+    <div class="panel mb">
+      <h3>Evolução do patrimônio projetado (R$)</h3>
+      <div style="position:relative;height:280px"><canvas id="cProjLine"></canvas></div>
+    </div>
 
-  const cards=document.getElementById('arca-cards');
-  if(cards) cards.innerHTML=buckets.map(b=>{
-    const valB=D.ativos.filter(a=>a.bucket===b).reduce((s,a)=>s+(a.valor||0),0);
-    const pctAtual=totAtivos>0?Math.round((valB/totAtivos)*100):0;
-    const meta=bloqueado?(b==='C'?100:0):(D.arcaMeta[b==='A2'?'a2':b.toLowerCase()]||0);
-    const diff=pctAtual-meta;
-    const diffStr=diff===0?'na meta':diff>0?`+${diff}% acima`:`${diff}% abaixo`;
-    const diffC=diff===0?'var(--green)':diff>0?'var(--amber)':'var(--red)';
-    return `<div class="arca-card arca-${b}">
-      <div class="arca-lbl">${ARCA_NAMES[b]}</div>
-      <div class="arca-desc">${ARCA_DESC[b]}</div>
-      <div class="arca-val">${fmt(valB)}</div>
-      <div class="arca-meta">${pctAtual}% da carteira${bloqueado&&b!=='C'?' · aguardando emergência':''} (meta: ${meta}%)</div>
-      <div style="margin-top:6px;font-size:10px;color:${diffC}">${diffStr}</div>
-    </div>`;
-  }).join('');
+  </div>
 
-  dc('arcaDough');
-  const cAD2=document.getElementById('cArcaDough');
-  if(cAD2){
-    const vals=buckets.map(b=>D.ativos.filter(a=>a.bucket===b).reduce((s,a)=>s+(a.valor||0),0));
-    CH['arcaDough']=new Chart(cAD2,{type:'doughnut',data:{labels:buckets.map(b=>ARCA_NAMES[b]),datasets:[{data:vals,backgroundColor:buckets.map(b=>ARCA_COLORS[b]),borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:11},boxWidth:10,padding:10}},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)+` (${totAtivos>0?Math.round((ctx.raw/totAtivos)*100):0}%)`}}}}});
-  }
+  <!-- INDICADORES -->
+  <div class="subpage" id="sub-indicadores">
+    <div class="ed-top" style="margin-bottom:14px">
+      <div class="ed-box accent-green">
+        <h3>CDI</h3>
+        <div class="ed-desc">Taxa DI — referência para renda fixa.</div>
+        <div class="field"><div class="field-lbl">CDI acumulado 12m (%)</div><input type="number" id="ef-cdi12" step="0.01"></div>
+        <div class="field"><div class="field-lbl">CDI último mês ref. (%)</div><input type="number" id="ef-cdifev" step="0.01"></div>
+        <div class="field"><div class="field-lbl">CDI acumulado 2026 (%)</div><input type="number" id="ef-cdi26" step="0.01"></div>
+      </div>
+      <div class="ed-box accent-amber">
+        <h3>IPCA</h3>
+        <div class="ed-desc">Inflação oficial — referência para proteção do poder de compra.</div>
+        <div class="field"><div class="field-lbl">IPCA acumulado 12m (%)</div><input type="number" id="ef-ipca12" step="0.01"></div>
+        <div class="field"><div class="field-lbl">IPCA último mês ref. (%)</div><input type="number" id="ef-ipcafev" step="0.01"></div>
+        <div class="field"><div class="field-lbl">IPCA acumulado 2026 (%)</div><input type="number" id="ef-ipca26" step="0.01"></div>
+      </div>
+      <div class="ed-box accent-blue">
+        <h3>Metas ARCA (%)</h3>
+        <div class="ed-desc">Percentual alvo de cada bucket na sua carteira total.</div>
+        <div class="field"><div class="field-lbl">A — Ações Brasileiras (%)</div><input type="number" id="ef-arca-a" step="1" min="0" max="100"></div>
+        <div class="field"><div class="field-lbl">R — Real Estate (%)</div><input type="number" id="ef-arca-r" step="1" min="0" max="100"></div>
+        <div class="field"><div class="field-lbl">C — Caixa (%)</div><input type="number" id="ef-arca-c" step="1" min="0" max="100"></div>
+        <div class="field"><div class="field-lbl">A — Ativos Internacionais (%)</div><input type="number" id="ef-arca-a2" step="1" min="0" max="100"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>CDI vs IPCA — comparativo</h3>
+      <div style="position:relative;height:200px"><canvas id="cIndComp"></canvas></div>
+    </div>
+  </div>
+</div>
 
-  const mc=document.getElementById('arca-meta-config');
-  if(mc) mc.innerHTML=buckets.map(b=>{
-    const meta=bloqueado?(b==='C'?100:0):(D.arcaMeta[b==='A2'?'a2':b.toLowerCase()]||0);
-    const valB=D.ativos.filter(a=>a.bucket===b).reduce((s,a)=>s+(a.valor||0),0);
-    const pct=totAtivos>0?Math.round((valB/totAtivos)*100):0;
-    const barC=ARCA_COLORS[b];
-    return `<div class="prog-item"><div class="prog-header"><span class="prog-name" style="color:${barC}">${ARCA_NAMES[b]}</span><span class="prog-vals">Atual: ${pct}% · Meta: ${meta}%</span></div><div class="prog-bar-bg"><div class="prog-bar-fg" style="width:${pct}%;background:${barC}"></div></div></div>`;
-  }).join('');
+<div class="toast" id="toast">Dados salvos! ✓</div>
 
-  dc('arcaBar');
-  const cAB2=document.getElementById('cArcaBar');
-  if(cAB2){
-    const byBucketVal=buckets.map(b=>D.ativos.filter(a=>a.bucket===b).reduce((s,a)=>s+(a.valor||0),0));
-    const metasVal=buckets.map(b=>{const m=bloqueado?(b==='C'?100:0):(D.arcaMeta[b==='A2'?'a2':b.toLowerCase()]||0);return totAtivos*(m/100);});
-    CH['arcaBar']=new Chart(cAB2,{type:'bar',data:{labels:buckets.map(b=>ARCA_NAMES[b]),datasets:[{label:'Atual (R$)',data:byBucketVal,backgroundColor:buckets.map(b=>ARCA_COLORS[b]+'cc'),borderRadius:4},{label:'Meta (R$)',data:metasVal,backgroundColor:'rgba(255,255,255,.08)',borderColor:'rgba(255,255,255,.25)',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}}},scales:{x:{grid:{color:gc()},ticks:{color:tc()}},y:{grid:{color:gc()},ticks:{color:tc(),callback:v=>fmtK(v)}}}}});
-  }
-}
-
-/* ═══════════════════════════════
-   HELPERS DE PROJEÇÃO
-═══════════════════════════════ */
-function taxaAnual(a){
-  const base = a.indice==='CDI'   ? (D.cdi12||14.80) :
-               a.indice==='SELIC' ? (D.cdi12||14.80) :
-               (D.ipca12||4.14);
-  return (base * (a.pct||100) / 100) / 100;
-}
-function projetar(valor, taxa, anos){ return valor * Math.pow(1+taxa, anos); }
-
-// Calcula o disponível para investir em um mês i conforme as regras de negócio
-function calcSaldoInvestir(mi){
-  const entrada = totalE();
-  const contas  = D.dividas.reduce((s,d)=>s+(d.vals[mi]||0), 0);
-  const metaCC  = D.metaCC||2000;
-  const sobra   = entrada - contas;
-  if(sobra <= 0) return {entrada,contas,metaCC,saldo:0,sobra,regra:'negativo'};
-  if(sobra <= metaCC){
-    // sobra cobre menos que a meta CC → investir o que sobra além da meta
-    const saldo = Math.max(0, sobra - metaCC);
-    return {entrada,contas,metaCC,saldo,sobra,regra:'menor_meta'};
-  } else {
-    // sobra > metaCC → investe 50% da sobra (a outra metade fica em CC)
-    const saldo = sobra * 0.50;
-    return {entrada,contas,metaCC,saldo,sobra,regra:'maior_meta'};
-  }
-}
-
-// Regra ARCA: só distribui após 6 meses de custo fixo em Caixa
-function custoFixoMensal(){
-  return D.dividas.filter(d=>d.tipo==='Fixo').reduce((s,d)=>s+(d.vals[0]||0),0);
-}
-function caixaAtual(){
-  return D.ativos.filter(a=>a.bucket==='C').reduce((s,a)=>s+(a.valor||0),0);
-}
-function metaEmergencia(){
-  return custoFixoMensal() * 6;
-}
-function arcaBloqueado(){
-  return caixaAtual() < metaEmergencia();
-}
-
-/* ═══════════════════════════════
-   ATIVOS
-═══════════════════════════════ */
-function renderAtivos(){
-  // ── SALDO MÊS A MÊS ──
-  const sc = document.getElementById('inv-saldo-cards');
-  if(sc){
-    const ref = calcSaldoInvestir(0); // mês 1 para os cards principais
-    const regraDesc = ref.regra==='negativo'   ? 'contas > entradas — sem saldo para investir'
-                    : ref.regra==='menor_meta' ? `sobra (${fmt(ref.sobra)}) ≤ meta CC — sobra investida: sobra − meta CC`
-                    : `sobra (${fmt(ref.sobra)}) > meta CC — regra: 50% da sobra vai para investimentos`;
-    sc.innerHTML=`
-      <div class="card"><div class="card-lbl">Entradas mensais</div><div class="card-val g">${fmt(ref.entrada)}</div></div>
-      <div class="card"><div class="card-lbl">Total contas (mês 1)</div><div class="card-val r">${fmt(ref.contas)}</div></div>
-      <div class="card"><div class="card-lbl">Meta conta corrente</div><div class="card-val a">${fmt(ref.metaCC)}</div><div class="card-sub">sempre manter em CC</div></div>
-      <div class="card" style="background:var(--green-bg);border-color:rgba(34,199,122,.3)"><div class="card-lbl" style="color:var(--green)">💰 Disponível para investir</div><div class="card-val g">${fmt(ref.saldo)}</div><div class="card-sub">${regraDesc}</div></div>
-      <div class="card"><div class="card-lbl">Total carteira atual</div><div class="card-val t">${fmt(D.ativos.reduce((s,a)=>s+(a.valor||0),0))}</div></div>
-    `;
-  }
-
-  // ── TABELA MÊS A MÊS ──
-  const mesEl = document.getElementById('inv-mes-table');
-  if(mesEl){
-    const rows = D.meses.map((m,i)=>{
-      const r = calcSaldoInvestir(i);
-      const cor = r.saldo>0?'pos':'neg';
-      const regraIcon = r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
-      return `<tr>
-        <td>${m}</td>
-        <td class="tr pos">${fmt(r.entrada)}</td>
-        <td class="tr neg">${fmt(r.contas)}</td>
-        <td class="tr">${fmt(r.sobra)}</td>
-        <td class="tr"><span title="${
-          r.regra==='negativo'   ?'Contas maiores que entradas':
-          r.regra==='menor_meta' ?'Sobra ≤ meta CC: sobra − meta CC':
-          'Sobra > meta CC: 50% da sobra'}">${regraIcon}</span></td>
-        <td class="tr ${cor}" style="font-weight:600">${fmt(r.saldo)}</td>
-      </tr>`;
-    }).join('');
-    const totSaldo = D.meses.reduce((s,_,i)=>s+calcSaldoInvestir(i).saldo,0);
-    mesEl.innerHTML=`<thead><tr>
-      <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas</th><th class="tr">Sobra</th><th class="tr">Regra</th><th class="tr" style="color:var(--green)">💰 Para investir</th>
-    </tr></thead><tbody>${rows}<tr><td class="bold">Total</td><td></td><td></td><td></td><td></td><td class="tr bold pos">${fmt(totSaldo)}</td></tr></tbody>`;
-  }
-
-  // ── TABELA DE ATIVOS ──
-  const el=document.getElementById('ativos-table');
-  if(el){
-    const classes=['Renda Fixa','Renda Variável','FII','Ações','ETF','Cripto','Previdência','Outro'];
-    const buckets=['A','R','C','A2'];
-    const arcaLabel={'A':'A — Ações Bras.','R':'R — Real Estate','C':'C — Caixa','A2':'A — Ativos Inter.'};
-    const indices=['CDI','SELIC','IPCA'];
-    const rows=D.ativos.map((a,ai)=>`<tr>
-      <td><input type="text" class="inv-edit" value="${a.nome}" onchange="D.ativos[${ai}].nome=this.value" placeholder="Nome do ativo"></td>
-      <td><select class="inv-edit" onchange="D.ativos[${ai}].classe=this.value">${classes.map(c=>`<option${a.classe===c?' selected':''}>${c}</option>`).join('')}</select></td>
-      <td><select class="inv-edit" onchange="D.ativos[${ai}].bucket=this.value">${buckets.map(b=>`<option value="${b}"${a.bucket===b?' selected':''}>${arcaLabel[b]}</option>`).join('')}</select></td>
-      <td><input type="number" class="inv-edit" step="0.01" value="${a.valor||0}" onchange="D.ativos[${ai}].valor=parseFloat(this.value)||0;renderAtivos()" style="width:100px" placeholder="Valor atual"></td>
-      <td><select class="inv-edit" style="width:80px" onchange="D.ativos[${ai}].indice=this.value;renderAtivos()">${indices.map(ind=>`<option${a.indice===ind?' selected':''}>${ind}</option>`).join('')}</select></td>
-      <td><input type="number" class="inv-edit" step="0.1" value="${a.pct||100}" onchange="D.ativos[${ai}].pct=parseFloat(this.value)||100;renderAtivos()" style="width:70px" placeholder="%"></td>
-      <td style="font-size:11px;color:var(--text2);white-space:nowrap">${fmtP(taxaAnual(a)*100)}/ano</td>
-      <td><input type="text" class="inv-edit" value="${a.obs||''}" onchange="D.ativos[${ai}].obs=this.value" placeholder="Obs."></td>
-      <td><button class="btn-rm" onclick="removeAtivo(${ai})">✕</button></td>
-    </tr>`).join('');
-    el.innerHTML=`<thead><tr><th>Ativo</th><th>Classe</th><th>Bucket ARCA</th><th>Valor atual (R$)</th><th>Índice</th><th>% do índice</th><th>Taxa efetiva</th><th>Obs.</th><th></th></tr></thead><tbody>${rows}</tbody>`;
-  }
-
-  // ── RESUMO POR CLASSE ──
-  const res=document.getElementById('ativos-resumo');
-  if(res){
-    const total=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-    const byClasse={};
-    D.ativos.forEach(a=>{if(!byClasse[a.classe])byClasse[a.classe]=0;byClasse[a.classe]+=(a.valor||0);});
-    // ARCA breakdown
-    const arcaLabel={'A':'A — Ações','R':'R — Real Estate','C':'C — Caixa','A2':'A — Internacionais'};
-    const byBucket={};
-    D.ativos.forEach(a=>{if(!byBucket[a.bucket])byBucket[a.bucket]=0;byBucket[a.bucket]+=(a.valor||0);});
-    res.innerHTML=`
-      <div class="card"><div class="card-lbl">Total carteira</div><div class="card-val t">${fmt(total)}</div></div>
-      ${['A','R','C','A2'].map(b=>{const v=byBucket[b]||0;return v>0?`<div class="card"><div class="card-lbl">${arcaLabel[b]}</div><div class="card-val" style="font-size:16px">${fmt(v)}</div><div class="card-sub">${total>0?Math.round((v/total)*100):0}% da carteira</div></div>`:''}).join('')}
-      ${Object.entries(byClasse).filter(([,v])=>v>0).map(([k,v])=>`<div class="card"><div class="card-lbl">${k}</div><div class="card-val" style="font-size:16px;color:var(--text2)">${fmt(v)}</div><div class="card-sub">${total>0?Math.round((v/total)*100):0}%</div></div>`).join('')}
-    `;
-  }
-
-  // ── TABELA DE PROJEÇÕES ──
-  const proj=document.getElementById('proj-table');
-  if(proj){
-    const ANOS=[1,2,3,5,10,20,30];
-    const atTotal=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-    const taxaMedia=atTotal>0?D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/atTotal:0;
-    const headerCols=ANOS.map(a=>`<th class="tr">${a} ano${a>1?'s':''}</th>`).join('');
-    const rows2=[...D.ativos.filter(a=>(a.valor||0)>0),
-      {nome:'<strong>Total carteira</strong>',valor:atTotal,_taxa:taxaMedia,_isTotal:true}
-    ].map(a=>{
-      const taxa=a._taxa!==undefined?a._taxa:taxaAnual(a);
-      const cols=ANOS.map(anos=>{
-        const v=projetar(a.valor||0,taxa,anos);
-        const ganho=v-(a.valor||0);
-        return `<td class="tr"><div class="proj-highlight">${fmtK(v)}</div><div style="font-size:10px;color:var(--green)">+${fmtK(ganho)}</div></td>`;
-      }).join('');
-      const tag=a._isTotal?'<strong>':'';const endTag=a._isTotal?'</strong>':'';
-      const indStr=a._isTotal?`taxa média ponderada: ${fmtP(taxa*100)}`:`${a.indice||'CDI'} ${a.pct||100}% = ${fmtP(taxa*100)}/ano`;
-      return `<tr><td>${tag}${a.nome}${endTag}<div style="font-size:10px;color:var(--text3)">${indStr}</div></td><td class="tr">${fmtK(a.valor||0)}</td>${cols}</tr>`;
-    }).join('');
-    proj.innerHTML=`<thead><tr><th>Ativo</th><th class="tr">Valor atual</th>${headerCols}</tr></thead><tbody>${rows2}</tbody>`;
-  }
-
-  // ── GRÁFICO DE PROJEÇÃO ──
-  dc('projLine');
-  const cPL=document.getElementById('cProjLine');
-  if(cPL){
-    const ANOS_CHART=[0,1,2,3,5,10,20,30];
-    const datasets=D.ativos.filter(a=>(a.valor||0)>0).map((a,idx)=>({
-      label:a.nome,
-      data:ANOS_CHART.map(anos=>Math.round(projetar(a.valor||0,taxaAnual(a),anos))),
-      borderColor:COLORS[idx%COLORS.length],backgroundColor:'transparent',tension:.4,pointRadius:3,borderWidth:2
-    }));
-    const atTotal2=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-    const taxaMedia2=atTotal2>0?D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/atTotal2:0;
-    datasets.push({label:'Total',data:ANOS_CHART.map(anos=>Math.round(projetar(atTotal2,taxaMedia2,anos))),borderColor:'#22c77a',backgroundColor:'rgba(34,199,122,.08)',tension:.4,pointRadius:4,borderWidth:3,fill:true});
-    CH['projLine']=new Chart(cPL,{type:'line',data:{labels:ANOS_CHART.map(a=>a===0?'Hoje':`${a}a`),datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{color:tc(),font:{size:10},boxWidth:10,padding:8}}},scales:{x:{grid:{color:gc()},ticks:{color:tc()}},y:{grid:{color:gc()},ticks:{color:tc(),callback:v=>fmtK(v)}}}}});
-  }
-}
-function addAtivo(){D.ativos.push({nome:'Novo ativo',classe:'Renda Fixa',bucket:'C',valor:0,indice:'CDI',pct:100,obs:''});renderAtivos();}
-function removeAtivo(i){if(!confirm(`Remover "${D.ativos[i].nome}"?`))return;D.ativos.splice(i,1);renderAtivos();}
-
-/* ═══════════════════════════════
-   CARTÕES (render)
-═══════════════════════════════ */
-function renderCartoesTo(el,i){
-  if(!el)return;
-  const cartoes=D.dividas.filter(d=>d.cat==='cartao'||d.cat==='limite');
-  if(!cartoes.length){el.innerHTML='<p style="font-size:12px;color:var(--text3);padding:4px 0">Nenhum cartão cadastrado. Cadastre na aba <strong>Carteira</strong>.</p>';return;}
-  el.innerHTML=cartoes.map(d=>{
-    const lim=getLimite(d);
-    const totalAberto=d.vals.reduce((s,v)=>s+(v||0),0);
-    const faturaAtual=d.vals[i]||0;
-    const livre=lim>0?Math.max(0,lim-totalAberto):null;
-    const pct=lim>0?Math.min(100,Math.round((totalAberto/lim)*100)):null;
-    const barC=pct===null?'var(--text3)':pct>=80?'var(--red)':pct>=50?'var(--amber)':'var(--green)';
-    const cls=pct!==null&&pct>=80?' alerta':pct!==null&&pct>=50?' aviso':'';
-    const parcelas=D.meses.map((m,mi)=>({m,v:d.vals[mi]||0})).filter(x=>x.v>0);
-    const catB=d.cat==='cartao'?'<span class="badge bc">Cartão</span>':'<span class="badge bl">Consome Limite</span>';
-    const limRow=lim>0
-      ?`<div class="cartao-vals"><span class="usado">Aberto: ${fmt(totalAberto)}</span><span class="livre">Livre: ${fmt(livre)}</span></div>
-         <div class="limit-bar-bg"><div class="limit-bar-fg" style="width:${pct}%;background:${barC}"></div></div>
-         <div class="limit-label">Limite: ${fmt(lim)} — ${pct}% comprometido · Fatura ${D.meses[i]||''}: ${faturaAtual>0?fmt(faturaAtual):'—'}</div>`
-      :`<div class="cartao-vals"><span class="usado">Aberto: ${fmt(totalAberto)}</span><span style="color:var(--text3)">Sem limite</span></div>`;
-    return `<div class="cartao-card${cls}"><div class="cartao-nome">${catB} ${d.nome}</div>${limRow}<div class="parcelas-wrap">${parcelas.map(x=>`<span class="parcela-chip">${x.m}: ${fmtK(x.v)}</span>`).join('')}</div></div>`;
-  }).join('');
-}
-
-/* ═══════════════════════════════
-   SAVE / RESET
-═══════════════════════════════ */
-function saveData(){
-  // collect all form fields
-  const fmap={salario:'ef-salario',outras:'ef-outras',saldo:'ef-saldo',cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
-  Object.entries(fmap).forEach(([k,id])=>{const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0;});
-  const mcEl=document.getElementById('ef-metaCC');if(mcEl)D.metaCC=parseFloat(mcEl.value)||2000;
-  const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
-  Object.entries(arcaF).forEach(([id,k])=>{const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0;});
-  saveUserData(_session, D);
-  const t=document.getElementById('toast');
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
-  renderAll();
-}
-function resetData(){
-  if(!confirm('Apagar todos os dados e voltar ao padrão?'))return;
-  saveUserData(_session, null);
-  localStorage.removeItem(_session.dataKey);
-  D=JSON.parse(JSON.stringify(DEFAULT));
-  selDash=0;yrCollapsed={};
-  renderAll();
-}
-
-renderAll();
-</script>
+<script src="app.js"></script>
 
 <!-- FIREBASE SDK -->
 <script type="module">
