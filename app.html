@@ -7,7 +7,6 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-<style>
 :root{
   --green:#22c77a;--green-bg:rgba(34,199,122,.10);
   --red:#e05555;--red-bg:rgba(224,85,85,.10);
@@ -292,7 +291,7 @@ input:focus,select:focus{border-color:var(--green);background:var(--s1);}
   </div>
   <div class="nav-right">
     <span id="nav-user" style="font-size:12px;color:var(--text2)"></span><button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Alternar tema">🌙</button>
-    <button class="btn-ghost" onclick="resetData()">Resetar</button><button class="btn-ghost" onclick="logout()" style="color:var(--red)">Sair</button>
+    <button class="btn-ghost" onclick="resetData()">Resetar</button><button class="btn-ghost" id="btn-sair" style="color:var(--red)">Sair</button>
     <button class="btn" onclick="saveData()">Salvar</button>
   </div>
 </nav>
@@ -327,12 +326,6 @@ input:focus,select:focus{border-color:var(--green);background:var(--s1);}
       </div>
     </div>
     <div class="panel mb">
-      <h3>Evolução de cada dívida ao longo do período</h3>
-
-</style>
-</head>
-<body>
-
       <h3>Evolução de cada dívida ao longo do período</h3>
       <div style="position:relative;height:260px"><canvas id="cEvol"></canvas></div>
     </div>
@@ -644,10 +637,6 @@ const DEFAULT = {
     {nome:'SICREDI',      tipo:'Variável', cat:'limite', limCartao:'SICREDI',     vals:[1370.44,355.26,229.26,74.9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
     {nome:'Mercado Pago', tipo:'Variável', cat:'cartao', limCartao:'Mercado Pago',vals:[527.45,527.45,527.45,527.45,527.45,527.45,527.45,527.45,527.45,485.38,485.38,122.63,115.55,0,0,0,0,0,0,0]},
     {nome:'Renner',       tipo:'Variável', cat:'cartao', limCartao:'Renner',       vals:[467.86,362.27,314.31,314.31,200.35,200.35,200.35,200.35,0,0,0,0,0,0,0,0,0,0,0,0]},
-
-
-<script>
-    {nome:'Renner',       tipo:'Variável', cat:'cartao', limCartao:'Renner',       vals:[467.86,362.27,314.31,314.31,200.35,200.35,200.35,200.35,0,0,0,0,0,0,0,0,0,0,0,0]},
     {nome:'Amazon',       tipo:'Variável', cat:'limite', limCartao:'Amazon',       vals:[105.7,105.7,105.7,105.7,105.7,105.7,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
   ],
   guardado:[
@@ -664,9 +653,7 @@ const DEFAULT = {
 /* ═══════════════════════════════
    STATE
 ═══════════════════════════════ */
-// AUTH: require login
-// D will be set after Firebase auth check
-let D = JSON.parse(JSON.stringify(DEFAULT));
+let D = JSON.parse(JSON.stringify(DEFAULT)); // Will be overwritten by Firebase
 // migrate
 if(!D.guardado){D.guardado=[{nome:'Reserva de Emergência',arcaBucket:'R',vals:Array(D.meses.length).fill(0)},{nome:'Investimento',arcaBucket:'A',vals:Array(D.meses.length).fill(0)}];D.dividas=D.dividas.filter(d=>!d.nome.toLowerCase().includes('reserv')&&!d.nome.toLowerCase().includes('invest'));}
 if(!D.cartoes) D.cartoes=JSON.parse(JSON.stringify(DEFAULT.cartoes));
@@ -724,6 +711,7 @@ function applyTheme(){
   const btn=document.getElementById('theme-btn');
   if(btn) btn.textContent=isDark?'☀️':'🌙';
 }
+function logout(){ if(window._fbSignOut) window._fbSignOut(); else window.location.href="index.html"; }
 function toggleTheme(){
   isDark=!isDark;
   localStorage.setItem('cf_theme',isDark?'dark':'light');
@@ -1435,44 +1423,37 @@ function renderCartoesTo(el,i){
 /* ═══════════════════════════════
    SAVE / RESET
 ═══════════════════════════════ */
-function collectFormFields(){
+function saveData(){
+  // collect all form fields
   const fmap={salario:'ef-salario',outras:'ef-outras',saldo:'ef-saldo',cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
   Object.entries(fmap).forEach(([k,id])=>{const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0;});
   const mcEl=document.getElementById('ef-metaCC');if(mcEl)D.metaCC=parseFloat(mcEl.value)||2000;
   const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
   Object.entries(arcaF).forEach(([id,k])=>{const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0;});
-}
-function saveData(){
-  collectFormFields();
-  if(window.saveToFirebase) window.saveToFirebase();
-  else {
-    const t=document.getElementById('toast');
-    t.textContent='Dados salvos! ✓';t.className='toast show';
-    setTimeout(()=>t.className='toast',2500);
-  }
+  saveUserData(_session, D);
+  const t=document.getElementById('toast');
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
   renderAll();
 }
 function resetData(){
   if(!confirm('Apagar todos os dados e voltar ao padrão?'))return;
-  if(window.clearFirebaseData) window.clearFirebaseData();
+  saveUserData(_session, null);
+  localStorage.removeItem(_session.dataKey);
   D=JSON.parse(JSON.stringify(DEFAULT));
   selDash=0;yrCollapsed={};
   renderAll();
 }
-// renderAll() will be called by Firebase onAuthStateChanged after data loads
 
-</script>
-</body>
-</html>
+renderAll();
 </script>
 
-<!-- FIREBASE -->
+<!-- FIREBASE SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-const firebaseConfig2 = {
+const firebaseConfig = {
   apiKey: "AIzaSyBG_wVVcAdqbLTetgYllAmbiJ8rQ6lLRsE",
   authDomain: "controle-financeiro-900a7.firebaseapp.com",
   projectId: "controle-financeiro-900a7",
@@ -1481,82 +1462,79 @@ const firebaseConfig2 = {
   appId: "1:361900607129:web:901ff0ee9e3053a144da08"
 };
 
-const fbApp = initializeApp(firebaseConfig2);
+const fbApp = initializeApp(firebaseConfig);
 const auth  = getAuth(fbApp);
 const db    = getFirestore(fbApp);
+let _fbUser = null;
 
-let currentUser = null;
+function migrateD(d) {
+  if(!d.guardado){d.guardado=[{nome:'Reserva de Emergência',arcaBucket:'C',vals:Array(d.meses.length).fill(0)},{nome:'Investimento',arcaBucket:'A',vals:Array(d.meses.length).fill(0)}];d.dividas=d.dividas.filter(x=>!x.nome.toLowerCase().includes('reserv')&&!x.nome.toLowerCase().includes('invest'));}
+  if(!d.cartoes) d.cartoes=JSON.parse(JSON.stringify(DEFAULT.cartoes));
+  if(!d.ativos)  d.ativos=JSON.parse(JSON.stringify(DEFAULT.ativos));
+  if(!d.arcaMeta)d.arcaMeta={a:25,r:25,c:25,a2:25};
+  if(!d.metaCC)  d.metaCC=2000;
+  d.dividas.forEach(x=>{if(!x.cat)x.cat='sem';if(!x.limCartao)x.limCartao='';});
+  d.guardado.forEach(x=>{if(!x.arcaBucket)x.arcaBucket='R';});
+  d.ativos.forEach(x=>{if(!x.indice)x.indice='CDI';if(x.pct===undefined)x.pct=100;});
+  return d;
+}
 
-
-// ── Save to Firestore ──
 window.saveToFirebase = async function() {
-  if(!currentUser) return;
+  if(!_fbUser) return;
   try {
-    await setDoc(doc(db,'userData',currentUser.uid), { data: JSON.stringify(D), updatedAt: new Date().toISOString() });
+    await setDoc(doc(db,'userData',_fbUser.uid),{data:JSON.stringify(D),updatedAt:new Date().toISOString()});
     const t=document.getElementById('toast');
     t.textContent='Dados salvos! ✓';t.className='toast show';
     setTimeout(()=>t.className='toast',2500);
   } catch(e) {
     const t=document.getElementById('toast');
     t.textContent='Erro ao salvar: '+e.message;t.className='toast show';
-    setTimeout(()=>t.className='toast',3000);
+    setTimeout(()=>t.className='toast',3500);
   }
 };
 
 window.clearFirebaseData = async function() {
-  if(!currentUser) return;
-  await deleteDoc(doc(db,'userData',currentUser.uid));
+  if(!_fbUser) return;
+  try { await deleteDoc(doc(db,'userData',_fbUser.uid)); } catch(e){}
 };
 
-// ── Auth guard ──
 onAuthStateChanged(auth, async user => {
   if(!user) { window.location.href='index.html'; return; }
-  currentUser = user;
-  
-  // Load user profile
-  const userSnap = await getDoc(doc(db,'users',user.uid));
-  if(userSnap.exists()) {
-    currentUserDoc = userSnap.data();
-    const navUser = document.getElementById('nav-user');
-    if(navUser) navUser.textContent = '👤 ' + (currentUserDoc.displayName||user.email);
-  }
-  
-  // Check for pending password reset
-  const resetSnap = await getDoc(doc(db,'pendingReset',user.uid));
-  if(resetSnap.exists()) {
-    // Apply reset - user needs to update their password
-    window.location.href='index.html';
-    return;
-  }
+  _fbUser = user;
+  window._fbSignOut = async ()=>{ await signOut(auth); window.location.href='index.html'; };
+  const _sb=document.getElementById('btn-sair');if(_sb)_sb.onclick=window._fbSignOut;
 
-  // Load financial data from Firestore
+  // Show user info
   try {
-    const dataSnap = await getDoc(doc(db,'userData',user.uid));
-    if(dataSnap.exists()) {
-      const parsed = JSON.parse(dataSnap.data().data);
-      // Migrate and apply
-      D = parsed;
-      if(!D.guardado){D.guardado=[{nome:'Reserva de Emergência',arcaBucket:'C',vals:Array(D.meses.length).fill(0)},{nome:'Investimento',arcaBucket:'A',vals:Array(D.meses.length).fill(0)}];D.dividas=D.dividas.filter(d=>!d.nome.toLowerCase().includes('reserv')&&!d.nome.toLowerCase().includes('invest'));}
-      if(!D.cartoes) D.cartoes=JSON.parse(JSON.stringify(DEFAULT.cartoes));
-      if(!D.ativos)  D.ativos=JSON.parse(JSON.stringify(DEFAULT.ativos));
-      if(!D.arcaMeta)D.arcaMeta={a:25,r:25,c:25,a2:25};
-      if(!D.metaCC) D.metaCC=2000;
-      D.dividas.forEach(d=>{if(!d.cat)d.cat='sem';if(!d.limCartao)d.limCartao='';});
-      D.guardado.forEach(g=>{if(!g.arcaBucket)g.arcaBucket='R';});
-      D.ativos.forEach(a=>{if(!a.indice)a.indice='CDI';if(a.pct===undefined)a.pct=100;});
-    }
-  } catch(e) { console.warn('Using default data:', e); }
+    const snap = await getDoc(doc(db,'users',user.uid));
+    const navEl = document.getElementById('nav-user');
+    if(snap.exists() && navEl) navEl.textContent = '👤 '+(snap.data().displayName||user.email);
+  } catch(e){}
 
-  // Wire up logout buttons
-  document.querySelectorAll('button').forEach(btn => {
-    if(btn.textContent.trim()==='Sair') {
-      btn.onclick = async () => { await signOut(auth); window.location.href='index.html'; };
+  // Load data
+  try {
+    const snap = await getDoc(doc(db,'userData',user.uid));
+    if(snap.exists() && snap.data().data) {
+      D = migrateD(JSON.parse(snap.data().data));
+    } else {
+      D = JSON.parse(JSON.stringify(DEFAULT));
     }
+  } catch(e) {
+    D = JSON.parse(JSON.stringify(DEFAULT));
+  }
+
+  // Wire logout
+  const logoutBtn = document.getElementById('logout-btn');
+  if(logoutBtn) logoutBtn.onclick = async ()=>{ await signOut(auth); window.location.href='index.html'; };
+  document.querySelectorAll('button').forEach(btn=>{
+    if(btn.textContent.trim()==='Sair' && btn.id!=='logout-btn')
+      btn.onclick = async ()=>{ await signOut(auth); window.location.href='index.html'; };
   });
 
-  // Render the app now that data is loaded
+  // Render now that data is ready
   renderAll();
 });
 </script>
+
 </body>
 </html>
