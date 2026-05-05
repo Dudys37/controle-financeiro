@@ -1435,27 +1435,32 @@ function renderCartoesTo(el,i){
 /* ═══════════════════════════════
    SAVE / RESET
 ═══════════════════════════════ */
-function saveData(){
-  // collect all form fields
+function collectFormFields(){
   const fmap={salario:'ef-salario',outras:'ef-outras',saldo:'ef-saldo',cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
   Object.entries(fmap).forEach(([k,id])=>{const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0;});
   const mcEl=document.getElementById('ef-metaCC');if(mcEl)D.metaCC=parseFloat(mcEl.value)||2000;
   const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
   Object.entries(arcaF).forEach(([id,k])=>{const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0;});
-  await saveToFirebase();
-  const t=document.getElementById('toast');
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
+}
+function saveData(){
+  collectFormFields();
+  if(window.saveToFirebase) window.saveToFirebase();
+  else {
+    const t=document.getElementById('toast');
+    t.textContent='Dados salvos! ✓';t.className='toast show';
+    setTimeout(()=>t.className='toast',2500);
+  }
   renderAll();
 }
 function resetData(){
   if(!confirm('Apagar todos os dados e voltar ao padrão?'))return;
-  await clearFirebaseData();
+  if(window.clearFirebaseData) window.clearFirebaseData();
   D=JSON.parse(JSON.stringify(DEFAULT));
   selDash=0;yrCollapsed={};
   renderAll();
 }
+// renderAll() will be called by Firebase onAuthStateChanged after data loads
 
-renderAll();
 </script>
 </body>
 </html>
@@ -1467,7 +1472,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-const firebaseConfig = {
+const firebaseConfig2 = {
   apiKey: "AIzaSyBG_wVVcAdqbLTetgYllAmbiJ8rQ6lLRsE",
   authDomain: "controle-financeiro-900a7.firebaseapp.com",
   projectId: "controle-financeiro-900a7",
@@ -1476,12 +1481,12 @@ const firebaseConfig = {
   appId: "1:361900607129:web:901ff0ee9e3053a144da08"
 };
 
-const fbApp = initializeApp(firebaseConfig);
+const fbApp = initializeApp(firebaseConfig2);
 const auth  = getAuth(fbApp);
 const db    = getFirestore(fbApp);
 
 let currentUser = null;
-let currentUserDoc = null;
+
 
 // ── Save to Firestore ──
 window.saveToFirebase = async function() {
@@ -1542,26 +1547,14 @@ onAuthStateChanged(auth, async user => {
     }
   } catch(e) { console.warn('Using default data:', e); }
 
-  // Override saveData to use Firebase
-  const origSaveData = window.saveData;
-  window.saveData = async function() {
-    const fmap={salario:'ef-salario',outras:'ef-outras',saldo:'ef-saldo',cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
-    Object.entries(fmap).forEach(([k,id])=>{const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0;});
-    const mcEl=document.getElementById('ef-metaCC');if(mcEl)D.metaCC=parseFloat(mcEl.value)||2000;
-    const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
-    Object.entries(arcaF).forEach(([id,k])=>{const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0;});
-    await saveToFirebase();
-    renderAll();
-  };
-
-  // Override logout button
-  const logoutBtns = document.querySelectorAll('[onclick="logout()"]');
-  logoutBtns.forEach(btn => {
-    btn.removeAttribute('onclick');
-    btn.addEventListener('click', async () => { await signOut(auth); window.location.href='index.html'; });
+  // Wire up logout buttons
+  document.querySelectorAll('button').forEach(btn => {
+    if(btn.textContent.trim()==='Sair') {
+      btn.onclick = async () => { await signOut(auth); window.location.href='index.html'; };
+    }
   });
 
-  // Render the app
+  // Render the app now that data is loaded
   renderAll();
 });
 </script>
