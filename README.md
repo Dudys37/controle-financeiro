@@ -1,62 +1,65 @@
-# 💰 Controle Financeiro
+# 💰 Controle Financeiro — Firebase
 
-Sistema pessoal de controle financeiro com autenticação multi-usuário, dashboard interativo, método ARCA de investimentos e projeções de patrimônio.
+Sistema de controle financeiro pessoal com autenticação Firebase, banco de dados Firestore e hospedagem no GitHub Pages.
 
-## ✨ Funcionalidades
+## 📁 Arquivos
 
-- **Multi-usuário** com roles (Super Admin / Usuário comum)
-- **Dashboard** com visão geral anual, blocos por ano colapsáveis e detalhamento mensal
-- **Fluxo de caixa** com cálculo automático do disponível para investir
-- **Controle de dívidas** separado entre contas fixas e variáveis
-- **Cartões de crédito** com controle de limite e saldo em aberto
-- **Método ARCA** (Ações Brasileiras, Real Estate, Caixa, Ativos Internacionais)
-- **Carteira de ativos** com projeções de 1 a 30 anos via juros compostos
-- **Indicadores** CDI e IPCA
-- **Tema claro/escuro**
-- **100% local** — sem servidor, tudo via `localStorage`
+```
+├── index.html         — Login + Painel de administração
+├── app.html           — Dashboard financeiro completo
+├── firestore.rules    — Regras de segurança do Firestore
+└── README.md
+```
 
-## 🚀 Como usar
+## 🚀 Setup completo (faça uma vez)
 
-### Hospedagem no GitHub Pages
+### 1. Configurar regras do Firestore
 
-1. Faça fork ou clone este repositório
-2. Vá em **Settings → Pages**
-3. Em *Source*, selecione **main** e pasta **/ (root)**
-4. Acesse: `https://seu-usuario.github.io/controle-financeiro`
+1. Acesse o [Firebase Console](https://console.firebase.google.com)
+2. Vá em **Firestore → Regras**
+3. Substitua todo o conteúdo pelo conteúdo do arquivo `firestore.rules`
+4. Clique em **Publicar**
 
-### Localmente
+### 2. Criar o usuário admin no Firestore
 
-Basta abrir o arquivo `index.html` no navegador. Não precisa de servidor.
+1. Vá em **Authentication → Usuários** no Firebase Console
+2. Clique em **Adicionar usuário**
+3. E-mail: `admin@controle.local` (ou o e-mail que preferir)
+4. Senha: `92466388Dudu@`
+5. Copie o **UID** gerado
 
-> **Atenção:** Para usar com `auth.js` carregando corretamente pelo protocolo `file://`, use o Live Server do VSCode ou qualquer servidor HTTP local simples (`python3 -m http.server 8080`).
+6. Vá em **Firestore → Dados**
+7. Clique em **Iniciar coleção** → nome: `users`
+8. ID do documento: cole o **UID** copiado
+9. Adicione os campos:
+   - `email` (string): `admin@controle.local`
+   - `displayName` (string): `Administrador`
+   - `role` (string): `superadmin`
+   - `createdAt` (string): data atual
+   - `uid` (string): o mesmo UID
+
+### 3. Fazer upload para o GitHub
+
+1. Acesse seu repositório: https://github.com/Dudys37/controle-financeiro
+2. Clique em **Add file → Upload files**
+3. Faça upload de `index.html` e `app.html`
+4. Clique em **Commit changes**
+
+### 4. Acessar o sistema
+
+URL: **https://dudys37.github.io/controle-financeiro**
+
+Login: e-mail e senha do admin criado no passo 2.
 
 ## 🔐 Credenciais padrão
 
-| Usuário | Senha | Perfil |
-|---------|-------|--------|
-| `admin` | `92466388Dudu@` | Super Admin |
+Configure você mesmo no Firebase Authentication (passo 2 acima).
 
-**Recomendado:** altere a senha do admin após o primeiro acesso.
+## ✨ Funcionalidades
 
-## 📁 Estrutura
-
-```
-├── index.html   — Tela de login e painel de administração
-├── app.html     — Dashboard principal (requer autenticação)
-├── auth.js      — Módulo de autenticação e gerenciamento de usuários
-└── README.md    — Este arquivo
-```
-
-## 🛡️ Segurança
-
-Os dados são armazenados no `localStorage` do navegador, particionados por usuário. Não há comunicação com servidores externos. Para ambientes de produção com dados sensíveis, considere uma solução com backend.
-
-## 📊 Método ARCA
-
-Baseado na metodologia do Primo Rico:
-- **A** — Ações Brasileiras
-- **R** — Real Estate (FIIs)
-- **C** — Caixa (Tesouro Selic, CDB, fundos DI)
-- **A** — Ativos Internacionais (ETFs globais, BDRs)
-
-O sistema recomenda **100% em Caixa** até atingir 6 meses de custo fixo como reserva de emergência.
+- Login seguro via Firebase Authentication
+- Dados salvos no Firestore (nuvem, tempo real)
+- Particionamento por usuário (cada um vê só seus dados)
+- Super Admin pode criar e gerenciar usuários
+- Dashboard com fluxo de caixa, ARCA, projeções
+- Tema claro/escuro
