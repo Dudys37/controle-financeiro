@@ -101,10 +101,7 @@ function applyTheme(){
   const btn=document.getElementById('theme-btn');
   if(btn) btn.textContent=isDark?'☀️':'🌙';
 }
-function logout(){
-  if(typeof window._fbSignOut === 'function') window._fbSignOut();
-  else window.location.href='index.html';
-}
+function logout(){ window.location.href='index.html'; } // Firebase module handles Sair button directly
 function toggleTheme(){
   isDark=!isDark;
   localStorage.setItem('cf_theme',isDark?'dark':'light');
@@ -826,13 +823,8 @@ function collectFormFields(){
   Object.entries(arcaF).forEach(([id,k])=>{const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0;});
 }
 function saveData(){
+  // Firebase module wires btn-salvar directly - this is a fallback
   collectFormFields();
-  if(typeof window.saveToFirebase === 'function'){
-    window.saveToFirebase();
-  } else {
-    const t=document.getElementById('toast');
-    if(t){t.textContent='✕ Firebase não conectado';t.className='toast show toast-err';setTimeout(()=>t.className='toast',2500);}
-  }
   renderAll();
 }
 function resetData(){
