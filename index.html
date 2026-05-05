@@ -222,18 +222,8 @@ let resetTargetUid = '';
 // ─── AUTH STATE ───
 onAuthStateChanged(auth, async user => {
   if(!user){ showMain('view-login'); return; }
-  currentUser = user;
-  const snap = await getDoc(doc(db,'users',user.uid));
-  if(!snap.exists()){ await doLogout(); return; }
-  currentUserDoc = snap.data();
-  if(currentUserDoc.role==='superadmin'){
-    document.getElementById('admin-welcome').textContent = `Super Admin · ${user.email}`;
-    await loadUsers();
-    showMain('view-admin');
-  } else {
-    document.getElementById('user-name').textContent = currentUserDoc.displayName||user.email;
-    showMain('view-user');
-  }
+  // Todos os usuários vão direto para o app após login
+  window.location.href = 'app.html';
 });
 
 // ─── LOGIN ───
