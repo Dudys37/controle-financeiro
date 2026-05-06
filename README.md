@@ -24,8 +24,6 @@ Sistema de controle financeiro pessoal com autenticação Firebase, banco de dad
 
 1. Vá em **Authentication → Usuários** no Firebase Console
 2. Clique em **Adicionar usuário**
-3. E-mail: `admin@controle.local` (ou o e-mail que preferir)
-4. Senha: `92466388Dudu@`
 5. Copie o **UID** gerado
 
 6. Vá em **Firestore → Dados**
