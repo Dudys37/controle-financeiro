@@ -6,6 +6,8 @@
 <title>FinançasPRO</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>₿</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet">
+<!-- Aplica tema ANTES do render para evitar flash branco/escuro -->
+<script>(function(){var t=localStorage.getItem('cf_theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 /* ══════════════════════════════════════════
@@ -1063,8 +1065,8 @@ function delUser(uid,name){
 /* ── Auth State ── */
 auth.onAuthStateChanged(function(user){
   if(!user){
-    // Pequeno delay para evitar loop com index.html
-    setTimeout(()=>window.location.href='index.html', 500);
+    // Usa replace para não criar histórico de navegação (evita loop com botão voltar)
+    window.location.replace('index.html');
     return;
   }
   _user=user;
