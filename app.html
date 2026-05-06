@@ -1169,6 +1169,8 @@ document.addEventListener('click',e=>{
     closeMobileMenu();
   }
 });
+
+function delUser(uid,name){
   if(!confirm(`Remover "${name}"?\n\nTodos os dados financeiros deste usuário serão apagados. Esta ação é irreversível.`))return;
   Promise.all([
     db.collection('users').doc(uid).delete(),
