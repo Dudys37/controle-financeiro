@@ -12,6 +12,7 @@ const DEFAULT = {
   meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
          'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
          'Set/27','Out/27','Nov/27','Dez/27'],
+  invManual: Array(20).fill(null), // null = usa cálculo automático
   cartoes:[
     {nome:'Nubank PF',    limite:3700,  bandeira:'Mastercard',cor:'#820ad1'},
     {nome:'Nubank PJ',    limite:9700,  bandeira:'Mastercard',cor:'#820ad1'},
@@ -92,6 +93,7 @@ const BLANK = {
   meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
          'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
          'Set/27','Out/27','Nov/27','Dez/27'],
+  invManual: Array(20).fill(null), // null = usa cálculo automático
   cartoes:[], dividas:[], ativos:[]
 };
 
@@ -105,6 +107,9 @@ function migrateData(d) {
   if(!d.metaCC)   d.metaCC   = 2000;
   if(!d.meses)    d.meses    = [...BLANK.meses];
   if(!d.dividas)  d.dividas  = [];
+  // Garante que invManual existe e tem o tamanho certo
+  if(!d.invManual) d.invManual = Array(d.meses.length).fill(null);
+  while(d.invManual.length < d.meses.length) d.invManual.push(null);
   d.dividas.forEach(x => {
     if(!x.cat)        x.cat = 'outros';
     if(!x.limCartao)  x.limCartao = '';
@@ -144,7 +149,32 @@ function calcInvest(i) {
   // 🟢 Sobra ≥ Meta CC → 50% da sobra
   return              {e,c,meta,saldo:sobra*0.5,sobra,regra:'maior_meta'};
 }
-const invDisp  = i => calcInvest(i).saldo;
+const invDispCalc = i => calcInvest(i).saldo;
+
+// Retorna valor manual se definido, senão usa o cálculo automático
+function invDisp(i) {
+  if (!D.invManual) D.invManual = Array(nm()).fill(null);
+  const manual = D.invManual[i];
+  return (manual !== null && manual !== undefined && !isNaN(manual)) ? manual : invDispCalc(i);
+}
+function isManual(i) {
+  if (!D.invManual) return false;
+  const v = D.invManual[i];
+  return v !== null && v !== undefined && !isNaN(v);
+}
+function resetManual(i) {
+  if (!D.invManual) D.invManual = Array(nm()).fill(null);
+  D.invManual[i] = null;
+  scheduleAutoSave();
+  renderInvestVisao();
+  renderAll();
+}
+function setManual(i, val) {
+  if (!D.invManual) D.invManual = Array(nm()).fill(null);
+  D.invManual[i] = (val === '' || val === null) ? null : (parseFloat(val) || 0);
+  scheduleAutoSave();
+  renderAll();
+}
 
 function patrimonioLiquido() {
   const ativos  = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
@@ -868,8 +898,14 @@ function renderPeriodos(){
   const el=document.getElementById('meses-list');if(!el)return;
   el.innerHTML=D.meses.map((m,i)=>`<span class="msb" style="cursor:default">${i+1}. ${m}</span>`).join('');
 }
-function addMes(){ const n=prompt('Mês (ex: Jan/28):');if(!n)return; D.meses.push(n.trim()); D.dividas.forEach(d=>d.vals.push(0)); renderAll(); scheduleAutoSave(); }
-function removeMes(){ if(nm()<=1)return; if(!confirm(`Remover "${D.meses[nm()-1]}"?`))return; D.meses.pop(); D.dividas.forEach(d=>d.vals.pop()); if(selDash>=nm())selDash=nm()-1; renderAll(); scheduleAutoSave(); }
+function resetTodosManual() {
+  D.invManual = Array(nm()).fill(null);
+  scheduleAutoSave();
+  renderInvestVisao();
+  renderAll();
+}
+function addMes(){ const n=prompt('Mês (ex: Jan/28):');if(!n)return; D.meses.push(n.trim()); D.dividas.forEach(d=>d.vals.push(0)); if(!D.invManual)D.invManual=[];D.invManual.push(null); renderAll(); scheduleAutoSave(); }
+function removeMes(){ if(nm()<=1)return; if(!confirm(`Remover "${D.meses[nm()-1]}"?`))return; D.meses.pop(); D.dividas.forEach(d=>d.vals.pop()); if(D.invManual)D.invManual.pop(); if(selDash>=nm())selDash=nm()-1; renderAll(); scheduleAutoSave(); }
 
 // ── INVESTIMENTOS ─────────────────────────────────
 function renderInvestVisao(){
@@ -911,25 +947,48 @@ function renderInvestVisao(){
   `;
 
   const mt=document.getElementById('inv-mes-tbl');if(!mt)return;
+  if(!D.invManual) D.invManual=Array(nm()).fill(null);
   const rows=D.meses.map((m,i)=>{
     const r=calcInvest(i);
+    const manual=isManual(i);
+    const valFinal=invDisp(i);
+    const valCalc=invDispCalc(i);
     const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
-    const tip=r.regra==='negativo'?'Contas>Entradas: R$ 0':r.regra==='menor_meta'?'Sobra<Meta: 50% da sobra':'Sobra≥Meta: 50% da sobra';
-    return `<tr>
+    return `<tr style="${manual?'background:rgba(245,158,11,.06)':''}">
       <td style="font-weight:600">${m}</td>
       <td class="tr tpos">${fmt(r.e)}</td>
       <td class="tr tneg">${fmt(r.c)}</td>
       <td class="tr" style="color:var(--text2)">${fmt(r.sobra)}</td>
-      <td class="tr"><span title="${tip}">${icon}</span> <small style="color:var(--text2);font-size:10px">${tip.split(':')[0]}</small></td>
-      <td class="tr tteal tbold">${fmt(r.saldo)}</td>
+      <td class="tr"><span>${icon}</span></td>
+      <td class="tr" style="min-width:180px">
+        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+          ${manual?`<span title="Recomendado: ${fmt(valCalc)}" style="font-size:10px;color:var(--warn);cursor:pointer;white-space:nowrap" onclick="resetManual(${i})">⚡${fmt(valCalc)} ↩</span>`:''}
+          <input type="number" min="0" step="0.01"
+            value="${valFinal||''}"
+            placeholder="${fmt(valCalc)}"
+            title="${manual?'Valor manual (clique em ↩ para restaurar o automático)':'Calculado automaticamente — edite para sobrescrever'}"
+            style="width:120px;text-align:right;font-weight:700;
+              border-color:${manual?'var(--warn)':'var(--border2)'};
+              color:${manual?'var(--warn)':'var(--teal)'};
+              background:${manual?'var(--warn-bg)':'var(--card2)'}"
+            onchange="setManual(${i},this.value);renderInvestVisao()">
+        </div>
+      </td>
     </tr>`;
   }).join('');
   const tot=D.meses.reduce((s,_,i)=>s+invDisp(i),0);
+  const temManual=D.meses.some((_,i)=>isManual(i));
   mt.innerHTML=`<thead class="thead-sticky"><tr>
-    <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas</th><th class="tr">Sobra bruta</th><th class="tr">Regra</th><th class="tr" style="color:var(--teal)">💰 Disponível</th>
+    <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas</th>
+    <th class="tr">Sobra bruta</th><th class="tr">Regra</th>
+    <th class="tr" style="color:var(--teal)">
+      💰 Disponível p/ investir
+      ${temManual?`<button onclick="resetTodosManual()" title="Restaurar todos os valores automáticos" style="margin-left:6px;background:var(--warn-bg);color:var(--warn);border:1px solid rgba(245,158,11,.3);border-radius:4px;font-size:10px;padding:1px 6px;cursor:pointer;font-family:inherit">↩ resetar tudo</button>`:''}
+    </th>
   </tr></thead><tbody>${rows}
   <tr style="background:var(--card2);font-weight:700">
-    <td>TOTAL</td><td></td><td></td><td></td><td></td><td class="tr tteal">${fmt(tot)}</td>
+    <td>TOTAL</td><td></td><td></td><td></td><td></td>
+    <td class="tr tteal">${fmt(tot)}</td>
   </tr></tbody>`;
 }
 
