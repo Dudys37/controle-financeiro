@@ -1174,34 +1174,43 @@ function addAtivo()    { D.ativos.push({nome:'Novo ativo',classe:'Renda Fixa',bu
 function removeAtivo(i){ if(!confirm(`Remover "${D.ativos[i].nome}"?`))return; D.ativos.splice(i,1); renderAtivos(); scheduleAutoSave(); }
 
 function renderIndicadores(){
-  const fields={cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
+  const fields={cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',
+    ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
   Object.entries(fields).forEach(([k,id])=>{ const el=document.getElementById(id);if(el)el.value=D[k]||0; });
+  const selicEl=document.getElementById('ef-selic');if(selicEl)selicEl.value=D.selic||14.75;
   const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
   Object.entries(arcaF).forEach(([id,k])=>{ const el=document.getElementById(id);if(el)el.value=D.arcaMeta[k]||0; });
 
+  const selic=D.selic||D.cdi12||14.75;
+  const juroReal=(D.cdi12||14.75)-(D.ipca12||4.14);
   const ic=document.getElementById('ind-cards');
   if(ic) ic.innerHTML=`
+    <div class="mcard mcard-neg" style="border-color:rgba(239,68,68,.2)">
+      <div class="mlabel">🏦 SELIC meta</div>
+      <div class="mval mval-neg">${P(selic)}</div>
+      <div class="msub">taxa básica de juros</div>
+    </div>
     <div class="mcard mcard-pos">
       <div class="mlabel">📊 CDI 12 meses</div>
       <div class="mval mval-pos">${P(D.cdi12)}</div>
-      <div class="msub">taxa de referência</div>
+      <div class="msub">referência para renda fixa</div>
     </div>
     <div class="mcard mcard-warn">
       <div class="mlabel">📋 IPCA 12 meses</div>
       <div class="mval mval-warn">${P(D.ipca12)}</div>
       <div class="msub">inflação oficial</div>
     </div>
-    <div class="mcard mcard-teal">
-      <div class="mlabel">📈 CDI − IPCA (real)</div>
-      <div class="mval ${D.cdi12>D.ipca12?'mval-pos':'mval-neg'}">${P(D.cdi12-D.ipca12)}</div>
-      <div class="msub">retorno real sobre inflação</div>
+    <div class="mcard ${juroReal>4?'mcard-pos':juroReal>2?'mcard-teal':'mcard-neg'}">
+      <div class="mlabel">📈 Juro real (CDI−IPCA)</div>
+      <div class="mval ${juroReal>4?'mval-pos':juroReal>2?'mval-teal':'mval-neg'}">${P(juroReal)}</div>
+      <div class="msub">${juroReal>4?'excelente retorno real':juroReal>2?'retorno real positivo':'atenção: retorno real baixo'}</div>
     </div>
     <div class="mcard mcard-info">
-      <div class="mlabel">💰 CDI mês referência</div>
+      <div class="mlabel">💰 CDI mês ref.</div>
       <div class="mval mval-info">${P(D.cdifev)}</div>
     </div>
-    <div class="mcard">
-      <div class="mlabel">📋 IPCA mês referência</div>
+    <div class="mcard mcard-warn">
+      <div class="mlabel">📋 IPCA mês ref.</div>
       <div class="mval">${P(D.ipcafev)}</div>
     </div>
     <div class="mcard">
@@ -1226,9 +1235,273 @@ function renderIndicadores(){
     x:{grid:{color:gc()},ticks:{color:tc()}},
     y:{grid:{color:gc()},ticks:{color:tc(),callback:v=>v+'%'}}
   }})});
+
+  // Renderiza inteligência ARCA
+  renderARCAIntelligence();
 }
 
-// ── FORM COLLECTION ───────────────────────────────
+// ── BCB API + ARCA INTELLIGENCE ───────────────────
+
+// Séries temporais do Banco Central (SGS/BCData)
+const BCB_SERIES = {
+  cdiMes:   4389,  // CDI acumulado no mês (% a.m.)
+  cdi12m:   4391,  // CDI % a.a. (últimos 12 meses)
+  selicMes: 4390,  // SELIC acumulada no mês
+  selicMeta:432,   // Meta SELIC % a.a.
+  ipcaMes:  433,   // IPCA mensal
+  ipca12m:  13522, // IPCA acumulado 12 meses
+};
+
+async function bcbFetch(serie, n=1) {
+  const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados/ultimos/${n}?formato=json`;
+  // Tenta direto; se falhar por CORS, usa proxy
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('status '+r.status);
+    const d = await r.json();
+    return d[d.length-1];
+  } catch(e) {
+    // Fallback: proxy CORS público
+    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const r2 = await fetch(proxy);
+    const d2 = await r2.json();
+    const parsed = JSON.parse(d2.contents);
+    return parsed[parsed.length-1];
+  }
+}
+
+async function fetchBCB() {
+  const btn  = document.getElementById('btn-bcb-fetch');
+  const stat = document.getElementById('bcb-status');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
+  if (stat) { stat.style.display = ''; stat.innerHTML = '⏳ Conectando ao Banco Central do Brasil...'; }
+
+  try {
+    // Busca todas as séries em paralelo
+    const [cdiMes, cdi12m, selicMeta, ipcaMes, ipca12m] = await Promise.all([
+      bcbFetch(BCB_SERIES.cdiMes,  1),
+      bcbFetch(BCB_SERIES.cdi12m,  1),
+      bcbFetch(BCB_SERIES.selicMeta,1),
+      bcbFetch(BCB_SERIES.ipcaMes, 1),
+      bcbFetch(BCB_SERIES.ipca12m, 1),
+    ]);
+
+    // Calcula acumulado 2026 (meses disponíveis)
+    const ano = new Date().getFullYear();
+    const mesesAno = await bcbFetch(BCB_SERIES.ipcaMes, 12);
+    // Acumulado anual = últimos meses do ano corrente
+    const ipcaAcumArr = await Promise.all(
+      Array.from({length: new Date().getMonth()+1}, (_,i) =>
+        bcbFetch(BCB_SERIES.ipcaMes, new Date().getMonth()+1 - i)
+      )
+    );
+
+    // Atualiza D
+    D.cdi12   = parseFloat(cdi12m.valor)  || D.cdi12;
+    D.cdifev  = parseFloat(cdiMes.valor)  || D.cdifev;
+    D.ipca12  = parseFloat(ipca12m.valor) || D.ipca12;
+    D.ipcafev = parseFloat(ipcaMes.valor) || D.ipcafev;
+    D.selic   = parseFloat(selicMeta.valor)|| D.selic||14.75;
+
+    // Acumulado no ano (CDI e IPCA)
+    const cdi12mArr = await Promise.all(
+      Array.from({length: new Date().getMonth()+1}, () =>
+        bcbFetch(BCB_SERIES.cdiMes, 1)
+      )
+    );
+    // Simplificado: usa 12m / 12 * meses_do_ano
+    const mesesDecorridos = new Date().getMonth() + 1;
+    D.cdi26  = parseFloat(((D.cdi12 / 12) * mesesDecorridos).toFixed(2));
+    D.ipca26 = parseFloat(((D.ipca12 / 12) * mesesDecorridos).toFixed(2));
+
+    if (!D.invManual) D.invManual = Array(nm()).fill(null);
+
+    const dataRef = cdi12m.data || ipcaMes.data || '—';
+    if (stat) stat.innerHTML = `✅ Dados atualizados com sucesso! Referência: <strong>${dataRef}</strong> · CDI 12m: <strong>${D.cdi12}%</strong> · IPCA 12m: <strong>${D.ipca12}%</strong> · SELIC meta: <strong>${D.selic}%</strong>`;
+
+    scheduleAutoSave();
+    renderIndicadores();
+    if (window._firestoreSave) window._firestoreSave(false);
+
+  } catch(e) {
+    console.error('BCB fetch error:', e);
+    if (stat) stat.innerHTML = `❌ Erro ao buscar dados: ${e.message}. Verifique sua conexão ou atualize manualmente.`;
+    if (stat) stat.style.color = 'var(--neg)';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar indicadores agora'; }
+  }
+}
+
+// ── MOTOR DE INTELIGÊNCIA ARCA ────────────────────
+function calcARCAIntelligence() {
+  const selic = D.selic || D.cdi12 || 14.75;
+  const cdi12 = D.cdi12 || 14.75;
+  const ipca12 = D.ipca12 || 4.14;
+  const juroReal = cdi12 - ipca12; // juro real
+
+  // Classifica o ciclo de juros
+  let ciclo, cicloDesc, cicloEmoji, cicloColor;
+  if (selic >= 13.5) {
+    ciclo = 'juros_altos';
+    cicloEmoji = '🔴';
+    cicloColor = 'var(--neg)';
+    cicloDesc = `SELIC em ${selic}% — ciclo de juros altos`;
+  } else if (selic >= 10) {
+    ciclo = 'juros_elevados';
+    cicloEmoji = '🟡';
+    cicloColor = 'var(--warn)';
+    cicloDesc = `SELIC em ${selic}% — juros ainda elevados`;
+  } else if (selic >= 7) {
+    ciclo = 'juros_moderados';
+    cicloEmoji = '🟠';
+    cicloColor = 'var(--orange)';
+    cicloDesc = `SELIC em ${selic}% — ciclo moderado`;
+  } else {
+    ciclo = 'juros_baixos';
+    cicloEmoji = '🟢';
+    cicloColor = 'var(--pos)';
+    cicloDesc = `SELIC em ${selic}% — juros baixos, renda variável favorecida`;
+  }
+
+  // Recomendações ARCA baseadas no ciclo
+  let rec, rationale, alertas = [];
+  if (ciclo === 'juros_altos') {
+    rec = { a: 10, r: 20, c: 50, a2: 20 };
+    rationale = [
+      { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — SELIC a ${selic}% remunera muito bem sem risco. Tesouro Selic e CDBs são excelentes.` },
+      { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs sofrem mais com juros altos, mas mantém diversificação e renda de dividendos.` },
+      { bucket:'A2',cor:'#F59E0B', txt:`Internacionais (${rec.a2}%) — dólar como proteção e diversificação em mercados menos correlacionados.` },
+      { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — bolsa pressionada por juros altos, posição mínima para não perder o movimento de queda de juros.` },
+    ];
+    alertas = [
+      { tipo:'warn', txt:`Juro real de ${juroReal.toFixed(2)}% a.a. — renda fixa gerando retorno real expressivo acima da inflação.` },
+      { tipo:'warn', txt:'Momento de acumular Caixa. Quando a SELIC começar a cair, migre gradualmente para A e R.' },
+    ];
+  } else if (ciclo === 'juros_elevados') {
+    rec = { a: 18, r: 25, c: 40, a2: 17 };
+    rationale = [
+      { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — juros ainda atrativos, manter parcela relevante em renda fixa de qualidade.` },
+      { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs de tijolo com desconto histórico. Bom momento de acumulação de cotas.` },
+      { bucket:'A2',cor:'#F59E0B', txt:`Internacionais (${rec.a2}%) — diversificação cambial e exposição a mercados desenvolvidos.` },
+      { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — início de posição para capturar ciclo de queda de juros que virá.` },
+    ];
+    alertas = [
+      { tipo:'info', txt:`Juro real de ${juroReal.toFixed(2)}% a.a. — momento de transição. Monitore as decisões do COPOM.` },
+      { tipo:'info', txt:'Gradualmente reduza Caixa a cada corte de 0,5pp na SELIC e reinvista em A e R.' },
+    ];
+  } else if (ciclo === 'juros_moderados') {
+    rec = { a: 28, r: 28, c: 25, a2: 19 };
+    rationale = [
+      { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — juros em queda favorecem bolsa. Hora de aumentar exposição a renda variável.` },
+      { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs se valorizam com queda de juros. Renda de aluguéis + ganho de capital.` },
+      { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — ainda relevante para liquidez e proteção, mas retorno real menor.` },
+      { bucket:'A2',cor:'#F59E0B', txt:`Internacionais (${rec.a2}%) — diversificação geográfica importante independente do ciclo local.` },
+    ];
+    alertas = [
+      { tipo:'pos', txt:'Ciclo favorável para renda variável. Priorize boas empresas com histórico de dividendos.' },
+      { tipo:'info', txt:`Juro real de ${juroReal.toFixed(2)}% a.a. — verifique se a renda fixa ainda supera a inflação nos seus ativos.` },
+    ];
+  } else {
+    rec = { a: 38, r: 32, c: 15, a2: 15 };
+    rationale = [
+      { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — ambiente de juros baixos é o melhor para a bolsa. Maximize exposição.` },
+      { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs com excelente custo de oportunidade vs. renda fixa.` },
+      { bucket:'A2',cor:'#F59E0B', txt:`Internacionais (${rec.a2}%) — manter diversificação global para proteção cambial.` },
+      { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — apenas para emergências e oportunidades. Renda fixa perde para inflação.` },
+    ];
+    alertas = [
+      { tipo:'pos', txt:'Ótimo momento para renda variável. Foque em empresas de crescimento e FIIs de papel.' },
+      { tipo:'warn', txt:`Juro real de ${juroReal.toFixed(2)}% a.a. — cuidado: renda fixa pode perder para inflação. Revise Caixa.` },
+    ];
+  }
+
+  return { ciclo, cicloDesc, cicloEmoji, cicloColor, rec, rationale, alertas, selic, cdi12, ipca12, juroReal };
+}
+
+function renderARCAIntelligence() {
+  const intel = calcARCAIntelligence();
+  const badge = document.getElementById('arca-intel-ciclo');
+  if (badge) {
+    badge.textContent = intel.cicloEmoji + ' ' + intel.cicloDesc;
+    badge.style.background = 'none';
+    badge.style.color = intel.cicloColor;
+    badge.style.fontWeight = '600';
+  }
+
+  const el = document.getElementById('arca-intel-content');
+  if (!el) return;
+
+  const alertasHTML = intel.alertas.map(a => `
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border-radius:8px;margin-bottom:8px;
+      background:${a.tipo==='warn'?'var(--warn-bg)':a.tipo==='pos'?'var(--pos-bg)':'var(--info-bg)'};
+      border:1px solid ${a.tipo==='warn'?'rgba(245,158,11,.25)':a.tipo==='pos'?'rgba(16,185,129,.25)':'rgba(59,130,246,.25)'}">
+      <span>${a.tipo==='warn'?'⚠️':a.tipo==='pos'?'✅':'💡'}</span>
+      <span style="font-size:12px;color:var(--text);line-height:1.6">${a.txt}</span>
+    </div>`).join('');
+
+  const recHTML = intel.rationale.map(r => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border);margin-bottom:6px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${r.cor};flex-shrink:0;margin-top:4px"></div>
+      <div style="font-size:12px;line-height:1.6;color:var(--text2)">${r.txt}</div>
+    </div>`).join('');
+
+  const bucketColors = {A:'#3B82F6',R:'#F97316',C:'#6B7280',A2:'#F59E0B'};
+  const recCards = [
+    {b:'A',  label:'Ações BR',      pct:intel.rec.a},
+    {b:'R',  label:'Real Estate',   pct:intel.rec.r},
+    {b:'C',  label:'Caixa',         pct:intel.rec.c},
+    {b:'A2', label:'Internacionais',pct:intel.rec.a2},
+  ].map(x=>`
+    <div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r12);padding:14px;text-align:center">
+      <div style="font-size:11px;font-weight:700;color:${bucketColors[x.b]};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${x.label}</div>
+      <div style="font-size:28px;font-weight:800;color:${bucketColors[x.b]}">${x.pct}%</div>
+      <div style="margin-top:8px;height:4px;background:var(--card3);border-radius:99px;overflow:hidden">
+        <div style="height:4px;width:${x.pct}%;background:${bucketColors[x.b]};border-radius:99px"></div>
+      </div>
+    </div>`).join('');
+
+  const totalRec = intel.rec.a + intel.rec.r + intel.rec.c + intel.rec.a2;
+  const currentA = D.arcaMeta.a, currentR = D.arcaMeta.r, currentC = D.arcaMeta.c, currentA2 = D.arcaMeta.a2;
+
+  el.innerHTML = `
+    <div style="margin-bottom:16px">
+      ${alertasHTML}
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">📊 Alocação recomendada para este cenário (soma = ${totalRec}%)</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      ${recCards}
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">📋 Racional da recomendação</div>
+    ${recHTML}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;gap:10px">
+      <div style="font-size:12px;color:var(--text2)">
+        Alocação atual: A ${currentA}% · R ${currentR}% · C ${currentC}% · A2 ${currentA2}%
+      </div>
+      <button class="btn btn-accent" onclick="applyARCARec(${intel.rec.a},${intel.rec.r},${intel.rec.c},${intel.rec.a2})"
+        style="height:36px;padding:0 18px">
+        🎯 Aplicar recomendação nas metas
+      </button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:10px;line-height:1.6">
+      ⚠️ Esta é uma recomendação baseada em regras do ciclo de juros brasileiro. Não constitui assessoria de investimentos. Consulte um profissional certificado antes de tomar decisões. Dados: BCB/SGS · SELIC meta ${intel.selic}% · CDI 12m ${intel.cdi12}% · IPCA 12m ${intel.ipca12}% · Juro real ${intel.juroReal.toFixed(2)}%
+    </div>`;
+}
+
+function applyARCARec(a, r, c, a2) {
+  if (!confirm(`Aplicar a alocação recomendada?\n\nA — Ações: ${a}%\nR — Real Estate: ${r}%\nC — Caixa: ${c}%\nA2 — Internacionais: ${a2}%\n\nIsso irá substituir suas metas atuais.`)) return;
+  D.arcaMeta = { a, r, c, a2 };
+  scheduleAutoSave();
+  renderIndicadores();
+  renderArca();
+  // Atualiza inputs
+  ['a','r','c','a2'].forEach(k => {
+    const el = document.getElementById('ef-arca-'+k);
+    if (el) el.value = D.arcaMeta[k];
+  });
+  if (window.toast) toast('✅ Metas ARCA atualizadas com a recomendação!');
+}
+
+
 function collectFormFields(){
   const fields={salario:'ef-salario',outras:'ef-outras',saldo:'ef-saldo',
     cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',

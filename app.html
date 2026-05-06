@@ -701,33 +701,62 @@ select{cursor:pointer;}
 
   <!-- INDICADORES -->
   <div class="sub" id="sub-inv-indicadores">
+
+    <!-- Auto-atualização BCB -->
+    <div class="ebox accent-border mb" style="border-color:rgba(16,185,129,.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h3 style="display:flex;align-items:center;gap:8px">🏦 Atualização automática — Banco Central</h3>
+          <p style="margin-bottom:0">Busca CDI, SELIC e IPCA em tempo real direto da API pública do Banco Central do Brasil (SGS/BCData). Sem chave de API, sem cadastro.</p>
+        </div>
+        <button class="btn btn-pos" id="btn-bcb-fetch" onclick="fetchBCB()" style="flex-shrink:0;height:42px;padding:0 22px;font-size:14px">
+          ⚡ Atualizar indicadores agora
+        </button>
+      </div>
+      <div id="bcb-status" style="margin-top:10px;font-size:12px;color:var(--text2);display:none"></div>
+    </div>
+
+    <!-- Cards indicadores -->
     <div class="gcards" id="ind-cards"></div>
+
+    <!-- Formulários manuais -->
     <div class="etop mb">
       <div class="ebox pos-border">
         <h3>📊 CDI / SELIC</h3>
-        <p>Taxa de referência para renda fixa. Atualize conforme divulgações do Banco Central.</p>
-        <div class="field"><label class="flabel">Acumulado 12m (%)</label><input type="number" id="ef-cdi12" step="0.01" onchange="D.cdi12=parseFloat(this.value)||0;scheduleAutoSave()"></div>
+        <p>Atualizado automaticamente via BCB. Você também pode editar manualmente.</p>
+        <div class="field"><label class="flabel">Acumulado 12m (%)</label><input type="number" id="ef-cdi12" step="0.01" onchange="D.cdi12=parseFloat(this.value)||0;scheduleAutoSave();renderIndicadores()"></div>
         <div class="field"><label class="flabel">Mês referência (%)</label><input type="number" id="ef-cdifev" step="0.01" onchange="D.cdifev=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">Acumulado 2026 (%)</label><input type="number" id="ef-cdi26" step="0.01" onchange="D.cdi26=parseFloat(this.value)||0;scheduleAutoSave()"></div>
+        <div class="field"><label class="flabel">SELIC meta (% a.a.)</label><input type="number" id="ef-selic" step="0.25" onchange="D.selic=parseFloat(this.value)||0;scheduleAutoSave()"></div>
       </div>
       <div class="ebox warn-border">
         <h3>📋 IPCA</h3>
         <p>Inflação oficial. Referência para proteger o poder de compra dos seus investimentos.</p>
-        <div class="field"><label class="flabel">Acumulado 12m (%)</label><input type="number" id="ef-ipca12" step="0.01" onchange="D.ipca12=parseFloat(this.value)||0;scheduleAutoSave()"></div>
+        <div class="field"><label class="flabel">Acumulado 12m (%)</label><input type="number" id="ef-ipca12" step="0.01" onchange="D.ipca12=parseFloat(this.value)||0;scheduleAutoSave();renderIndicadores()"></div>
         <div class="field"><label class="flabel">Mês referência (%)</label><input type="number" id="ef-ipcafev" step="0.01" onchange="D.ipcafev=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">Acumulado 2026 (%)</label><input type="number" id="ef-ipca26" step="0.01" onchange="D.ipca26=parseFloat(this.value)||0;scheduleAutoSave()"></div>
       </div>
       <div class="ebox accent-border">
         <h3>🏛️ Metas ARCA</h3>
-        <p>Percentual alvo de cada bucket. Só distribui após atingir 6 meses de reserva de emergência.</p>
+        <p>Percentual alvo de cada bucket. Ajuste manualmente ou aplique a recomendação inteligente abaixo.</p>
         <div class="field"><label class="flabel">A — Ações Brasileiras (%)</label><input type="number" id="ef-arca-a" step="1" min="0" max="100" onchange="D.arcaMeta.a=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">R — Real Estate / FIIs (%)</label><input type="number" id="ef-arca-r" step="1" min="0" max="100" onchange="D.arcaMeta.r=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">C — Caixa (%)</label><input type="number" id="ef-arca-c" step="1" min="0" max="100" onchange="D.arcaMeta.c=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">A — Ativos Internacionais (%)</label><input type="number" id="ef-arca-a2" step="1" min="0" max="100" onchange="D.arcaMeta.a2=parseFloat(this.value)||0;scheduleAutoSave()"></div>
       </div>
     </div>
+
+    <!-- ARCA Intelligence -->
+    <div class="panel mb" id="arca-intel-panel">
+      <div class="panel-head">
+        <span class="panel-title">🧠 Inteligência ARCA — Recomendação baseada no mercado</span>
+        <span class="panel-badge" id="arca-intel-ciclo">Calculando...</span>
+      </div>
+      <div id="arca-intel-content"></div>
+    </div>
+
     <div class="panel">
-      <div class="panel-head"><span class="panel-title">📊 CDI vs IPCA — comparativo histórico</span></div>
+      <div class="panel-head"><span class="panel-title">📊 CDI vs IPCA — comparativo</span></div>
       <div class="chart-wrap" style="height:200px"><canvas id="cIndComp"></canvas></div>
     </div>
   </div>
