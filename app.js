@@ -21,13 +21,13 @@ const DEFAULT = {
     {nome:'SICREDI',      limite:6300,  bandeira:'Visa',      cor:'#006633'},
   ],
   dividas:[
-    {nome:'Faculdade',   tipo:'Fixo',     cat:'educacao',limCartao:'',
-     vals:[0,644.05,644.05,644.05,644.05,644.05,644.05,644.05,400,400,400,400,400,400,400,400,400,400,400,400]},
-    {nome:'Claro',       tipo:'Fixo',     cat:'servicos',limCartao:'',
+    {nome:'Faculdade',  tipo:'Fixo',     cat:'educacao',limCartao:'',
+     vals:[644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05,644.05]},
+    {nome:'Claro',      tipo:'Fixo',     cat:'servicos',limCartao:'',
      vals:[120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120,120]},
-    {nome:'DAS',         tipo:'Fixo',     cat:'impostos',limCartao:'',
-     vals:[0,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85]},
-    {nome:'IR',          tipo:'Fixo',     cat:'impostos',limCartao:'',
+    {nome:'DAS',        tipo:'Fixo',     cat:'impostos',limCartao:'',
+     vals:[85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85,85]},
+    {nome:'IR',         tipo:'Variável', cat:'impostos',limCartao:'',
      vals:[0,96.47,96.47,96.47,96.47,96.47,96.47,96.47,0,0,0,0,0,0,0,0,0,0,0,0]},
     {nome:'Nubank PF',   tipo:'Variável', cat:'cartao',  limCartao:'Nubank PF',
      vals:[2148.08,366.78,117.34,117.34,117.34,117.34,117.34,0,0,0,0,0,0,0,0,0,0,0,0,0]},
@@ -111,6 +111,12 @@ function migrateData(d) {
     if(!x.vals)       x.vals = Array(d.meses.length).fill(0);
     while(x.vals.length < d.meses.length) x.vals.push(0);
     delete x.rentab;
+    // Normaliza contas fixas: garante que todos os meses tenham o mesmo valor
+    // (pega o primeiro valor não-zero como referência)
+    if(x.tipo==='Fixo') {
+      const ref = x.vals.find(v=>v>0) || 0;
+      if(ref > 0) x.vals = Array(d.meses.length).fill(ref);
+    }
   });
   d.ativos.forEach(x => {
     if(!x.indice)         x.indice = 'CDI';
@@ -131,9 +137,12 @@ const getLim   = d  => { const c=D.cartoes.find(x=>x.nome===d.limCartao); return
 
 function calcInvest(i) {
   const e=totalE(), c=totalDiv(i), meta=D.metaCC||2000, sobra=e-c;
+  // 🔴 Contas > Entradas → R$ 0
   if(sobra<=0)    return {e,c,meta,saldo:0,sobra,regra:'negativo'};
-  if(sobra<=meta) return {e,c,meta,saldo:Math.max(0,sobra-meta),sobra,regra:'menor_meta'};
-  return              {e,c,meta,saldo:sobra*.5,sobra,regra:'maior_meta'};
+  // 🟡 Sobra < Meta CC → 50% da sobra (sobra existe mas ainda não atingiu a meta)
+  if(sobra<meta)  return {e,c,meta,saldo:sobra*0.5,sobra,regra:'menor_meta'};
+  // 🟢 Sobra ≥ Meta CC → 50% da sobra
+  return              {e,c,meta,saldo:sobra*0.5,sobra,regra:'maior_meta'};
 }
 const invDisp  = i => calcInvest(i).saldo;
 
@@ -540,7 +549,7 @@ function renderMes() {
   const e=totalE(),d=totalDiv(i),s=sobraM(i),inv=invDisp(i);
   const r=calcInvest(i);
   const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
-  const dscr=r.regra==='maior_meta'?`50% de ${fmt(r.sobra)}`:r.regra==='menor_meta'?`${fmt(r.sobra)} − meta CC`:'Contas > Entradas';
+  const dscr=r.regra==='negativo'?'Contas > Entradas: R$ 0':`50% de ${fmt(r.sobra)} = ${fmt(r.saldo)}`;
   const pl=patrimonioLiquido();
 
   const lbl=document.getElementById('dash-sec-label');
@@ -764,40 +773,95 @@ function renderSaidas(tipo, tableId) {
   const el=document.getElementById(tableId);if(!el)return;
   const arr=D.dividas.filter(d=>d.tipo===tipo);
   const catOpts=Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
-  const heads=D.meses.map(m=>`<th style="min-width:68px;text-align:right">${sM(m)}</th>`).join('');
 
   if(!arr.length){
-    el.innerHTML=`<thead><tr><th>Nome</th><th>Categoria</th><th>${tipo==='Variável'?'Cartão':'—'}</th>${heads}<th class="tr">Total</th><th></th></tr></thead><tbody><tr><td colspan="100"><div class="empty"><div class="empty-icon">${tipo==='Fixo'?'📌':'🔄'}</div><div class="empty-text">Nenhuma conta ${tipo==='Fixo'?'fixa':'variável'} cadastrada</div></div></td></tr></tbody>`;
+    el.innerHTML=`<thead><tr><th>Nome</th><th>Categoria</th>${tipo==='Variável'?'<th>Cartão</th>':''}<th class="tr">Valor mensal</th>${tipo==='Fixo'?'<th class="tr">Total período</th>':''}<th></th></tr></thead>
+    <tbody><tr><td colspan="10"><div class="empty"><div class="empty-icon">${tipo==='Fixo'?'📌':'🔄'}</div><div class="empty-text">Nenhuma conta ${tipo==='Fixo'?'fixa':'variável'} cadastrada</div></div></td></tr></tbody>`;
     return;
   }
 
-  const rows=arr.map(d=>{
-    const di=D.dividas.indexOf(d);
-    const cells=D.meses.map((_,mi)=>
-      `<td><input type="number" step="0.01" min="0" value="${d.vals[mi]||''}" placeholder="0"
-        onchange="D.dividas[${di}].vals[${mi}]=parseFloat(this.value)||0;scheduleAutoSave()" style="text-align:right"></td>`
-    ).join('');
-    const catSel=`<td><select onchange="D.dividas[${di}].cat=this.value;scheduleAutoSave()">${catOpts.replace(`value="${d.cat||'outros'}"`,`value="${d.cat||'outros'}" selected`)}</select></td>`;
-    const cartSel=tipo==='Variável'?`<td><select onchange="D.dividas[${di}].limCartao=this.value;scheduleAutoSave()">
-      <option value="">— nenhum —</option>
-      ${D.cartoes.map(c=>`<option value="${c.nome}"${d.limCartao===c.nome?' selected':''}>${c.nome}</option>`).join('')}
-    </select></td>`:'<td style="color:var(--text3);font-size:12px;text-align:center">—</td>';
-    const tot=d.vals.reduce((s,v)=>s+(v||0),0);
-    const badge=tipo==='Fixo'?'<span class="badge badge-fixo" style="margin-left:6px">Fixo</span>':'<span class="badge badge-var" style="margin-left:6px">Var.</span>';
-    return `<tr>
-      <td><div style="display:flex;align-items:center;min-width:130px">
-        <input type="text" value="${d.nome}" onchange="D.dividas[${di}].nome=this.value;scheduleAutoSave()" placeholder="Nome" style="font-weight:600;min-width:110px">
-      </div></td>
-      ${catSel}${cartSel}
-      ${cells}
-      <td class="dtbl-total">${fmtK(tot)}</td>
-      <td><button class="btn-rm" onclick="removeDivida(${di})">✕</button></td>
-    </tr>`;
-  }).join('');
-  el.innerHTML=`<thead><tr><th>Nome</th><th>Categoria</th><th>${tipo==='Variável'?'Cartão vinculado':'—'}</th>${heads}<th class="tr">Total</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+  if(tipo==='Fixo'){
+    // ── CONTAS FIXAS: valor único que replica em todos os meses ──
+    const rows=arr.map(d=>{
+      const di=D.dividas.indexOf(d);
+      // Valor único = primeiro valor não-zero, ou o primeiro da lista
+      const valAtual=d.vals.find(v=>v>0)||d.vals[0]||0;
+      const totPeriodo=valAtual*nm();
+      const catSel=`<td><select onchange="D.dividas[${di}].cat=this.value;scheduleAutoSave()">${catOpts.replace(`value="${d.cat||'outros'}"`,`value="${d.cat||'outros'}" selected`)}</select></td>`;
+      return `<tr>
+        <td>
+          <input type="text" value="${d.nome}" onchange="D.dividas[${di}].nome=this.value;scheduleAutoSave()" placeholder="Nome" style="font-weight:600;min-width:140px">
+        </td>
+        ${catSel}
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" step="0.01" min="0" value="${valAtual||''}" placeholder="0,00"
+              onchange="setFixedVal(${di},parseFloat(this.value)||0)"
+              style="width:120px;text-align:right;font-size:14px;font-weight:600">
+            <span style="font-size:11px;color:var(--text2);white-space:nowrap">/ mês</span>
+          </div>
+        </td>
+        <td class="tr" style="color:var(--text2);font-size:12px;white-space:nowrap">${fmtK(totPeriodo)}<div style="font-size:10px;color:var(--text3)">${nm()} meses</div></td>
+        <td><button class="btn-rm" onclick="removeDivida(${di})">✕</button></td>
+      </tr>`;
+    }).join('');
+
+    const totGeral=arr.reduce((s,d)=>{const v=d.vals.find(x=>x>0)||d.vals[0]||0;return s+v;},0);
+    el.innerHTML=`
+      <thead><tr>
+        <th>Nome da conta</th>
+        <th>Categoria</th>
+        <th class="tr">Valor mensal</th>
+        <th class="tr">Total no período</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows}
+      <tr style="background:var(--card2);font-weight:700">
+        <td colspan="2" style="color:var(--text2)">Total fixo por mês</td>
+        <td class="tr tpos">${fmt(totGeral)}</td>
+        <td class="tr" style="color:var(--text2)">${fmtK(totGeral*nm())}</td>
+        <td></td>
+      </tr>
+      </tbody>`;
+
+  } else {
+    // ── CONTAS VARIÁVEIS: valor por mês (comportamento original) ──
+    const heads=D.meses.map(m=>`<th style="min-width:68px;text-align:right">${sM(m)}</th>`).join('');
+    const rows=arr.map(d=>{
+      const di=D.dividas.indexOf(d);
+      const cells=D.meses.map((_,mi)=>
+        `<td><input type="number" step="0.01" min="0" value="${d.vals[mi]||''}" placeholder="0"
+          onchange="D.dividas[${di}].vals[${mi}]=parseFloat(this.value)||0;scheduleAutoSave()" style="text-align:right"></td>`
+      ).join('');
+      const catSel=`<td><select onchange="D.dividas[${di}].cat=this.value;scheduleAutoSave()">${catOpts.replace(`value="${d.cat||'outros'}"`,`value="${d.cat||'outros'}" selected`)}</select></td>`;
+      const cartSel=`<td><select onchange="D.dividas[${di}].limCartao=this.value;scheduleAutoSave()">
+        <option value="">— nenhum —</option>
+        ${D.cartoes.map(c=>`<option value="${c.nome}"${d.limCartao===c.nome?' selected':''}>${c.nome}</option>`).join('')}
+      </select></td>`;
+      const tot=d.vals.reduce((s,v)=>s+(v||0),0);
+      return `<tr>
+        <td><input type="text" value="${d.nome}" onchange="D.dividas[${di}].nome=this.value;scheduleAutoSave()" placeholder="Nome" style="font-weight:600;min-width:110px"></td>
+        ${catSel}${cartSel}
+        ${cells}
+        <td class="dtbl-total">${fmtK(tot)}</td>
+        <td><button class="btn-rm" onclick="removeDivida(${di})">✕</button></td>
+      </tr>`;
+    }).join('');
+    el.innerHTML=`<thead><tr><th>Nome</th><th>Categoria</th><th>Cartão vinculado</th>${heads}<th class="tr">Total</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+  }
 }
 
-function addDivida(tipo){ D.dividas.push({nome:'Nova conta',tipo,cat:'outros',limCartao:'',vals:Array(nm()).fill(0)}); renderSaidaSub(tipo==='Fixo'?'fixas':'variaveis'); scheduleAutoSave(); }
+// Seta valor fixo em TODOS os meses de uma conta fixa
+function setFixedVal(di, valor) {
+  D.dividas[di].vals = Array(nm()).fill(valor);
+  scheduleAutoSave();
+}
+
+function addDivida(tipo){
+  D.dividas.push({nome:'Nova conta',tipo,cat:'outros',limCartao:'',vals:Array(nm()).fill(0)});
+  renderSaidaSub(tipo==='Fixo'?'fixas':'variaveis');
+  scheduleAutoSave();
+}
 function removeDivida(i){ if(!confirm(`Remover "${D.dividas[i].nome}"?`))return; D.dividas.splice(i,1); renderSaidasAtiva(); scheduleAutoSave(); }
 
 function renderPeriodos(){
@@ -850,7 +914,7 @@ function renderInvestVisao(){
   const rows=D.meses.map((m,i)=>{
     const r=calcInvest(i);
     const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
-    const tip=r.regra==='maior_meta'?'Sobra>Meta: 50% da sobra':r.regra==='menor_meta'?'Sobra≤Meta: sobra−meta CC':'Contas>Entradas: R$ 0';
+    const tip=r.regra==='negativo'?'Contas>Entradas: R$ 0':r.regra==='menor_meta'?'Sobra<Meta: 50% da sobra':'Sobra≥Meta: 50% da sobra';
     return `<tr>
       <td style="font-weight:600">${m}</td>
       <td class="tr tpos">${fmt(r.e)}</td>

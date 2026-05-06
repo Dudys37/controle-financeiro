@@ -601,7 +601,7 @@ select{cursor:pointer;}
   <div class="sub on" id="sub-fixas">
     <div class="ebox info-border">
       <h3>📌 Contas Fixas</h3>
-      <p>Gastos previsíveis que se repetem todo mês com valor constante: mensalidades, assinaturas, tributos, aluguel.</p>
+      <p>Gastos que se repetem todo mês com o mesmo valor: mensalidades, assinaturas, serviços. Digite o valor uma vez e ele é aplicado automaticamente em todos os meses. Se o valor mudar, basta atualizar aqui.</p>
       <div class="scroll"><table class="dtbl" id="tbl-fixas"></table></div>
       <div class="act"><button class="btn btn-info" onclick="addDivida('Fixo')">+ Nova conta fixa</button></div>
     </div>
@@ -645,8 +645,8 @@ select{cursor:pointer;}
         <span class="panel-badge">Regras automáticas</span>
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;display:flex;flex-wrap:wrap;gap:12px">
-        <span>🟢 <strong>Sobra &gt; Meta CC</strong> → 50% da sobra vai para investimentos</span>
-        <span>🟡 <strong>Sobra ≤ Meta CC</strong> → sobra − meta CC vai para investimentos</span>
+        <span>🟢 <strong>Sobra ≥ Meta CC</strong> → 50% da sobra para investimentos</span>
+        <span>🟡 <strong>0 &lt; Sobra &lt; Meta CC</strong> → 50% da sobra para investimentos</span>
         <span>🔴 <strong>Contas &gt; Entradas</strong> → R$ 0,00 disponível</span>
       </div>
       <div class="scroll"><table class="tbl-wide" id="inv-mes-tbl"></table></div>
