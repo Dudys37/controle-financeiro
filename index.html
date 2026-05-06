@@ -308,17 +308,19 @@ function doRegister(){
 
   auth.createUserWithEmailAndPassword(email, pass)
     .then(cred => {
-      // Salva perfil no Firestore com role 'user'
-      return db.collection('users').doc(cred.user.uid).set({
-        email,
-        displayName: name,
-        role: 'user',
-        uid: cred.user.uid,
-        createdAt: new Date().toISOString()
+      const uid=cred.user.uid;
+      // Salva perfil no Firestore
+      return db.collection('users').doc(uid).set({
+        email, displayName:name, role:'user', uid, createdAt:new Date().toISOString()
+      }).then(()=>{
+        // Cria userData em branco — novo usuário começa zerado
+        const blank={salario:0,outras:0,saldo:0,cdi12:14.80,cdifev:1.21,cdi26:3.41,ipca12:4.14,ipcafev:0.88,ipca26:1.92,arcaMeta:{a:25,r:25,c:25,a2:25},metaCC:2000,meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26','Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27','Set/27','Out/27','Nov/27','Dez/27'],invManual:Array(20).fill(null),cartoes:[],dividas:[],ativos:[],pagamentos:{}};
+        return db.collection('userData').doc(uid).set({
+          data:JSON.stringify(blank), updatedAt:new Date().toISOString(), v:3, createdAt:new Date().toISOString()
+        });
       });
     })
     .then(() => {
-      // Cadastro OK → vai para o app (dados financeiros começam zerados)
       window.location.replace('app.html');
     })
     .catch(e => {

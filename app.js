@@ -94,7 +94,7 @@ const BLANK = {
          'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
          'Set/27','Out/27','Nov/27','Dez/27'],
   invManual: Array(20).fill(null), // null = usa cálculo automático
-  cartoes:[], dividas:[], ativos:[]
+  cartoes:[], dividas:[], ativos:[], pagamentos:{}
 };
 
 // ── MIGRAÇÃO ──────────────────────────────────────
@@ -108,7 +108,8 @@ function migrateData(d) {
   if(!d.meses)    d.meses    = [...BLANK.meses];
   if(!d.dividas)  d.dividas  = [];
   // Garante que invManual existe e tem o tamanho certo
-  if(!d.invManual) d.invManual = Array(d.meses.length).fill(null);
+  if(!d.invManual)  d.invManual  = Array(d.meses.length).fill(null);
+  if(!d.pagamentos) d.pagamentos = {};
   while(d.invManual.length < d.meses.length) d.invManual.push(null);
   d.dividas.forEach(x => {
     if(!x.cat)        x.cat = 'outros';
@@ -136,7 +137,11 @@ function migrateData(d) {
 // ── CÁLCULOS FINANCEIROS ──────────────────────────
 const nm       = () => D.meses.length;
 const totalE   = () => (D.salario||0)+(D.outras||0);
-const totalDiv = i  => D.dividas.reduce((s,d)=>s+(d.vals[i]||0),0);
+const totalDiv = i  => D.dividas.reduce((s,d) => {
+  if(isPago(d.nome, i)) return s; // conta já paga
+  return s+(d.vals[i]||0);
+}, 0);
+const totalDivBruto = i => D.dividas.reduce((s,d)=>s+(d.vals[i]||0),0); // sem descontar pagamentos
 const sobraM   = i  => totalE()-totalDiv(i);
 const getLim   = d  => { const c=D.cartoes.find(x=>x.nome===d.limCartao); return c?c.limite:0; };
 
@@ -279,6 +284,7 @@ function renderPage(id) {
   else if(id==='carteira')  renderCarteira();
   else if(id==='saidas')    renderSaidasAtiva();
   else if(id==='invest')    renderInvestAtiva();
+  else if(id==='pagar')     renderPagarContas();
   else if(id==='perfil')    { if(window._renderPerfil) window._renderPerfil(); }
   else if(id==='admin')     { if(window._renderAdmin)  window._renderAdmin(); }
 }
@@ -318,8 +324,7 @@ function renderSaidasAtiva()  { const s=getActiveSub('saidas')||'fixas';  render
 function renderInvestAtiva()  { const s=getActiveSub('invest')||'inv-visao'; renderInvestSub(s); }
 function renderSaidaSub(id) {
   if(id==='fixas')     renderSaidas('Fixo','tbl-fixas');
-  if(id==='variaveis') renderSaidas('Variável','tbl-var');
-  if(id==='periodos')  renderPeriodos();
+  if(id==='variaveis') { renderSaidas('Variável','tbl-var'); renderAnosList(); }
 }
 function renderInvestSub(id) {
   if(id==='inv-visao')      renderInvestVisao();
@@ -411,6 +416,50 @@ function renderGeral() {
   renderGeralCharts();
   renderFluxoTable();
   renderCartoesTo(document.getElementById('dash-cartoes-geral'),0);
+
+  // Empty state alerts
+  const alerts=getEmptyStateAlerts();
+  const alertsEl=document.getElementById('dash-alerts');
+  if(alertsEl){
+    if(alerts.length){
+      alertsEl.style.display='';
+      alertsEl.innerHTML=`<div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">💡 Pendências detectadas</div>
+        ${alerts.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--warn-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r8);margin-bottom:6px">
+          <span style="font-size:16px">${a.icon}</span>
+          <span style="font-size:12px;flex:1">${a.msg}</span>
+          ${a.link?`<button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="${a.action}">${a.link} →</button>`:''}
+        </div>`).join('')}
+      </div>`;
+    } else { alertsEl.style.display='none'; }
+  }
+
+  // Patrimônio futuro
+  const pf=calcPatrimonioFuturo();
+  const pfEl=document.getElementById('dash-patrimonio-futuro');
+  if(pfEl){
+    if(pf&&pf.length){
+      const txMedia=D.ativos.length?D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/Math.max(1,D.ativos.reduce((s,a)=>s+(a.valor||0),0)):0.13;
+      pfEl.innerHTML=`
+        <div class="divider"><span class="divider-text">📈 Patrimônio futuro esperado</span></div>
+        <div class="panel mb">
+          <div class="panel-head">
+            <span class="panel-title">💎 Projeção seguindo as recomendações do sistema</span>
+            <span class="panel-badge">Taxa média: ${P(txMedia*100)}/ano · com aportes mensais</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:14px">
+            ${pf.map((p,i)=>`<div class="mcard ${i===pf.length-1?'mcard-accent':''}">
+              <div class="mlabel">${i===pf.length-1?'🎯 ':''} ${p.yr}</div>
+              <div class="mval ${i===pf.length-1?'mval-accent':'mval-teal'}" style="font-size:${i===pf.length-1?'22':'18'}px">${fmtK(p.saldo)}</div>
+              <div class="msub">aportes: ${fmtK(p.aporte)}</div>
+            </div>`).join('')}
+          </div>
+          <div style="font-size:10px;color:var(--text3);line-height:1.6">⚠️ Projeção estimada com juros compostos anuais. Não garante rentabilidade futura. Considere consultar um assessor certificado.</div>
+        </div>`;
+    } else {
+      pfEl.innerHTML='';
+    }
+  }
 }
 
 function renderGeralCharts() {
@@ -778,6 +827,38 @@ function renderCarteira() {
     <div class="pstat"><span class="pstat-label">Score financeiro</span><strong style="color:${scoreCor}">${score}/100</strong></div>
   `;
 
+  // Recomendação de alocação baseada nos indicadores
+  const recEl=document.getElementById('carteira-arca-rec');
+  if(recEl){
+    const intel=calcARCAIntelligence();
+    const dispMes=invDisp(0);
+    const tot=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
+    const recAbs={
+      A: Math.round(dispMes*(intel.rec.a/100)),
+      R: Math.round(dispMes*(intel.rec.r/100)),
+      C: Math.round(dispMes*(intel.rec.c/100)),
+      A2:Math.round(dispMes*(intel.rec.a2/100)),
+    };
+    recEl.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div>
+          <div style="font-weight:700;font-size:15px">🧠 Como investir ${fmt(dispMes)} este mês</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${intel.cicloEmoji} ${intel.cicloDesc}</div>
+        </div>
+        <button class="btn btn-accent" onclick="applyARCARec(${intel.rec.a},${intel.rec.r},${intel.rec.c},${intel.rec.a2})" style="height:34px;font-size:12px">🎯 Aplicar nas metas</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        ${[{b:'A',l:'Ações'},{b:'R',l:'Real Estate'},{b:'C',l:'Caixa'},{b:'A2',l:'Internacional'}].map(x=>`
+        <div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r8);padding:10px;text-align:center">
+          <div style="font-size:10px;font-weight:700;color:${ARCA.colors[x.b]};text-transform:uppercase;margin-bottom:4px">${x.l}</div>
+          <div style="font-size:18px;font-weight:800;color:${ARCA.colors[x.b]}">${intel.rec[x.b==='A2'?'a2':x.b.toLowerCase()]}%</div>
+          <div style="font-size:11px;color:var(--teal);margin-top:2px">${fmt(recAbs[x.b])}</div>
+        </div>`).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:10px">⚠️ Sugestão baseada no ciclo de juros atual. Não é assessoria de investimento.</div>
+    `;
+  }
+
   const ct=document.getElementById('cartoes-tbl');
   if(ct){
     const rows=D.cartoes.map((c,ci)=>`<tr>
@@ -894,9 +975,15 @@ function addDivida(tipo){
 }
 function removeDivida(i){ if(!confirm(`Remover "${D.dividas[i].nome}"?`))return; D.dividas.splice(i,1); renderSaidasAtiva(); scheduleAutoSave(); }
 
-function renderPeriodos(){
-  const el=document.getElementById('meses-list');if(!el)return;
-  el.innerHTML=D.meses.map((m,i)=>`<span class="msb" style="cursor:default">${i+1}. ${m}</span>`).join('');
+function renderAnosList() {
+  const el=document.getElementById('anos-list');if(!el)return;
+  const yrs=getYears();
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+    <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Anos no planejamento:</span>
+    ${yrs.map(yr=>`<span class="msb" style="cursor:default">${yr} (${getMesesAno(yr).length} meses)</span>`).join('')}
+    <button class="btn btn-pos" style="height:30px;font-size:12px" onclick="addAno()">+ Adicionar ano</button>
+    ${yrs.length>1?`<button class="btn btn-neg" style="height:30px;font-size:12px" onclick="removerUltimoAno()">− Remover ${yrs[yrs.length-1]}</button>`:''}
+  </div>`;
 }
 function resetTodosManual() {
   D.invManual = Array(nm()).fill(null);
@@ -904,8 +991,219 @@ function resetTodosManual() {
   renderInvestVisao();
   renderAll();
 }
-function addMes(){ const n=prompt('Mês (ex: Jan/28):');if(!n)return; D.meses.push(n.trim()); D.dividas.forEach(d=>d.vals.push(0)); if(!D.invManual)D.invManual=[];D.invManual.push(null); renderAll(); scheduleAutoSave(); }
-function removeMes(){ if(nm()<=1)return; if(!confirm(`Remover "${D.meses[nm()-1]}"?`))return; D.meses.pop(); D.dividas.forEach(d=>d.vals.pop()); if(D.invManual)D.invManual.pop(); if(selDash>=nm())selDash=nm()-1; renderAll(); scheduleAutoSave(); }
+
+// ── PAGAMENTOS ────────────────────────────────────
+function isPago(nome, mi) {
+  if(!D.pagamentos) return false;
+  const mes = D.meses[mi];
+  return !!(D.pagamentos[mes] && D.pagamentos[mes][nome]);
+}
+function pagarConta(nome, mi) {
+  if(!D.pagamentos) D.pagamentos={};
+  const mes=D.meses[mi];
+  if(!D.pagamentos[mes]) D.pagamentos[mes]={};
+  D.pagamentos[mes][nome]=true;
+  scheduleAutoSave();
+  renderPagarContas();
+}
+function despagarConta(nome, mi) {
+  if(!D.pagamentos) return;
+  const mes=D.meses[mi];
+  if(D.pagamentos[mes]) delete D.pagamentos[mes][nome];
+  scheduleAutoSave();
+  renderPagarContas();
+}
+
+// Retorna o índice do mês atual/próximo baseado na data de hoje
+function getMesAtualIdx() {
+  const hoje = new Date();
+  const dia = hoje.getDate();
+  const mesAtual = hoje.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'})
+    .replace('.','').replace(' de ','/')
+    .split('/').map((p,i)=>i===0?p.charAt(0).toUpperCase()+p.slice(1):p).join('/');
+  // Encontra o índice correspondente ao mês atual
+  let idx = D.meses.findIndex(m=>m.toLowerCase()===mesAtual.toLowerCase());
+  if(idx===-1) idx=0; // fallback
+  // Após o dia 15, mostra o próximo mês
+  if(dia>15 && idx<nm()-1) idx++;
+  return idx;
+}
+
+let selPagar = -1; // índice do mês selecionado na aba pagar
+
+function renderPagarContas() {
+  if(selPagar===-1) selPagar=getMesAtualIdx();
+
+  // Mês selector
+  const ms=document.getElementById('pagar-months');
+  if(ms) {
+    ms.innerHTML=D.meses.map((m,i)=>`<button class="msb${i===selPagar?' on':''}" onclick="selPagar=${i};renderPagarContas()">${sM(m)}</button>`).join('');
+  }
+
+  const mi=selPagar;
+  const mesNome=D.meses[mi]||'';
+  const lbl=document.getElementById('pagar-mes-label');
+  if(lbl) lbl.textContent=`Contas de ${mesNome}`;
+
+  const todas=D.dividas.filter(d=>(d.vals[mi]||0)>0);
+  const pagas=todas.filter(d=>isPago(d.nome,mi));
+  const pendentes=todas.filter(d=>!isPago(d.nome,mi));
+  const totBruto=totalDivBruto(mi);
+  const totPago=pagas.reduce((s,d)=>s+(d.vals[mi]||0),0);
+  const totPendente=pendentes.reduce((s,d)=>s+(d.vals[mi]||0),0);
+  const pctPago=totBruto>0?Math.round((totPago/totBruto)*100):0;
+
+  const sumEl=document.getElementById('pagar-summary');
+  if(sumEl) sumEl.innerHTML=`
+    <div class="mcard mcard-neg">
+      <div class="mlabel">💸 Total do mês</div>
+      <div class="mval mval-neg">${fmt(totBruto)}</div>
+    </div>
+    <div class="mcard mcard-warn">
+      <div class="mlabel">⏳ Pendente</div>
+      <div class="mval mval-warn">${fmt(totPendente)}</div>
+      <div class="msub">${pendentes.length} conta${pendentes.length!==1?'s':''}</div>
+    </div>
+    <div class="mcard mcard-pos">
+      <div class="mlabel">✅ Pago</div>
+      <div class="mval mval-pos">${fmt(totPago)}</div>
+      <div class="msub">${pagas.length} conta${pagas.length!==1?'s':''} · ${pctPago}%</div>
+    </div>
+    <div class="mcard ${pctPago===100?'mcard-pos':'mcard-accent'}">
+      <div class="mlabel">📊 Progresso</div>
+      <div class="mval ${pctPago===100?'mval-pos':'mval-accent'}">${pctPago}%</div>
+      <div style="height:4px;background:var(--card3);border-radius:99px;margin-top:8px;overflow:hidden">
+        <div style="height:4px;width:${pctPago}%;background:${pctPago===100?'var(--pos)':'var(--accent)'};border-radius:99px;transition:width .5s"></div>
+      </div>
+    </div>
+  `;
+
+  if(pctPago===100 && todas.length>0) {
+    const el=document.getElementById('pagar-all-done');
+    if(el){el.style.display='';el.innerHTML=`<div style="text-align:center;padding:20px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.3);border-radius:var(--r12);color:var(--pos);font-weight:700">🎉 Todas as contas de ${mesNome} foram pagas!</div>`;}
+  } else {
+    const el=document.getElementById('pagar-all-done');if(el)el.style.display='none';
+  }
+
+  const buildRow=(d,pago)=>{
+    const v=d.vals[mi]||0;
+    const cat=CATS[d.cat]||CATS.outros;
+    const badge=d.tipo==='Fixo'?'<span class="badge badge-fixo">Fixo</span>':'<span class="badge badge-var">Var.</span>';
+    if(pago){
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.2);border-radius:var(--r8);margin-bottom:6px;opacity:.75">
+        <span style="font-size:18px">${cat.icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:600;color:var(--text);text-decoration:line-through;font-size:13px">${d.nome} ${badge}</div>
+          <div style="font-size:11px;color:var(--text2)">${cat.label}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:16px;font-weight:700;color:var(--pos)">${fmt(v)}</div>
+          <div style="font-size:10px;color:var(--pos)">✅ Pago</div>
+        </div>
+        <button class="btn btn-ghost" style="height:32px;font-size:11px" onclick="despagarConta('${d.nome.replace(/'/g,"\\'")}',${mi})">↩ Desfazer</button>
+      </div>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r8);margin-bottom:6px;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--border2)'" onmouseleave="this.style.borderColor='var(--border)'">
+      <span style="font-size:18px">${cat.icon}</span>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${d.nome} ${badge}</div>
+        <div style="font-size:11px;color:var(--text2)">${cat.label}${d.limCartao?' · '+d.limCartao:''}</div>
+      </div>
+      <div style="text-align:right;margin-right:8px">
+        <div style="font-size:18px;font-weight:700;color:var(--neg)">${fmt(v)}</div>
+      </div>
+      <button class="btn btn-pos" style="height:36px;padding:0 16px" onclick="pagarConta('${d.nome.replace(/'/g,"\\'")}',${mi})">
+        ✓ Pagar
+      </button>
+    </div>`;
+  };
+
+  const listEl=document.getElementById('pagar-list');
+  if(listEl){
+    if(todas.length===0){
+      listEl.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma conta cadastrada para ${mesNome}</div></div>`;
+    } else {
+      listEl.innerHTML=
+        (pendentes.length?`<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">⏳ Pendentes (${pendentes.length})</div>`+pendentes.map(d=>buildRow(d,false)).join(''):'')
+        +(pagas.length?`<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 8px">✅ Pagas (${pagas.length})</div>`+pagas.map(d=>buildRow(d,true)).join(''):'');
+    }
+  }
+}
+
+// ── GESTÃO DE ANOS ────────────────────────────────
+function addAno() {
+  const anoStr = prompt('Digite o ano para adicionar (ex: 2028):');
+  if(!anoStr) return;
+  const ano = parseInt(anoStr);
+  if(isNaN(ano)||ano<2024||ano>2040){ alert('Ano inválido. Use entre 2024 e 2040.'); return; }
+  const mesesNomes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const sufixo = String(ano).slice(2);
+  let adicionados=0;
+  mesesNomes.forEach(m=>{
+    const nome=`${m}/${sufixo}`;
+    if(!D.meses.includes(nome)){
+      D.meses.push(nome);
+      D.dividas.forEach(d=>d.vals.push(d.tipo==='Fixo'?(d.vals[0]||0):0));
+      if(!D.invManual) D.invManual=[];
+      D.invManual.push(null);
+      adicionados++;
+    }
+  });
+  if(adicionados===0){ alert(`Todos os meses de ${ano} já estão cadastrados.`); return; }
+  scheduleAutoSave();
+  renderAll();
+  if(window.toast) toast(`✅ ${adicionados} meses de ${ano} adicionados!`);
+}
+
+function removerUltimoAno() {
+  const yrs=getYears();
+  if(yrs.length<=1){ alert('Deve haver pelo menos um ano no planejamento.'); return; }
+  const ultimoAno=yrs[yrs.length-1];
+  const mesesDoAno=D.meses.filter(m=>m.includes('/'+ultimoAno.slice(2)));
+  if(!confirm(`Remover todos os ${mesesDoAno.length} meses de ${ultimoAno}?`)) return;
+  const qtd=mesesDoAno.length;
+  for(let i=0;i<qtd;i++){
+    D.meses.pop();
+    D.dividas.forEach(d=>d.vals.pop());
+    if(D.invManual) D.invManual.pop();
+  }
+  if(selDash>=nm()) selDash=nm()-1;
+  scheduleAutoSave();
+  renderAll();
+  if(window.toast) toast(`✅ Meses de ${ultimoAno} removidos.`);
+}
+
+// ── PATRIMÔNIO FUTURO ─────────────────────────────
+function calcPatrimonioFuturo() {
+  const yrs=getYears();
+  const tot=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
+  if(tot===0) return null;
+  const txMedia=tot>0?D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/tot:0.13;
+  const totInvPorAno={};
+  yrs.forEach(yr=>{
+    const meses=getMesesAno(yr);
+    totInvPorAno[yr]=meses.reduce((s,{i})=>s+invDisp(i),0);
+  });
+  let saldo=tot;
+  return yrs.map(yr=>{
+    const aporte=totInvPorAno[yr]||0;
+    // Crescimento do saldo existente + aportes do ano
+    saldo=saldo*(1+txMedia)+aporte;
+    return {yr, saldo:Math.round(saldo), aporte:Math.round(aporte)};
+  });
+}
+
+// ── INDICADORES VAZIOS (empty state) ─────────────
+function getEmptyStateAlerts() {
+  const alerts=[];
+  if(totalE()===0)  alerts.push({icon:'💰',msg:'Você não tem entradas registradas.',action:"go('carteira',document.querySelector('.ntab:nth-child(2)'))","link":'Ir para Carteira'});
+  if(D.dividas.length===0) alerts.push({icon:'📋',msg:'Nenhuma conta cadastrada.',action:"go('saidas',document.querySelector('.ntab:nth-child(3)'))","link":'Ir para Saídas'});
+  if(D.ativos.length===0||D.ativos.every(a=>!a.valor)) alerts.push({icon:'📈',msg:'Você não possui investimentos cadastrados.',action:"go('invest',document.querySelector('.ntab:nth-child(4)'))","link":'Ir para Investimentos'});
+  if(D.cartoes.length===0) alerts.push({icon:'💳',msg:'Nenhum cartão de crédito cadastrado.',action:"go('carteira',document.querySelector('.ntab:nth-child(2)'))","link":'Ir para Carteira'});
+  const metaE=metaEmergencia();
+  if(metaE>0&&caixaAtual()<metaE*0.5) alerts.push({icon:'🛡️',msg:`Reserva de emergência abaixo de 50% (${Math.round(caixaAtual()/metaE*100)}% da meta de ${fmt(metaE)}).`,action:'',link:''});
+  return alerts;
+}
 
 // ── INVESTIMENTOS ─────────────────────────────────
 function renderInvestVisao(){

@@ -426,6 +426,21 @@ select{cursor:pointer;}
 .alert-err{background:var(--neg-bg);color:var(--neg);border:1px solid rgba(239,68,68,.25);}
 .alert-ok{background:var(--pos-bg);color:var(--pos);border:1px solid rgba(16,185,129,.25);}
 
+
+/* ── HAMBURGER MOBILE ── */
+.ham-btn{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:6px;}
+.ham-btn span{display:block;width:22px;height:2px;background:var(--text2);border-radius:2px;transition:all .3s;}
+.mobile-menu{display:none;position:fixed;inset:0;top:58px;background:var(--bg);z-index:190;padding:16px;border-top:1px solid var(--border);overflow-y:auto;}
+.mobile-menu.open{display:block;animation:fadeup .2s ease;}
+.mobile-ntab{display:block;width:100%;text-align:left;padding:14px 16px;border-radius:var(--r8);border:none;background:none;color:var(--text2);font-family:inherit;font-size:15px;font-weight:500;cursor:pointer;margin-bottom:4px;transition:all .18s;}
+.mobile-ntab:hover,.mobile-ntab.on{background:var(--card2);color:var(--text);}
+.mobile-ntab.on{color:var(--accent);font-weight:700;}
+@media(max-width:768px){
+  .ham-btn{display:flex;}
+  .nav-tabs{display:none !important;}
+  .nav-user-chip .nav-username-text{display:none;}
+}
+
 /* ── RESPONSIVE ── */
 @media(max-width:900px){
   .g2,.g4{grid-template-columns:1fr;}
@@ -464,19 +479,39 @@ select{cursor:pointer;}
     <button class="ntab" onclick="go('carteira',this)"><span class="ni">💼</span>Carteira</button>
     <button class="ntab" onclick="go('saidas',this)"><span class="ni">💸</span>Saídas</button>
     <button class="ntab" onclick="go('invest',this)"><span class="ni">📈</span>Investimentos</button>
+    <button class="ntab" onclick="go('pagar',this)"><span class="ni">✅</span>Pagar Contas</button>
     <button class="ntab" onclick="go('perfil',this)"><span class="ni">👤</span>Perfil</button>
     <button class="ntab" id="tab-admin" onclick="go('admin',this)" style="display:none"><span class="ni">⚙️</span>Admin</button>
   </div>
   <div class="nav-r">
     <div class="nav-user-chip" id="nav-user-chip">
       <div class="nav-avatar" id="nav-avatar">?</div>
-      <span id="nav-username">...</span>
+      <span id="nav-username" class="nav-username-text">...</span>
     </div>
     <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Tema">🌙</button>
     <button class="nbtn nbtn-danger" id="btn-sair">Sair</button>
     <button class="nbtn nbtn-pri" id="btn-salvar">Salvar</button>
+    <button class="ham-btn" onclick="toggleMobileMenu()" id="ham-btn" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobile-menu">
+  <button class="mobile-ntab on" id="mm-dash" onclick="go('dash',document.querySelector('.ntab'));closeMobileMenu()">📊 Dashboard</button>
+  <button class="mobile-ntab" id="mm-carteira" onclick="go('carteira',document.querySelectorAll('.ntab')[1]);closeMobileMenu()">💼 Carteira</button>
+  <button class="mobile-ntab" id="mm-saidas" onclick="go('saidas',document.querySelectorAll('.ntab')[2]);closeMobileMenu()">💸 Saídas</button>
+  <button class="mobile-ntab" id="mm-invest" onclick="go('invest',document.querySelectorAll('.ntab')[3]);closeMobileMenu()">📈 Investimentos</button>
+  <button class="mobile-ntab" id="mm-pagar" onclick="go('pagar',document.querySelectorAll('.ntab')[4]);closeMobileMenu()">✅ Pagar Contas</button>
+  <button class="mobile-ntab" id="mm-perfil" onclick="go('perfil',document.querySelectorAll('.ntab')[5]);closeMobileMenu()">👤 Perfil</button>
+  <button class="mobile-ntab" id="mm-admin" onclick="go('admin',document.getElementById('tab-admin'));closeMobileMenu()" style="display:none">⚙️ Admin</button>
+  <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px">
+    <button class="nbtn nbtn-pri" onclick="document.getElementById('btn-salvar').click();closeMobileMenu()" style="flex:1">Salvar</button>
+    <button class="nbtn nbtn-danger" onclick="document.getElementById('btn-sair').click()" style="flex:1">Sair</button>
+  </div>
+</div>
+
 
 <!-- ████ DASHBOARD ████ -->
 <div class="page on" id="page-dash">
@@ -487,48 +522,40 @@ select{cursor:pointer;}
 
   <!-- SUB: GERAL -->
   <div class="sub on" id="sub-geral">
+    <!-- Empty state alerts -->
+    <div id="dash-alerts"></div>
     <!-- Hero Banner -->
     <div class="hero-banner" id="dash-hero"></div>
-
     <!-- Cards principais -->
     <div class="gcards" id="dash-mcards" style="margin-bottom:20px"></div>
-
     <!-- Year Blocks -->
     <div id="year-blocks"></div>
-
     <!-- Dívidas overview -->
     <div class="divider"><span class="divider-text">Análise de gastos — período completo</span></div>
     <div class="g2 mb">
       <div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">🏆 Ranking de gastos</span>
-          <span class="panel-badge">Por categoria</span>
-        </div>
+        <div class="panel-head"><span class="panel-title">🏆 Ranking de gastos</span><span class="panel-badge">Por categoria</span></div>
         <div id="rank-list"></div>
       </div>
       <div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">🍩 Distribuição</span>
-        </div>
+        <div class="panel-head"><span class="panel-title">🍩 Distribuição</span></div>
         <div class="chart-wrap" style="height:220px"><canvas id="cDough"></canvas></div>
       </div>
     </div>
     <div class="panel mb">
-      <div class="panel-head">
-        <span class="panel-title">📉 Evolução das dívidas ao longo do tempo</span>
-      </div>
+      <div class="panel-head"><span class="panel-title">📉 Evolução das dívidas ao longo do tempo</span></div>
       <div class="chart-wrap" style="height:240px"><canvas id="cEvol"></canvas></div>
     </div>
-
     <!-- Fluxo de caixa -->
     <div class="divider"><span class="divider-text">Fluxo de caixa completo</span></div>
     <div class="panel mb">
       <div class="scroll"><table class="tbl-wide" id="fluxo-tbl"></table></div>
     </div>
-
     <!-- Cartões -->
     <div class="divider"><span class="divider-text">Cartões de crédito</span></div>
     <div class="cc-grid" id="dash-cartoes-geral"></div>
+    <!-- Patrimônio futuro -->
+    <div id="dash-patrimonio-futuro"></div>
   </div>
 
   <!-- SUB: POR MÊS -->
@@ -589,6 +616,26 @@ select{cursor:pointer;}
     <div class="scroll"><table class="dtbl" id="cartoes-tbl"></table></div>
     <div class="act"><button class="btn btn-accent" onclick="addCartao()">+ Novo cartão</button></div>
   </div>
+
+  <!-- Recomendação ARCA -->
+  <div class="ebox" style="border-color:rgba(16,185,129,.2);margin-top:14px">
+    <h3>🧠 Como investir este mês</h3>
+    <p>Recomendação baseada nos indicadores econômicos atuais e no ciclo de juros.</p>
+    <div id="carteira-arca-rec"></div>
+  </div>
+</div>
+
+<!-- ████ PAGAR CONTAS ████ -->
+<div class="page" id="page-pagar">
+  <div style="margin-bottom:20px">
+    <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">✅ Pagar Contas</div>
+    <div style="font-size:13px;color:var(--text2);margin-top:4px">Marque as contas pagas. As contas pagas são descontadas do total de dívidas automaticamente.</div>
+  </div>
+  <div class="msel" id="pagar-months"></div>
+  <div id="pagar-mes-label" class="sec-label mb"></div>
+  <div class="gcards" id="pagar-summary"></div>
+  <div id="pagar-all-done" style="margin-bottom:14px;display:none"></div>
+  <div id="pagar-list"></div>
 </div>
 
 <!-- ████ SAÍDAS ████ -->
@@ -596,12 +643,11 @@ select{cursor:pointer;}
   <div class="stab-bar">
     <button class="stab on" onclick="switchSub('saidas','fixas',this)">📌 Contas Fixas</button>
     <button class="stab" onclick="switchSub('saidas','variaveis',this)">🔄 Contas Variáveis</button>
-    <button class="stab" onclick="switchSub('saidas','periodos',this)">📅 Meses</button>
   </div>
   <div class="sub on" id="sub-fixas">
     <div class="ebox info-border">
       <h3>📌 Contas Fixas</h3>
-      <p>Gastos que se repetem todo mês com o mesmo valor: mensalidades, assinaturas, serviços. Digite o valor uma vez e ele é aplicado automaticamente em todos os meses. Se o valor mudar, basta atualizar aqui.</p>
+      <p>Gastos que se repetem todo mês com o mesmo valor. Digite o valor uma vez e ele é aplicado em todos os meses automaticamente.</p>
       <div class="scroll"><table class="dtbl" id="tbl-fixas"></table></div>
       <div class="act"><button class="btn btn-info" onclick="addDivida('Fixo')">+ Nova conta fixa</button></div>
     </div>
@@ -609,20 +655,12 @@ select{cursor:pointer;}
   <div class="sub" id="sub-variaveis">
     <div class="ebox warn-border">
       <h3>🔄 Contas Variáveis</h3>
-      <p>Faturas de cartão, parcelas e gastos que mudam mês a mês. Selecione o cartão vinculado para calcular o limite comprometido.</p>
+      <p>Faturas de cartão, parcelas e gastos que variam mês a mês. Selecione o cartão vinculado para calcular o limite comprometido automaticamente.</p>
       <div class="scroll"><table class="dtbl" id="tbl-var"></table></div>
-      <div class="act"><button class="btn btn-warn" onclick="addDivida('Variável')">+ Nova conta variável</button></div>
-    </div>
-  </div>
-  <div class="sub" id="sub-periodos">
-    <div class="ebox">
-      <h3>📅 Gestão de meses</h3>
-      <p>Adicione ou remova meses do seu planejamento financeiro.</p>
-      <div id="meses-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px"></div>
       <div class="act">
-        <button class="btn btn-pos" onclick="addMes()">+ Adicionar mês</button>
-        <button class="btn btn-neg" onclick="removeMes()">− Remover último</button>
+        <button class="btn btn-warn" onclick="addDivida('Variável')">+ Nova conta variável</button>
       </div>
+      <div id="anos-list"></div>
     </div>
   </div>
 </div>
@@ -840,7 +878,7 @@ select{cursor:pointer;}
   <div class="panel">
     <div class="panel-head">
       <span class="panel-title">👥 Usuários cadastrados</span>
-      <button class="btn btn-ghost" onclick="window._renderAdmin()" style="height:30px;font-size:12px">↺ Atualizar</button>
+      <button class="btn btn-ghost" onclick="reloadAdmin(this)" style="height:30px;font-size:12px">↺ Atualizar</button>
     </div>
     <div class="scroll">
       <table>
@@ -1050,18 +1088,31 @@ document.getElementById('btn-criar-user').onclick=function(){
   if(!name||!email||!pass){showAlert('adm-err','Preencha todos os campos.');return;}
   if(pass.length<6){showAlert('adm-err','Senha mínima de 6 caracteres.');return;}
   this.disabled=true;this.textContent='Criando...';
-  const sec=firebase.initializeApp(firebase.app().options,'sec_'+Date.now());
-  sec.auth().createUserWithEmailAndPassword(email,pass).then(cred=>
-    db.collection('users').doc(cred.user.uid).set({email,displayName:name,role,uid:cred.user.uid,createdAt:new Date().toISOString()})
-    .then(()=>sec.auth().signOut())
-  ).then(()=>{
+  const self=this;
+  // App secundário isolado — não afeta a sessão do admin logado
+  const secName='__fp_sec_'+Date.now();
+  const sec=firebase.initializeApp(firebase.app().options, secName);
+  sec.auth().createUserWithEmailAndPassword(email,pass).then(cred=>{
+    const uid=cred.user.uid;
+    // Cria perfil do usuário
+    return db.collection('users').doc(uid).set({
+      email,displayName:name,role,uid,createdAt:new Date().toISOString()
+    }).then(()=>{
+      // Cria userData vazio para o novo usuário
+      return db.collection('userData').doc(uid).set({
+        data: JSON.stringify(JSON.parse(JSON.stringify(BLANK||{salario:0,outras:0,saldo:0,cdi12:14.80,cdifev:1.21,cdi26:3.41,ipca12:4.14,ipcafev:0.88,ipca26:1.92,arcaMeta:{a:25,r:25,c:25,a2:25},metaCC:2000,meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26','Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27','Set/27','Out/27','Nov/27','Dez/27'],invManual:Array(20).fill(null),cartoes:[],dividas:[],ativos:[],pagamentos:{}}))),
+        updatedAt:new Date().toISOString(),v:3,createdAt:new Date().toISOString()
+      });
+    }).then(()=>sec.auth().signOut());
+  }).then(()=>{
     ['adm-name','adm-email','adm-pass'].forEach(id=>document.getElementById(id).value='');
     showAlert('adm-ok','✓ Usuário criado com sucesso!',true);
     window._renderAdmin();
+    toast('Usuário criado com sucesso!');
   }).catch(e=>{
     const m={'auth/email-already-in-use':'Este e-mail já está em uso.','auth/invalid-email':'E-mail inválido.'};
     showAlert('adm-err',m[e.code]||e.message);
-  }).finally(()=>{this.disabled=false;this.textContent='Criar usuário';});
+  }).finally(()=>{self.disabled=false;self.textContent='Criar usuário';});
 };
 
 function openReset(uid,email){
@@ -1082,7 +1133,42 @@ document.getElementById('btn-conf-reset').onclick=function(){
   .catch(e=>showAlert('modal-err',e.message))
   .finally(()=>{this.disabled=false;this.textContent='Redefinir senha';});
 };
-function delUser(uid,name){
+function reloadAdmin(btn){
+  const orig=btn.textContent;
+  btn.textContent='⏳ Carregando...';
+  btn.disabled=true;
+  window._renderAdmin();
+  setTimeout(()=>{
+    btn.textContent='✅ Atualizado!';
+    btn.style.color='var(--pos)';
+    setTimeout(()=>{btn.textContent=orig;btn.style.color='';btn.disabled=false;},2000);
+  },800);
+}
+
+// ── MOBILE MENU ────────────────────────────────────
+function toggleMobileMenu(){
+  const menu=document.getElementById('mobile-menu');
+  const btn=document.getElementById('ham-btn');
+  if(menu.classList.contains('open')){
+    menu.classList.remove('open');
+    btn.innerHTML='<span></span><span></span><span></span>';
+  } else {
+    menu.classList.add('open');
+    btn.innerHTML='<span style="transform:rotate(45deg) translate(5px,5px)"></span><span style="opacity:0"></span><span style="transform:rotate(-45deg) translate(5px,-5px)"></span>';
+  }
+}
+function closeMobileMenu(){
+  document.getElementById('mobile-menu').classList.remove('open');
+  document.getElementById('ham-btn').innerHTML='<span></span><span></span><span></span>';
+}
+// Close on outside click
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('mobile-menu');
+  const btn=document.getElementById('ham-btn');
+  if(menu&&menu.classList.contains('open')&&!menu.contains(e.target)&&!btn.contains(e.target)){
+    closeMobileMenu();
+  }
+});
   if(!confirm(`Remover "${name}"?\n\nTodos os dados financeiros deste usuário serão apagados. Esta ação é irreversível.`))return;
   Promise.all([
     db.collection('users').doc(uid).delete(),
