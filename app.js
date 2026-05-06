@@ -83,14 +83,27 @@ const ARCA = {
 };
 const CHART_COLORS=['#EF4444','#F59E0B','#3B82F6','#8B5CF6','#F97316','#06B6D4','#84CC16','#EC4899','#10B981','#EF4444'];
 
+// ── TEMPLATE EM BRANCO para novos usuários ────────
+const BLANK = {
+  salario:0, outras:0, saldo:0,
+  cdi12:14.80, cdifev:1.21, cdi26:3.41,
+  ipca12:4.14, ipcafev:0.88, ipca26:1.92,
+  arcaMeta:{a:25,r:25,c:25,a2:25}, metaCC:2000,
+  meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
+         'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
+         'Set/27','Out/27','Nov/27','Dez/27'],
+  cartoes:[], dividas:[], ativos:[]
+};
+
 // ── MIGRAÇÃO ──────────────────────────────────────
 function migrateData(d) {
-  if(!d) return JSON.parse(JSON.stringify(DEFAULT));
-  if(!d.cartoes)  d.cartoes  = JSON.parse(JSON.stringify(DEFAULT.cartoes));
-  if(!d.ativos)   d.ativos   = JSON.parse(JSON.stringify(DEFAULT.ativos));
+  // Novo usuário sem dados — retorna template em branco
+  if(!d) return JSON.parse(JSON.stringify(BLANK));
+  if(!d.cartoes)  d.cartoes  = [];
+  if(!d.ativos)   d.ativos   = [];
   if(!d.arcaMeta) d.arcaMeta = {a:25,r:25,c:25,a2:25};
   if(!d.metaCC)   d.metaCC   = 2000;
-  if(!d.meses)    d.meses    = [...DEFAULT.meses];
+  if(!d.meses)    d.meses    = [...BLANK.meses];
   if(!d.dividas)  d.dividas  = [];
   d.dividas.forEach(x => {
     if(!x.cat)        x.cat = 'outros';
