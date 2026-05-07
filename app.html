@@ -524,39 +524,35 @@ select{cursor:pointer;}
 
   <!-- SUB: GERAL -->
   <div class="sub on" id="sub-geral">
-    <!-- Empty state alerts -->
+    <!-- Alertas de configuração -->
     <div id="dash-alerts"></div>
-    <!-- Hero Banner -->
-    <div class="hero-banner" id="dash-hero"></div>
-    <!-- Cards principais -->
-    <div class="gcards" id="dash-mcards" style="margin-bottom:20px"></div>
-    <!-- Year Blocks -->
-    <div id="year-blocks"></div>
-    <!-- Dívidas overview -->
-    <div class="divider"><span class="divider-text">Análise de gastos — período completo</span></div>
-    <div class="g2 mb">
-      <div class="panel">
-        <div class="panel-head"><span class="panel-title">🏆 Ranking de gastos</span><span class="panel-badge">Por categoria</span></div>
-        <div id="rank-list"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><span class="panel-title">🍩 Distribuição</span></div>
-        <div class="chart-wrap" style="height:220px"><canvas id="cDough"></canvas></div>
-      </div>
-    </div>
+
+    <!-- Hero banner: patrimônio e score -->
+    <div class="hero-banner mb" id="dash-hero"></div>
+
+    <!-- 4 cards principais do mês atual -->
+    <div class="gcards mb" id="dash-mcards"></div>
+
+    <!-- Saúde financeira -->
+    <div class="divider"><span class="divider-text">Saúde financeira</span></div>
+    <div class="gcards mb" id="dash-saude"></div>
+
+    <!-- Próximos meses: visão simples -->
+    <div class="divider"><span class="divider-text">Próximos meses</span></div>
     <div class="panel mb">
-      <div class="panel-head"><span class="panel-title">📉 Evolução das dívidas ao longo do tempo</span></div>
-      <div class="chart-wrap" style="height:240px"><canvas id="cEvol"></canvas></div>
+      <div class="scroll"><table class="tbl-wide" id="dash-proximos"></table></div>
     </div>
-    <!-- Fluxo de caixa -->
-    <div class="divider"><span class="divider-text">Fluxo de caixa completo</span></div>
+
+    <!-- Maiores gastos do mês -->
+    <div class="divider"><span class="divider-text">Gastos deste mês</span></div>
     <div class="panel mb">
-      <div class="scroll"><table class="tbl-wide" id="fluxo-tbl"></table></div>
+      <div class="panel-head">
+        <span class="panel-title">💸 Todas as contas do mês atual</span>
+      </div>
+      <div id="dash-top-gastos"></div>
     </div>
-    <!-- Cartões -->
-    <div class="divider"><span class="divider-text">Cartões de crédito</span></div>
-    <div class="cc-grid" id="dash-cartoes-geral"></div>
-    <!-- Patrimônio futuro -->
+
+    <!-- Patrimônio futuro (se houver investimentos) -->
     <div id="dash-patrimonio-futuro"></div>
   </div>
 

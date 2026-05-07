@@ -432,215 +432,192 @@ function renderDashboard() {
 }
 
 function renderGeral() {
-  const n=nm();
-  const totE=D.meses.reduce((s,_,i)=>s+totalEMes(i),0);
-  const totD=D.meses.reduce((s,_,i)=>s+totalDivBruto(i),0);
-  const totInv=D.meses.reduce((s,_,i)=>s+invDisp(i),0);
-  const totS=D.meses.reduce((s,_,i)=>s+sobraM(i),0);
-  const score=scoreFinanceiro();
-  const pl=patrimonioLiquido();
-  const pctE=metaEmergencia()>0?Math.min(100,Math.round((caixaAtual()/metaEmergencia())*100)):0;
-  const scoreCor=score>=70?'#10B981':score>=40?'#F59E0B':'#EF4444';
+  // ── Dados do mês atual ──
+  const hoje = new Date();
+  const mesAtualNome = `${MMAP_R[hoje.getMonth()+1]}/${String(hoje.getFullYear()).slice(2)}`;
+  let mi = D.meses.indexOf(mesAtualNome);
+  if(mi === -1) mi = 0; // fallback para o primeiro mês
 
-  // Alerts
-  const alerEl=document.getElementById('dash-alerts');
-  const alerts=getEmptyStateAlerts();
-  if(alerEl) {
-    alerEl.innerHTML=alerts.length?`<div style="margin-bottom:16px">${alerts.map(a=>`<div onclick="${a.page?`go('${a.page}',document.querySelector('[onclick*=${a.page}]')`:''})" style="cursor:${a.page?'pointer':'default'};display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--warn-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r8);margin-bottom:6px">
-      <span>${a.icon}</span><span style="font-size:12px;flex:1">${a.msg}</span>${a.page?`<span style="font-size:11px;color:var(--warn)">→</span>`:''}
-    </div>`).join('')}</div>`:'';
-  }
+  const entrada   = totalEMes(mi);
+  const saida     = totalDivBruto(mi);
+  const sobra     = sobraM(mi);
+  const investir  = invDisp(mi);
+  const pl        = patrimonioLiquido();
+  const score     = scoreFinanceiro();
+  const caixa     = caixaAtual();
+  const metaE     = metaEmergencia();
+  const pctEmerg  = metaE > 0 ? Math.min(100, Math.round((caixa / metaE) * 100)) : 0;
+  const scoreCor  = score>=70 ? '#10B981' : score>=40 ? '#F59E0B' : '#EF4444';
+  const scoreLabel= score>=70 ? 'Ótimo' : score>=40 ? 'Regular' : 'Atenção';
+  const ativos    = D.meses.length;
+  const n         = getActiveMeses().length;
 
-  // Hero
-  const hero=document.getElementById('dash-hero');
-  if(hero) hero.innerHTML=`
+  // ── Alertas de configuração ──
+  const alerts = getEmptyStateAlerts();
+  const alertEl = document.getElementById('dash-alerts');
+  if(alertEl) alertEl.innerHTML = alerts.length ? `
+    <div style="background:var(--warn-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r12);padding:14px 16px;margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:8px">⚠️ Configure seu perfil financeiro</div>
+      ${alerts.map(a=>`<div style="font-size:12px;color:var(--text2);padding:3px 0;display:flex;align-items:center;gap:8px">${a.icon} ${a.msg}</div>`).join('')}
+    </div>` : '';
+
+  // ── HERO: Banner principal ──
+  const hero = document.getElementById('dash-hero');
+  if(hero) hero.innerHTML = `
     <div class="hero-top">
       <div>
-        <div class="hero-label">Patrimônio Líquido Total</div>
-        <div class="hero-amount">${RK(pl.liquido)}</div>
-        <div class="hero-sub">Ativos ${RK(pl.ativos)} − Passivos em aberto</div>
+        <div class="hero-label">Meu Patrimônio</div>
+        <div class="hero-amount">${fmt(pl.liquido)}</div>
+        <div class="hero-sub">${pl.ativos > 0 ? `${fmt(pl.ativos)} em investimentos` : 'Nenhum investimento cadastrado'}</div>
       </div>
       <div class="hero-score">
         <div class="hero-score-val" style="color:${scoreCor}">${score}</div>
-        <div class="hero-score-label">Score financeiro</div>
+        <div class="hero-score-label">${scoreLabel}</div>
         <div class="score-bar"><div class="score-bar-fill" style="width:${score}%;background:${scoreCor}"></div></div>
       </div>
     </div>
     <div class="hero-pills">
-      <div class="hero-pill green">💰 Renda: <strong>${RK(totalEMes(0))}/mês</strong></div>
-      <div class="hero-pill ${totS>=0?'green':'red'}">📊 Sobra: <strong>${RK(totS)}</strong></div>
-      <div class="hero-pill blue">🚀 P/ Investir: <strong>${RK(totInv)}</strong></div>
-      <div class="hero-pill ${pctE>=100?'green':pctE>=50?'':'red'}">🛡️ Reserva: <strong>${pctE}%</strong></div>
+      <div class="hero-pill green">💰 ${fmt(entrada)}/mês</div>
+      <div class="hero-pill ${sobra>=0?'green':'red'}">${sobra>=0?'✅':'⚠️'} Sobra: ${fmt(sobra)}</div>
+      <div class="hero-pill blue">🚀 Investir: ${fmt(investir)}</div>
     </div>`;
 
-  // Metric cards
-  const mc=document.getElementById('dash-mcards');
-  if(mc) mc.innerHTML=`
-    <div class="mcard mcard-pos"><div class="mlabel">💰 Renda total período</div><div class="mval mval-pos">${RK(totE)}</div><div class="msub">${n} meses</div></div>
-    <div class="mcard mcard-neg"><div class="mlabel">💸 Saídas total período</div><div class="mval mval-neg">${RK(totD)}</div><div class="msub">${pct(totD,totE)} da renda</div></div>
-    <div class="mcard mcard-teal"><div class="mlabel">🚀 Total p/ investir</div><div class="mval mval-teal">${RK(totInv)}</div></div>
-    <div class="mcard ${totS>=0?'mcard-pos':'mcard-neg'}"><div class="mlabel">📊 Sobra acumulada</div><div class="mval ${totS>=0?'mval-pos':'mval-neg'}">${RK(totS)}</div></div>
-    <div class="mcard mcard-accent"><div class="mlabel">📈 Score financeiro</div><div class="mval mval-accent">${score}<span style="font-size:14px">/100</span></div></div>
-    <div class="mcard ${pctE>=100?'mcard-pos':pctE>=50?'mcard-warn':'mcard-neg'}"><div class="mlabel">🛡️ Reserva emergência</div><div class="mval ${pctE>=100?'mval-pos':pctE>=50?'mval-warn':'mval-neg'}">${pctE}%</div><div class="msub">meta: ${RK(metaEmergencia())}</div></div>
-  `;
+  // ── 4 CARDS PRINCIPAIS: o que importa agora ──
+  const mc = document.getElementById('dash-mcards');
+  if(mc) mc.innerHTML = `
+    <div class="mcard mcard-pos">
+      <div class="mlabel">💰 Entradas em ${D.meses[mi]||'este mês'}</div>
+      <div class="mval mval-pos">${fmt(entrada)}</div>
+      <div class="msub">${D.entradas.filter(e=>e.ativo).length} fonte(s) de renda</div>
+    </div>
+    <div class="mcard mcard-neg">
+      <div class="mlabel">💸 Saídas em ${D.meses[mi]||'este mês'}</div>
+      <div class="mval mval-neg">${fmt(saida)}</div>
+      <div class="msub">${pct(saida, entrada)} da renda</div>
+    </div>
+    <div class="mcard ${sobra>=0?'mcard-pos':'mcard-neg'}">
+      <div class="mlabel">${sobra>=0?'✅':'⚠️'} Sobra do mês</div>
+      <div class="mval ${sobra>=0?'mval-pos':'mval-neg'}">${fmt(sobra)}</div>
+      <div class="msub">${sobra>=0?'Você está no positivo':'Despesas maiores que renda'}</div>
+    </div>
+    <div class="mcard mcard-teal">
+      <div class="mlabel">🚀 Disponível p/ investir</div>
+      <div class="mval mval-teal">${fmt(investir)}</div>
+      <div class="msub">${investir>0?'50% da sobra':'Sem sobra este mês'}</div>
+    </div>`;
 
-  renderYearBlocks();
-  renderFluxoTable();
-  renderGeralCharts();
+  // ── SAÚDE FINANCEIRA ──
+  const saude = document.getElementById('dash-saude');
+  if(saude){
+    const fixasMes  = totalFixasMes(mi);
+    const varMes    = totalComprasMes(mi);
+    const pctFixas  = entrada>0?Math.round((fixasMes/entrada)*100):0;
+    const pctVar    = entrada>0?Math.round((varMes/entrada)*100):0;
 
-  // Patrimônio futuro
-  const pf=calcPatrimonioFuturo();
-  const pfEl=document.getElementById('dash-patrimonio-futuro');
-  if(pfEl&&pf&&pf.length) {
-    pfEl.innerHTML=`
-    <div class="divider"><span class="divider-text">📈 Patrimônio futuro esperado</span></div>
-    <div class="panel mb">
-      <div class="panel-head"><span class="panel-title">💎 Projeção seguindo recomendações do sistema</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:10px">
+    const indicadores = [
+      { label:'Reserva de emergência', valor:`${pctEmerg}%`, sub:`${fmt(caixa)} de ${fmt(metaE)}`, cor: pctEmerg>=100?'#10B981':pctEmerg>=50?'#F59E0B':'#EF4444', pct: pctEmerg, icon:'🛡️' },
+      { label:'Comprometimento fixo',  valor:`${pctFixas}%`, sub:`${fmt(fixasMes)} de ${fmt(entrada)}`, cor: pctFixas<=30?'#10B981':pctFixas<=50?'#F59E0B':'#EF4444', pct: pctFixas, icon:'📌' },
+      { label:'Score financeiro',      valor:`${score}/100`, sub:scoreLabel, cor: scoreCor, pct: score, icon:'⭐' },
+    ];
+
+    saude.innerHTML = indicadores.map(ind=>`
+      <div class="mcard">
+        <div class="mlabel">${ind.icon} ${ind.label}</div>
+        <div class="mval" style="color:${ind.cor};font-size:20px">${ind.valor}</div>
+        <div style="height:4px;background:var(--card3);border-radius:99px;margin:8px 0 4px;overflow:hidden">
+          <div style="height:4px;width:${Math.min(100,ind.pct)}%;background:${ind.cor};border-radius:99px;transition:width .6s"></div>
+        </div>
+        <div class="msub">${ind.sub}</div>
+      </div>`).join('');
+  }
+
+  // ── PRÓXIMOS MESES: tabela simples ──
+  const proxEl = document.getElementById('dash-proximos');
+  if(proxEl){
+    const proxMeses = getActiveMeses().slice(0, 6); // próximos 6 meses
+    const rows = proxMeses.map(m=>{
+      const i = D.meses.indexOf(m);
+      const e = totalEMes(i), d = totalDivBruto(i), s = sobraM(i), inv = invDisp(i);
+      const isAtual = i === mi;
+      return `<tr style="${isAtual?'background:var(--accent-glow);font-weight:700':''}">
+        <td style="font-weight:${isAtual?700:500}">${m}${isAtual?' <span style="font-size:10px;color:var(--accent);background:var(--accent-glow);padding:1px 6px;border-radius:99px">hoje</span>':''}</td>
+        <td class="tr tpos">${fmt(e)}</td>
+        <td class="tr tneg">${fmt(d)}</td>
+        <td class="tr ${s>=0?'tpos':'tneg'}">${fmt(s)}</td>
+        <td class="tr tteal">${fmt(inv)}</td>
+      </tr>`;
+    }).join('');
+    proxEl.innerHTML = `<thead><tr>
+      <th>Mês</th>
+      <th class="tr">💰 Entradas</th>
+      <th class="tr">💸 Saídas</th>
+      <th class="tr">📊 Sobra</th>
+      <th class="tr" style="color:var(--teal)">🚀 P/ Investir</th>
+    </tr></thead><tbody>${rows}</tbody>`;
+  }
+
+  // ── MAIORES GASTOS DO MÊS ──
+  renderTopGastosMes(mi);
+
+  // ── PATRIMÔNIO FUTURO ──
+  const pf = calcPatrimonioFuturo();
+  const pfEl = document.getElementById('dash-patrimonio-futuro');
+  if(pfEl && pf && pf.length){
+    pfEl.innerHTML = `
+      <div class="divider"><span class="divider-text">📈 Onde você estará no futuro</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:8px">
         ${pf.map((p,i)=>`<div class="mcard ${i===pf.length-1?'mcard-accent':''}">
-          <div class="mlabel">${i===pf.length-1?'🎯 ':''}${p.yr}</div>
+          <div class="mlabel">${p.yr}</div>
           <div class="mval ${i===pf.length-1?'mval-accent':'mval-teal'}" style="font-size:18px">${fmtK(p.saldo)}</div>
           <div class="msub">aportes: ${fmtK(p.aporte)}</div>
         </div>`).join('')}
       </div>
-      <div style="font-size:10px;color:var(--text3)">⚠️ Projeção estimada. Não garante rentabilidade futura.</div>
-    </div>`;
-  } else if(pfEl) pfEl.innerHTML='';
+      <div style="font-size:10px;color:var(--text3)">Projeção estimada com juros compostos. Não garante rentabilidade futura.</div>`;
+  } else if(pfEl) pfEl.innerHTML = '';
 }
 
-function renderFluxoTable() {
-  const ft=document.getElementById('fluxo-tbl');if(!ft)return;
-  const yrs=getYears();
-  const rows=D.meses.map((m,i)=>{
-    const e=totalEMes(i),d=totalDivBruto(i),inv=invDisp(i),s=sobraM(i);
-    const r=calcInvest(i);
-    const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
-    const yr=m.match(/\/(\d+)/);const yrN=yr?'20'+yr[1]:'';
-    const clr=yrs[0]===yrN?'rgba(59,130,246,.3)':'rgba(139,92,246,.3)';
-    return `<tr style="border-left:3px solid ${clr}">
-      <td style="font-weight:600">${m}</td>
-      <td class="tr tpos">${fmt(e)}</td>
-      <td class="tr tneg">${fmt(d)}</td>
-      <td class="tr ${s>=0?'tpos':'tneg'}">${fmt(s)}</td>
-      <td class="tr tteal">${fmt(inv)} ${icon}</td>
-    </tr>`;
-  }).join('');
-  const tD=D.meses.reduce((s,_,i)=>s+totalDivBruto(i),0);
-  const tInv=D.meses.reduce((s,_,i)=>s+invDisp(i),0);
-  const tS=D.meses.reduce((s,_,i)=>s+sobraM(i),0);
-  ft.innerHTML=`<thead class="thead-sticky"><tr>
-    <th>Mês</th><th class="tr">Entradas</th><th class="tr">Saídas</th><th class="tr">Sobra</th>
-    <th class="tr" style="color:var(--teal)">💰 P/ Investir</th>
-  </tr></thead><tbody>${rows}
-  <tr style="background:var(--card2);font-weight:700">
-    <td>TOTAL</td><td></td><td class="tr tneg">${fmt(tD)}</td>
-    <td class="tr ${tS>=0?'tpos':'tneg'}">${fmt(tS)}</td>
-    <td class="tr tteal">${fmt(tInv)}</td>
-  </tr></tbody>`;
-}
+function renderTopGastosMes(mi) {
+  const el = document.getElementById('dash-top-gastos');
+  if(!el) return;
 
-function renderGeralCharts() {
-  // Doughnut saídas por categoria (fixas + compras)
-  dc('cDough');
-  const catTots={};
-  D.fixas.forEach(f=>{ if(f.ativo){ const c=f.cat||'outros'; catTots[c]=(catTots[c]||0)+f.valor*nm(); } });
-  D.compras.forEach(c=>{ if(c.ativo){ const cat=c.cat||'outros'; const tot=calcValsCompra(c).reduce((s,v)=>s+v,0); catTots[cat]=(catTots[cat]||0)+tot; } });
-  const catE=Object.entries(catTots).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a);
-  const cD=document.getElementById('cDough');
-  if(cD) CH['cDough']=new Chart(cD,{type:'doughnut',data:{
-    labels:catE.map(([k])=>(CATS[k]?.icon||'📦')+' '+(CATS[k]?.label||k)),
-    datasets:[{data:catE.map(([,v])=>v),backgroundColor:catE.map(([k])=>CATS[k]?.cor||'#888'),borderWidth:0,hoverOffset:10}]
-  },options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'right',labels:{color:tc(),font:{size:11},boxWidth:10,padding:8}},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}});
-
-  // Ranking
-  const rl=document.getElementById('rank-list');
-  if(rl){
-    const items=[
-      ...D.fixas.filter(f=>f.ativo).map(f=>({nome:f.nome,cat:f.cat,total:f.valor*nm()})),
-      ...D.compras.filter(c=>c.ativo).map(c=>({nome:c.nome,cat:c.cat,total:calcValsCompra(c).reduce((s,v)=>s+v,0)}))
-    ].sort((a,b)=>b.total-a.total).slice(0,8);
-    const maxT=items[0]?.total||1;
-    rl.innerHTML=items.map((d,i)=>{
-      const cat=CATS[d.cat]||CATS.outros;
-      return `<div class="rank-row">
-        <span class="rank-n">${i+1}</span><span class="rank-icon">${cat.icon}</span>
-        <span class="rank-name">${d.nome}</span>
-        <div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${Math.round((d.total/maxT)*100)}%;background:${cat.cor}"></div></div>
-        <span class="rank-val">${fmt(d.total)}</span>
-      </div>`;
-    }).join('');
-  }
-
-  // Linha evolução
-  dc('cEvol');
-  const cEv=document.getElementById('cEvol');
-  if(cEv) {
-    const comprasAtivas=D.compras.filter(c=>c.ativo);
-    CH['cEvol']=new Chart(cEv,{type:'line',data:{
-      labels:D.meses.map(sM),
-      datasets:[
-        {label:'Fixas',data:D.meses.map(()=>totalFixasMes(0)),borderColor:'#3B82F6',backgroundColor:'transparent',tension:.35,pointRadius:2,borderWidth:1.5,borderDash:[5,3]},
-        ...comprasAtivas.slice(0,5).map((c,idx)=>({
-          label:c.nome,data:calcValsCompra(c),
-          borderColor:CHART_COLORS[idx%CHART_COLORS.length],backgroundColor:'transparent',tension:.35,pointRadius:2,borderWidth:1.5
-        }))
-      ]
-    },options:chartOpts()});
-  }
-}
-
-function renderYearBlocks() {
-  const container=document.getElementById('year-blocks');if(!container)return;
-  container.innerHTML='';
-  getYears().forEach((yr,yi)=>{
-    const meses=getMesesAno(yr);if(!meses.length)return;
-    const totE=meses.reduce((s,{i})=>s+totalEMes(i),0);
-    const totD=meses.reduce((s,{i})=>s+totalDivBruto(i),0);
-    const totInv=meses.reduce((s,{i})=>s+invDisp(i),0);
-    const totS=meses.reduce((s,{i})=>s+sobraM(i),0);
-    const isCol=yrCollapsed[yr]!==false;
-    const acorCor=yi===0?'#3B82F6':'#8B5CF6';
-    const tagCls=yi===0?'yr-tag-26':'yr-tag-27';
-    const block=document.createElement('div');
-    block.className='yrblock mb';
-    block.innerHTML=`
-      <div class="yrblock-head" onclick="toggleYr('${yr}')">
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <span class="yr-tag ${tagCls}">${yr}</span>
-          <span style="font-size:12px;color:var(--text2)">${meses.length} meses</span>
-        </div>
-        <div class="yr-meta-pills">
-          <span class="yr-meta-pill">💰 <strong style="color:#10B981">${RK(totE)}</strong></span>
-          <span class="yr-meta-pill">💸 <strong style="color:#EF4444">${RK(totD)}</strong></span>
-          <span class="yr-meta-pill">🚀 <strong style="color:#06B6D4">${RK(totInv)}</strong></span>
-          <span class="yr-meta-pill"><strong style="color:${totS>=0?'#10B981':'#EF4444'}">${RK(totS)}</strong></span>
-        </div>
-        <span class="yr-chev${isCol?'':' open'}">▾</span>
-      </div>
-      <div class="yr-body${isCol?' hidden':''}" id="yr-body-${yr}">
-        <div class="timeline" id="tl-${yr}" style="margin:12px 0"></div>
-        <div class="g2 mb">
-          <div class="panel"><div class="panel-head"><span class="panel-title">📊 Saídas vs Disponível</span></div><div class="chart-wrap" style="height:180px"><canvas id="cBar${yr}"></canvas></div></div>
-          <div class="panel"><div class="panel-head"><span class="panel-title">📈 Sobra acumulada</span></div><div class="chart-wrap" style="height:180px"><canvas id="cAcum${yr}"></canvas></div></div>
-        </div>
-      </div>`;
-    container.appendChild(block);
-    const tl=document.getElementById('tl-'+yr);
-    if(tl) tl.innerHTML=meses.map(({m,i})=>{const s=sobraM(i);return `<div class="tlcell ${s>=0?'pos':'neg'}"><div class="tlm">${sM(m)}</div><div class="tlv ${s>=0?'pos':'neg'}">${RK(s)}</div><div class="tls" style="color:var(--teal)">🚀${RK(invDisp(i))}</div></div>`;}).join('');
-    if(!isCol){
-      dc('cBar'+yr);dc('cAcum'+yr);
-      const cB=document.getElementById('cBar'+yr);
-      if(cB) CH['cBar'+yr]=new Chart(cB,{type:'bar',data:{labels:meses.map(x=>sM(x.m)),datasets:[
-        {label:'Saídas',   data:meses.map(x=>totalDivBruto(x.i)),backgroundColor:'rgba(239,68,68,.8)',borderRadius:4},
-        {label:'P/Invest.',data:meses.map(x=>invDisp(x.i)),      backgroundColor:'rgba(6,182,212,.8)',borderRadius:4},
-      ]},options:chartOpts()});
-      let acc=0;const acumArr=meses.map(({i})=>{acc+=sobraM(i);return Math.round(acc*100)/100;});
-      const cA=document.getElementById('cAcum'+yr);
-      if(cA) CH['cAcum'+yr]=new Chart(cA,{type:'line',data:{labels:meses.map(x=>sM(x.m)),datasets:[{data:acumArr,borderColor:acorCor,backgroundColor:acorCor.replace('rgb','rgba').replace(')',',0.08)'),tension:.4,fill:true,pointRadius:4,borderWidth:2,pointBackgroundColor:acumArr.map(v=>v>=0?'#10B981':'#EF4444')}]},options:chartOpts({plugins:{legend:{display:false}}})});
-    }
+  // Coleta todos os gastos do mês
+  const gastos = [];
+  D.fixas.filter(f=>f.ativo && f.valor>0).forEach(f=>{
+    gastos.push({nome:f.nome, valor:f.valor, cat:f.cat, tipo:'Fixo'});
   });
+  D.compras.filter(c=>c.ativo).forEach(c=>{
+    const v = calcValsCompra(c)[mi]||0;
+    if(v>0) gastos.push({nome:c.nome, valor:v, cat:c.cat, tipo:'Variável', cartao:c.cartao});
+  });
+
+  if(!gastos.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhum gasto em ${D.meses[mi]||'este mês'}. Cadastre contas na aba Saídas.</div></div>`;
+    return;
+  }
+
+  const totalM = gastos.reduce((s,g)=>s+g.valor,0);
+  gastos.sort((a,b)=>b.valor-a.valor);
+
+  el.innerHTML = gastos.map(g=>{
+    const info = CATS[g.cat]||CATS.outros;
+    const pctVal = totalM>0?Math.round((g.valor/totalM)*100):0;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:18px;flex-shrink:0">${info.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.nome}</div>
+        <div style="font-size:10px;color:var(--text2)">${info.label}${g.cartao?' · 💳 '+g.cartao:''} · <span class="badge ${g.tipo==='Fixo'?'badge-fixo':'badge-var'}">${g.tipo}</span></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:14px;font-weight:700;color:var(--neg)">${fmt(g.valor)}</div>
+        <div style="font-size:10px;color:var(--text3)">${pctVal}% das saídas</div>
+      </div>
+    </div>`;
+  }).join('') + `<div style="padding:10px 0;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:12px;font-weight:700;color:var(--text2)">Total</span>
+    <span style="font-size:16px;font-weight:700;color:var(--neg)">${fmt(totalM)}</span>
+  </div>`;
 }
-function toggleYr(yr){yrCollapsed[yr]=!yrCollapsed[yr];renderYearBlocks();}
+
 
 // ── POR MÊS ───────────────────────────────────────
 function renderMes() {
