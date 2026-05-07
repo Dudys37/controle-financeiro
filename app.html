@@ -657,12 +657,16 @@ select{cursor:pointer;}
     <div id="lista-fixas"></div>
   </div>
   <div class="sub" id="sub-variaveis">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
       <div>
         <div style="font-size:16px;font-weight:700">🔄 Compras & Parcelas</div>
         <div style="font-size:12px;color:var(--text2);margin-top:2px">Parcelamento automático baseado no fechamento do cartão</div>
       </div>
       <button class="btn btn-warn" onclick="abrirModalCompra()">+ Nova compra / parcela</button>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Filtrar por mês da fatura</div>
+      <div class="msel" id="var-filtro-meses"></div>
     </div>
     <div id="lista-var"></div>
   </div>
@@ -689,6 +693,7 @@ select{cursor:pointer;}
     </div>
   </div>
   <div class="sub" id="sub-inv-arca">
+    <div id="arca-perfil-banner"></div>
     <div id="arca-alert" class="arca-alert-box"></div>
     <div class="arca-grid" id="arca-cards"></div>
     <div class="g2 mb">

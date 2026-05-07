@@ -250,7 +250,7 @@ function calcInvest(i) {
   const e=totalEMes(i), c=totalDiv(i), meta=D.metaCC||2000, sobra=e-c;
   if(sobra<=0)   return {e,c,meta,saldo:0,sobra,regra:'negativo'};
   if(sobra<meta) return {e,c,meta,saldo:sobra*0.5,sobra,regra:'menor_meta'};
-  return              {e,c,meta,saldo:sobra*0.5,sobra,regra:'maior_meta'};
+  return              {e,c,meta,saldo:sobra-meta,sobra,regra:'maior_meta'};
 }
 const invDispCalc = i => calcInvest(i).saldo;
 function invDisp(i) {
@@ -897,10 +897,43 @@ function renderSaidasFixas() {
   const totFixed=D.fixas.filter(f=>f.ativo).reduce((s,f)=>s+(f.valor||0),0);
   document.getElementById('fixas-total').textContent=`Total fixo/mês: ${fmt(totFixed)}`;
 }
+let selSaidasMes = ''; // filtro de mês na aba Saídas Variáveis
+
 function renderSaidasVar() {
   const el=document.getElementById('lista-var');if(!el)return;
+
+  // Monta seletor de meses com dados
+  const mesesComDados = new Set();
+  D.compras.filter(c=>c.ativo).forEach(c=>{
+    calcValsCompra(c).forEach((v,i)=>{ if(v>0) mesesComDados.add(D.meses[i]); });
+  });
+  const mesesList = [...mesesComDados].sort((a,b)=>{
+    const pa=parseMes(a),pb=parseMes(b);
+    return pa.y!==pb.y?pa.y-pb.y:pa.m-pb.m;
+  });
+
+  const filtroEl=document.getElementById('var-filtro-meses');
+  if(filtroEl) {
+    filtroEl.innerHTML=`<button class="msb${selSaidasMes===''?' on':''}" onclick="selSaidasMes='';renderSaidasVar()">Todas</button>`
+      +mesesList.map(m=>`<button class="msb${selSaidasMes===m?' on':''}" onclick="selSaidasMes='${m}';renderSaidasVar()">${sM(m)}</button>`).join('');
+  }
+
   if(!D.compras.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">🔄</div><div class="empty-text">Nenhuma compra/parcela. Clique em + para adicionar.</div></div>`; return; }
-  el.innerHTML=D.compras.map((c,ci)=>{
+
+  // Filtra compras que tem valor no mês selecionado
+  const comprasFiltradas = selSaidasMes
+    ? D.compras.filter(c=>{ const mi=D.meses.indexOf(selSaidasMes); return mi>=0 && (calcValsCompra(c)[mi]||0)>0; })
+    : D.compras;
+
+  if(!comprasFiltradas.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma parcela em ${selSaidasMes}.</div></div>`;
+    return;
+  }
+
+  const mi = selSaidasMes ? D.meses.indexOf(selSaidasMes) : -1;
+
+  el.innerHTML=comprasFiltradas.map((c)=>{
+    const ci=D.compras.indexOf(c);
     const info=CATS[c.cat]||CATS.outros;
     const valsC=calcValsCompra(c);
     const total=valsC.reduce((s,v)=>s+v,0);
@@ -908,6 +941,9 @@ function renderSaidasVar() {
     const ultMes=D.meses.reduce((b,_,i)=>valsC[i]>0?i:b,-1);
     const cartao=D.cartoes.find(ct=>ct.nome===c.cartao);
     const parStr=c.parcelas>1?`${c.parcelas}x de ${fmt((c.valor||0)/c.parcelas)}`:`à vista`;
+    const valorDestaque = mi>=0 ? (valsC[mi]||0) : c.valor;
+    const labelValor = mi>=0 ? `Parcela ${sM(selSaidasMes)}` : 'Valor total';
+
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:16px;margin-bottom:8px;${!c.ativo?'opacity:.5':''}">
       <div style="display:flex;align-items:flex-start;gap:12px">
         <span style="font-size:22px">${info.icon}</span>
@@ -925,19 +961,18 @@ function renderSaidasVar() {
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:20px;font-weight:700;color:var(--neg)">${fmt(c.valor)}</div>
-          <div style="font-size:10px;color:var(--text2)">total: ${fmt(total)}</div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:2px">${labelValor}</div>
+          <div style="font-size:20px;font-weight:700;color:var(--neg)">${fmt(valorDestaque)}</div>
+          ${mi>=0?`<div style="font-size:10px;color:var(--text3)">total: ${fmt(total)}</div>`:''}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="editarCompra(${ci})">✏️</button>
           <button class="btn-rm" onclick="removerCompra(${ci})">✕</button>
         </div>
       </div>
-      ${c.parcelas>1?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:10px">${valsC.map((v,i)=>v>0?`<span class="cc-chip-sml">${sM(D.meses[i])}: ${fmtK(v)}</span>`:'').filter(Boolean).join('')}</div>`:''}
+      ${c.parcelas>1?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:10px">${valsC.map((v,i)=>v>0?`<span class="cc-chip-sml" style="${D.meses[i]===selSaidasMes?'background:var(--accent-glow);color:var(--accent);font-weight:700':''}">${sM(D.meses[i])}: ${fmtK(v)}</span>`:'').filter(Boolean).join('')}</div>`:''}
     </div>`;
   }).join('');
-  // Anos
-  renderAnosList();
 }
 
 function abrirModalFixa(fi=-1) {
@@ -1043,55 +1078,99 @@ function renderFaturas() {
   const mi=selFaturas;
   const mesNome=D.meses[mi]||'';
   const lbl=document.getElementById('faturas-mes-label');if(lbl)lbl.textContent=`Faturas de ${mesNome}`;
-
-  // Monta lista de itens do mês
-  const itens=[];
-  D.fixas.filter(f=>f.ativo).forEach(f=>{ itens.push({id:'fx_'+f.id,nome:f.nome,cat:f.cat,valor:f.valor,tipo:'fixa',cartao:''}); });
-  D.compras.filter(c=>c.ativo).forEach(c=>{ const v=calcValsCompra(c)[mi]||0; if(v>0) itens.push({id:'cp_'+c.id,nome:c.nome,cat:c.cat,valor:v,tipo:'variavel',cartao:c.cartao}); });
-
   const mes=D.meses[mi];
+  if(!mes){return;}
+
   const pag=D.pagamentos&&D.pagamentos[mes]||{};
-  const pagas=itens.filter(it=>pag[it.id]);
-  const pendentes=itens.filter(it=>!pag[it.id]);
-  const totBruto=itens.reduce((s,it)=>s+it.valor,0);
-  const totPago=pagas.reduce((s,it)=>s+it.valor,0);
-  const totPend=pendentes.reduce((s,it)=>s+it.valor,0);
-  const pctP=totBruto>0?Math.round((totPago/totBruto)*100):0;
+
+  // ── CONTAS FIXAS (uma linha por conta, não agrupadas) ──
+  const fixasDoMes = D.fixas.filter(f=>f.ativo && (f.valor||0)>0);
+
+  // ── FATURAS DE CARTÃO: agrupa por cartão ──
+  const porCartao = {};
+  D.compras.filter(c=>c.ativo).forEach(c=>{
+    const v = calcValsCompra(c)[mi]||0;
+    if(!v) return;
+    const key = c.cartao||'__semcartao__';
+    if(!porCartao[key]) porCartao[key]={cartao:c.cartao, itens:[], total:0};
+    porCartao[key].itens.push({nome:c.nome, valor:v, cat:c.cat});
+    porCartao[key].total+=v;
+  });
+  // Saídas sem cartão viram itens individuais como fixas
+  const semCartao = porCartao['__semcartao__']?.itens||[];
+  delete porCartao['__semcartao__'];
+
+  // ── MONTA GRUPOS PAGÁVEIS ──
+  // Cada grupo: fixas individuais + fatura por cartão + sem cartão individuais
+  const grupos = [];
+  fixasDoMes.forEach(f=>{
+    grupos.push({id:'fx_'+f.id, label:f.nome, sub:'Conta fixa · '+((CATS[f.cat]||CATS.outros).label), icon:(CATS[f.cat]||CATS.outros).icon, valor:f.valor, tipo:'fixa', itens:[]});
+  });
+  semCartao.forEach((it,idx)=>{
+    grupos.push({id:'sc_'+idx+'_'+mi, label:it.nome, sub:(CATS[it.cat]||CATS.outros).label+' · sem cartão', icon:(CATS[it.cat]||CATS.outros).icon, valor:it.valor, tipo:'variavel', itens:[]});
+  });
+  Object.entries(porCartao).forEach(([nomeCartao, grp])=>{
+    const cartao=D.cartoes.find(c=>c.nome===nomeCartao);
+    const sub=cartao?`Vencimento dia ${cartao.diaVencimento} · Fechamento dia ${cartao.diaFechamento}`:'Cartão de crédito';
+    grupos.push({id:'cc_'+nomeCartao.replace(/\s/g,'_')+'_'+mi, label:`💳 Fatura ${nomeCartao}`, sub, icon:'💳', valor:grp.total, tipo:'cartao', itens:grp.itens, cartao:nomeCartao});
+  });
+
+  const pagas = grupos.filter(g=>pag[g.id]);
+  const pendentes = grupos.filter(g=>!pag[g.id]);
+  const totBruto = grupos.reduce((s,g)=>s+g.valor,0);
+  const totPago  = pagas.reduce((s,g)=>s+g.valor,0);
+  const totPend  = pendentes.reduce((s,g)=>s+g.valor,0);
+  const pctP = totBruto>0?Math.round((totPago/totBruto)*100):0;
 
   const sumEl=document.getElementById('faturas-summary');
   if(sumEl) sumEl.innerHTML=`
     <div class="mcard mcard-neg"><div class="mlabel">💸 Total do mês</div><div class="mval mval-neg">${fmt(totBruto)}</div></div>
-    <div class="mcard mcard-warn"><div class="mlabel">⏳ Pendente</div><div class="mval mval-warn">${fmt(totPend)}</div><div class="msub">${pendentes.length} item(s)</div></div>
-    <div class="mcard mcard-pos"><div class="mlabel">✅ Pago</div><div class="mval mval-pos">${fmt(totPago)}</div><div class="msub">${pagas.length} item(s) · ${pctP}%</div></div>
-    <div class="mcard ${pctP===100&&itens.length>0?'mcard-pos':'mcard-accent'}"><div class="mlabel">📊 Progresso</div><div class="mval ${pctP===100?'mval-pos':'mval-accent'}">${pctP}%</div><div style="height:4px;background:var(--card3);border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:4px;width:${pctP}%;background:${pctP===100?'var(--pos)':'var(--accent)'};border-radius:99px;transition:width .5s"></div></div></div>
+    <div class="mcard mcard-warn"><div class="mlabel">⏳ Pendente</div><div class="mval mval-warn">${fmt(totPend)}</div><div class="msub">${pendentes.length} fatura(s)</div></div>
+    <div class="mcard mcard-pos"><div class="mlabel">✅ Pago</div><div class="mval mval-pos">${fmt(totPago)}</div><div class="msub">${pagas.length} fatura(s) · ${pctP}%</div></div>
+    <div class="mcard ${pctP===100&&grupos.length>0?'mcard-pos':'mcard-accent'}"><div class="mlabel">📊 Progresso</div><div class="mval ${pctP===100?'mval-pos':'mval-accent'}">${pctP}%</div><div style="height:4px;background:var(--card3);border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:4px;width:${pctP}%;background:${pctP===100?'var(--pos)':'var(--accent)'};border-radius:99px;transition:width .5s"></div></div></div>
   `;
 
   const allDone=document.getElementById('faturas-all-done');
-  if(allDone) { if(pctP===100&&itens.length>0){allDone.style.display='';allDone.innerHTML=`<div style="text-align:center;padding:16px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.3);border-radius:var(--r12);color:var(--pos);font-weight:700">🎉 Todas as faturas de ${mesNome} foram pagas!</div>`;}else{allDone.style.display='none';} }
+  if(allDone){if(pctP===100&&grupos.length>0){allDone.style.display='';allDone.innerHTML=`<div style="text-align:center;padding:16px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.3);border-radius:var(--r12);color:var(--pos);font-weight:700">🎉 Todas as faturas de ${mesNome} foram pagas!</div>`;}else{allDone.style.display='none';}}
 
-  const pagarItem=(it,paid)=>{
-    const info=CATS[it.cat]||CATS.outros;
-    return paid
-      ? `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.2);border-radius:var(--r8);margin-bottom:6px;opacity:.7">
-          <span>${info.icon}</span>
-          <div style="flex:1"><div style="font-weight:600;text-decoration:line-through;font-size:13px">${it.nome}</div><div style="font-size:11px;color:var(--text2)">${info.label}${it.cartao?' · 💳 '+it.cartao:''} · <span class="badge badge-${it.tipo==='fixa'?'fixo':'var'}">${it.tipo==='fixa'?'Fixa':'Variável'}</span></div></div>
-          <div style="font-weight:700;color:var(--pos)">${fmt(it.valor)}</div>
-          <button class="btn btn-ghost" style="height:30px;font-size:11px" onclick="faturaDesfazer('${it.id}',${mi})">↩</button>
-        </div>`
-      : `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r8);margin-bottom:6px">
-          <span style="font-size:18px">${info.icon}</span>
-          <div style="flex:1"><div style="font-weight:600;font-size:13px">${it.nome}</div><div style="font-size:11px;color:var(--text2)">${info.label}${it.cartao?' · 💳 '+it.cartao:''} · <span class="badge badge-${it.tipo==='fixa'?'fixo':'var'}">${it.tipo==='fixa'?'Fixa':'Variável'}</span></div></div>
-          <div style="font-weight:700;color:var(--neg);margin-right:8px">${fmt(it.valor)}</div>
-          <button class="btn btn-pos" style="height:34px;padding:0 14px" onclick="faturaPagar('${it.id}',${mi},${it.valor})">✓ Pagar</button>
-        </div>`;
+  const buildGrupo = (g, pago) => {
+    const bordaCor = g.tipo==='cartao'?'rgba(139,92,246,.2)':g.tipo==='fixa'?'rgba(59,130,246,.15)':'rgba(245,158,11,.15)';
+    const itensHTML = g.itens&&g.itens.length>1
+      ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">${g.itens.map(it=>`<span class="cc-chip-sml">${(CATS[it.cat]||CATS.outros).icon} ${it.nome}: ${fmtK(it.valor)}</span>`).join('')}</div>`
+      : '';
+    if(pago) return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.2);border-radius:var(--r12);margin-bottom:8px;opacity:.75">
+      <span style="font-size:22px">${g.icon}</span>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:14px;text-decoration:line-through">${g.label}</div>
+        <div style="font-size:11px;color:var(--text2)">${g.sub}</div>
+        ${itensHTML}
+      </div>
+      <div style="text-align:right;flex-shrink:0"><div style="font-size:18px;font-weight:700;color:var(--pos)">${fmt(g.valor)}</div><div style="font-size:10px;color:var(--pos)">✅ Pago</div></div>
+      <button class="btn btn-ghost" style="height:30px;font-size:11px" onclick="faturaDesfazer('${g.id}',${mi})">↩</button>
+    </div>`;
+
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${bordaCor};border-radius:var(--r12);padding:16px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">${g.icon}</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px">${g.label}</div>
+          <div style="font-size:11px;color:var(--text2)">${g.sub}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-right:10px">
+          <div style="font-size:20px;font-weight:700;color:var(--neg)">${fmt(g.valor)}</div>
+        </div>
+        <button class="btn btn-pos" style="height:38px;padding:0 18px;font-size:13px" onclick="faturaPagar('${g.id}',${mi},${g.valor})">✓ Pagar fatura</button>
+      </div>
+      ${itensHTML}
+    </div>`;
   };
 
   const listEl=document.getElementById('faturas-list');
   if(listEl){
-    if(!itens.length){listEl.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma conta cadastrada para ${mesNome}</div></div>`;return;}
+    if(!grupos.length){listEl.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma conta em ${mesNome}</div></div>`;return;}
     listEl.innerHTML=
-      (pendentes.length?`<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">⏳ Pendentes (${pendentes.length})</div>`+pendentes.map(it=>pagarItem(it,false)).join(''):'')
-      +(pagas.length?`<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin:14px 0 8px">✅ Pagas (${pagas.length})</div>`+pagas.map(it=>pagarItem(it,true)).join(''):'');
+      (pendentes.length?`<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">⏳ PENDENTES (${pendentes.length})</div>`+pendentes.map(g=>buildGrupo(g,false)).join(''):'')
+      +(pagas.length?`<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 10px">✅ PAGAS (${pagas.length})</div>`+pagas.map(g=>buildGrupo(g,true)).join(''):'');
   }
 }
 function faturaPagar(id,mi,valor) {
@@ -1207,6 +1286,30 @@ function renderArca(){
   const bloq=arcaBloqueado();
   const caixa=caixaAtual(),metaE=metaEmergencia();
   const pctE=metaE>0?Math.min(100,Math.round((caixa/metaE)*100)):0;
+
+  // Banner de perfil do investidor
+  const perf=calcPerfilInvestidor();
+  const perfBanner=document.getElementById('arca-perfil-banner');
+  if(perfBanner) perfBanner.innerHTML=`<div style="background:linear-gradient(135deg,${perf.perfilCor}18,${perf.perfilCor}08);border:1px solid ${perf.perfilCor}30;border-radius:var(--r12);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="font-size:32px">${perf.perfilIcon}</div>
+    <div style="flex:1">
+      <div style="font-weight:700;font-size:16px;color:${perf.perfilCor}">Perfil ${perf.perfil.charAt(0).toUpperCase()+perf.perfil.slice(1)}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:3px;line-height:1.5">${perf.perfilDesc}</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="font-size:10px;color:var(--text2)">Score de risco</div>
+      <div style="font-size:22px;font-weight:800;color:${perf.perfilCor}">${perf.risco}/100</div>
+    </div>
+  </div>
+  <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">📋 Investimentos recomendados para seu perfil</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:4px">
+    ${perf.perfilInv.map(inv=>`<div style="background:var(--card2);border:1px solid ${ARCA.colors[inv.bucket]}30;border-radius:var(--r8);padding:12px">
+      <div style="font-size:10px;font-weight:700;color:${ARCA.colors[inv.bucket]};margin-bottom:4px">${ARCA.names[inv.bucket].split(' — ')[0]}</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:3px">${inv.tipo}</div>
+      <div style="font-size:10px;color:var(--text2);line-height:1.4">${inv.desc}</div>
+      <div style="margin-top:6px"><span class="badge" style="background:${inv.risco==='Alto'?'var(--neg-bg)':inv.risco==='Médio'?'var(--warn-bg)':'var(--pos-bg)'};color:${inv.risco==='Alto'?'var(--neg)':inv.risco==='Médio'?'var(--warn)':'var(--pos)'}">Risco ${inv.risco}</span></div>
+    </div>`).join('')}
+  </div>`;
 
   const alertEl=document.getElementById('arca-alert');
   if(alertEl){
@@ -1540,6 +1643,101 @@ async function fetchBCB() {
 }
 
 // ── MOTOR DE INTELIGÊNCIA ARCA ────────────────────
+
+// ── PERFIL DE INVESTIDOR ─────────────────────────
+function calcPerfilInvestidor() {
+  const pl = patrimonioLiquido();
+  const ativos = pl.ativos;
+  const entrada = totalEMes(0);
+  const caixa = caixaAtual();
+  const metaE = metaEmergencia();
+  const pctEmerg = metaE > 0 ? caixa / metaE : 0;
+  const totInv = D.meses.reduce((s,_,i)=>s+invDisp(i),0);
+
+  // Composição atual da carteira
+  const tot = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
+  const pctRV = tot > 0
+    ? D.ativos.filter(a=>a.bucket==='A'||a.bucket==='R'||a.bucket==='A2').reduce((s,a)=>s+(a.valor||0),0) / tot
+    : 0;
+  const pctRF = tot > 0
+    ? D.ativos.filter(a=>a.bucket==='C').reduce((s,a)=>s+(a.valor||0),0) / tot
+    : 0;
+
+  // Score de risco (0-100)
+  let risco = 0;
+  // Exposição a renda variável
+  risco += pctRV * 40; // até 40pts por % em RV
+  // Reserva de emergência (mais reserva = mais conservador)
+  risco += (1 - Math.min(1, pctEmerg)) * 15; // menos reserva = mais arrojado
+  // Patrimônio vs renda anual
+  const patMeses = entrada > 0 ? ativos / (entrada * 12) : 0;
+  risco += Math.min(20, patMeses * 5); // mais patrimônio relativo = mais arrojado
+  // Score financeiro geral
+  const score = scoreFinanceiro();
+  risco += (score / 100) * 25; // score alto = capacidade de arriscar
+
+  let perfil, perfilDesc, perfilIcon, perfilCor, perfilAloc;
+
+  if (risco < 33) {
+    perfil = 'conservador';
+    perfilIcon = '🛡️';
+    perfilCor = '#3B82F6';
+    perfilDesc = 'Você prioriza segurança e liquidez. Prefere renda fixa mesmo com retornos menores.';
+    perfilAloc = {
+      juros_altos:    { a: 5,  r: 10, c: 70, a2: 15 },
+      juros_elevados: { a: 5,  r: 10, c: 70, a2: 15 },
+      juros_moderados:{ a: 10, r: 15, c: 60, a2: 15 },
+      juros_baixos:   { a: 15, r: 20, c: 50, a2: 15 },
+    };
+    perfilInv = [
+      { tipo:'Tesouro Selic', desc:'Liquidez diária e proteção, rendimento = SELIC', bucket:'C', risco:'Baixo' },
+      { tipo:'CDB 100%+ CDI', desc:'Bancos médios com garantia do FGC até R$250k', bucket:'C', risco:'Baixo' },
+      { tipo:'LCI/LCA',       desc:'Isentos de IR, boa opção para perfil conservador', bucket:'C', risco:'Baixo' },
+      { tipo:'Tesouro IPCA+', desc:'Proteção contra inflação no longo prazo', bucket:'C', risco:'Baixo' },
+      { tipo:'FII de papel',  desc:'Exposição imobiliária com mais previsibilidade', bucket:'R', risco:'Médio' },
+    ];
+  } else if (risco < 66) {
+    perfil = 'moderado';
+    perfilIcon = '⚖️';
+    perfilCor = '#F59E0B';
+    perfilDesc = 'Você busca equilíbrio entre segurança e crescimento, aceitando riscos moderados.';
+    perfilAloc = {
+      juros_altos:    { a: 15, r: 20, c: 45, a2: 20 },
+      juros_elevados: { a: 20, r: 25, c: 35, a2: 20 },
+      juros_moderados:{ a: 28, r: 28, c: 25, a2: 19 },
+      juros_baixos:   { a: 30, r: 30, c: 20, a2: 20 },
+    };
+    perfilInv = [
+      { tipo:'Tesouro Selic/IPCA+', desc:'Base da carteira — liquidez e proteção', bucket:'C', risco:'Baixo' },
+      { tipo:'FII diversificado',   desc:'FIIs de tijolo e papel para renda passiva', bucket:'R', risco:'Médio' },
+      { tipo:'ETF BOVA11',          desc:'Exposição ao Ibovespa com baixo custo', bucket:'A', risco:'Médio' },
+      { tipo:'IVVB11',              desc:'S&P 500 em reais — diversificação internacional', bucket:'A2', risco:'Médio' },
+      { tipo:'Ações dividendos',    desc:'Empresas sólidas com histórico de dividendos', bucket:'A', risco:'Médio' },
+    ];
+  } else {
+    perfil = 'arrojado';
+    perfilIcon = '🚀';
+    perfilCor = '#10B981';
+    perfilDesc = 'Você foca no longo prazo e aceita alta volatilidade em busca de retornos expressivos.';
+    perfilAloc = {
+      juros_altos:    { a: 20, r: 25, c: 30, a2: 25 },
+      juros_elevados: { a: 25, r: 28, c: 22, a2: 25 },
+      juros_moderados:{ a: 35, r: 30, c: 15, a2: 20 },
+      juros_baixos:   { a: 40, r: 32, c: 10, a2: 18 },
+    };
+    perfilInv = [
+      { tipo:'Small Caps BR',  desc:'Empresas menores com alto potencial de crescimento', bucket:'A', risco:'Alto' },
+      { tipo:'FII de tijolo',  desc:'Shoppings, galpões, lajes — valorização + renda', bucket:'R', risco:'Médio' },
+      { tipo:'IVVB11/BDRs',    desc:'Exposição a empresas tech globais em reais', bucket:'A2', risco:'Alto' },
+      { tipo:'ETF temático',   desc:'Setores específicos: tecnologia, energia, saúde', bucket:'A2', risco:'Alto' },
+      { tipo:'Ações crescimento',desc:'Empresas em expansão com foco em longo prazo', bucket:'A', risco:'Alto' },
+    ];
+  }
+
+  return { perfil, perfilIcon, perfilCor, perfilDesc, perfilAloc, perfilInv, risco: Math.round(risco) };
+}
+
+let _perfilInv = []; // usado por renderArca
 function calcARCAIntelligence() {
   const selic = D.selic || D.cdi12 || 14.75;
   const cdi12 = D.cdi12 || 14.75;
@@ -1570,10 +1768,17 @@ function calcARCAIntelligence() {
     cicloDesc = `SELIC em ${selic}% — juros baixos, renda variável favorecida`;
   }
 
-  // Recomendações ARCA baseadas no ciclo
+  // Perfil do investidor
+  const perf = calcPerfilInvestidor();
+  _perfilInv = perf.perfilInv;
+
+  // Recomendações ARCA: ciclo de juros + perfil do investidor
   let rec, rationale, alertas = [];
+  // Base pelo ciclo, ajustada pelo perfil
+  const recBase = perf.perfilAloc[ciclo] || perf.perfilAloc['juros_altos'];
+  alertas.push({ tipo:'info', txt:`Perfil detectado: ${perf.perfilIcon} <strong>${perf.perfil.charAt(0).toUpperCase()+perf.perfil.slice(1)}</strong> — ${perf.perfilDesc}` });
   if (ciclo === 'juros_altos') {
-    rec = { a: 10, r: 20, c: 50, a2: 20 };
+    rec = recBase;
     rationale = [
       { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — SELIC a ${selic}% remunera muito bem sem risco. Tesouro Selic e CDBs são excelentes.` },
       { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs sofrem mais com juros altos, mas mantém diversificação e renda de dividendos.` },
@@ -1585,7 +1790,7 @@ function calcARCAIntelligence() {
       { tipo:'warn', txt:'Momento de acumular Caixa. Quando a SELIC começar a cair, migre gradualmente para A e R.' },
     ];
   } else if (ciclo === 'juros_elevados') {
-    rec = { a: 18, r: 25, c: 40, a2: 17 };
+    rec = recBase;
     rationale = [
       { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — juros ainda atrativos, manter parcela relevante em renda fixa de qualidade.` },
       { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs de tijolo com desconto histórico. Bom momento de acumulação de cotas.` },
@@ -1597,7 +1802,7 @@ function calcARCAIntelligence() {
       { tipo:'info', txt:'Gradualmente reduza Caixa a cada corte de 0,5pp na SELIC e reinvista em A e R.' },
     ];
   } else if (ciclo === 'juros_moderados') {
-    rec = { a: 28, r: 28, c: 25, a2: 19 };
+    rec = recBase;
     rationale = [
       { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — juros em queda favorecem bolsa. Hora de aumentar exposição a renda variável.` },
       { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs se valorizam com queda de juros. Renda de aluguéis + ganho de capital.` },
@@ -1609,7 +1814,7 @@ function calcARCAIntelligence() {
       { tipo:'info', txt:`Juro real de ${juroReal.toFixed(2)}% a.a. — verifique se a renda fixa ainda supera a inflação nos seus ativos.` },
     ];
   } else {
-    rec = { a: 38, r: 32, c: 15, a2: 15 };
+    rec = recBase;
     rationale = [
       { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — ambiente de juros baixos é o melhor para a bolsa. Maximize exposição.` },
       { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs com excelente custo de oportunidade vs. renda fixa.` },
