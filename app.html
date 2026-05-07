@@ -476,10 +476,11 @@ select{cursor:pointer;}
   </div>
   <div class="nav-tabs">
     <button class="ntab on" onclick="go('dash',this)"><span class="ni">📊</span>Dashboard</button>
+    <button class="ntab" onclick="go('entradas',this)"><span class="ni">💰</span>Entradas</button>
     <button class="ntab" onclick="go('carteira',this)"><span class="ni">💼</span>Carteira</button>
     <button class="ntab" onclick="go('saidas',this)"><span class="ni">💸</span>Saídas</button>
     <button class="ntab" onclick="go('invest',this)"><span class="ni">📈</span>Investimentos</button>
-    <button class="ntab" onclick="go('pagar',this)"><span class="ni">✅</span>Pagar Contas</button>
+    <button class="ntab" onclick="go('faturas',this)"><span class="ni">✅</span>Faturas</button>
     <button class="ntab" onclick="go('perfil',this)"><span class="ni">👤</span>Perfil</button>
     <button class="ntab" id="tab-admin" onclick="go('admin',this)" style="display:none"><span class="ni">⚙️</span>Admin</button>
   </div>
@@ -499,12 +500,13 @@ select{cursor:pointer;}
 
 <!-- MOBILE MENU -->
 <div class="mobile-menu" id="mobile-menu">
-  <button class="mobile-ntab on" id="mm-dash" onclick="go('dash',document.querySelector('.ntab'));closeMobileMenu()">📊 Dashboard</button>
-  <button class="mobile-ntab" id="mm-carteira" onclick="go('carteira',document.querySelectorAll('.ntab')[1]);closeMobileMenu()">💼 Carteira</button>
-  <button class="mobile-ntab" id="mm-saidas" onclick="go('saidas',document.querySelectorAll('.ntab')[2]);closeMobileMenu()">💸 Saídas</button>
-  <button class="mobile-ntab" id="mm-invest" onclick="go('invest',document.querySelectorAll('.ntab')[3]);closeMobileMenu()">📈 Investimentos</button>
-  <button class="mobile-ntab" id="mm-pagar" onclick="go('pagar',document.querySelectorAll('.ntab')[4]);closeMobileMenu()">✅ Pagar Contas</button>
-  <button class="mobile-ntab" id="mm-perfil" onclick="go('perfil',document.querySelectorAll('.ntab')[5]);closeMobileMenu()">👤 Perfil</button>
+  <button class="mobile-ntab on" onclick="go('dash',document.querySelector('.ntab'));closeMobileMenu()">📊 Dashboard</button>
+  <button class="mobile-ntab" onclick="go('entradas',document.querySelectorAll('.ntab')[1]);closeMobileMenu()">💰 Entradas</button>
+  <button class="mobile-ntab" onclick="go('carteira',document.querySelectorAll('.ntab')[2]);closeMobileMenu()">💼 Carteira</button>
+  <button class="mobile-ntab" onclick="go('saidas',document.querySelectorAll('.ntab')[3]);closeMobileMenu()">💸 Saídas</button>
+  <button class="mobile-ntab" onclick="go('invest',document.querySelectorAll('.ntab')[4]);closeMobileMenu()">📈 Investimentos</button>
+  <button class="mobile-ntab" onclick="go('faturas',document.querySelectorAll('.ntab')[5]);closeMobileMenu()">✅ Faturas</button>
+  <button class="mobile-ntab" onclick="go('perfil',document.querySelectorAll('.ntab')[6]);closeMobileMenu()">👤 Perfil</button>
   <button class="mobile-ntab" id="mm-admin" onclick="go('admin',document.getElementById('tab-admin'));closeMobileMenu()" style="display:none">⚙️ Admin</button>
   <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px">
     <button class="nbtn nbtn-pri" onclick="document.getElementById('btn-salvar').click();closeMobileMenu()" style="flex:1">Salvar</button>
@@ -581,6 +583,26 @@ select{cursor:pointer;}
   </div>
 </div>
 
+<!-- ████ ENTRADAS ████ -->
+<div class="page" id="page-entradas">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">💰 Entradas</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Gerencie suas fontes de renda mês a mês</div>
+    </div>
+    <button class="btn btn-pos" onclick="abrirModalEntrada()" style="height:40px;padding:0 20px">+ Nova entrada</button>
+  </div>
+  <!-- Filtro por mês -->
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Filtrar por mês</div>
+    <div class="msel" id="entradas-filtro"></div>
+  </div>
+  <!-- Resumo -->
+  <div class="gcards mb" id="entradas-summary"></div>
+  <!-- Lista -->
+  <div id="entradas-lista"></div>
+</div>
+
 <!-- ████ CARTEIRA ████ -->
 <div class="page" id="page-carteira">
   <!-- Hero da carteira -->
@@ -625,43 +647,35 @@ select{cursor:pointer;}
   </div>
 </div>
 
-<!-- ████ PAGAR CONTAS ████ -->
-<div class="page" id="page-pagar">
-  <div style="margin-bottom:20px">
-    <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">✅ Pagar Contas</div>
-    <div style="font-size:13px;color:var(--text2);margin-top:4px">Marque as contas pagas. As contas pagas são descontadas do total de dívidas automaticamente.</div>
-  </div>
-  <div class="msel" id="pagar-months"></div>
-  <div id="pagar-mes-label" class="sec-label mb"></div>
-  <div class="gcards" id="pagar-summary"></div>
-  <div id="pagar-all-done" style="margin-bottom:14px;display:none"></div>
-  <div id="pagar-list"></div>
-</div>
-
 <!-- ████ SAÍDAS ████ -->
 <div class="page" id="page-saidas">
   <div class="stab-bar">
     <button class="stab on" onclick="switchSub('saidas','fixas',this)">📌 Contas Fixas</button>
-    <button class="stab" onclick="switchSub('saidas','variaveis',this)">🔄 Contas Variáveis</button>
+    <button class="stab" onclick="switchSub('saidas','variaveis',this)">🔄 Compras & Parcelas</button>
   </div>
   <div class="sub on" id="sub-fixas">
-    <div class="ebox info-border">
-      <h3>📌 Contas Fixas</h3>
-      <p>Gastos que se repetem todo mês com o mesmo valor. Digite o valor uma vez e ele é aplicado em todos os meses automaticamente.</p>
-      <div class="scroll"><table class="dtbl" id="tbl-fixas"></table></div>
-      <div class="act"><button class="btn btn-info" onclick="addDivida('Fixo')">+ Nova conta fixa</button></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:700">📌 Contas Fixas</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Valor único replicado em todos os meses automaticamente</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="fixas-total" style="font-size:13px;font-weight:600;color:var(--neg)"></span>
+        <button class="btn btn-info" onclick="abrirModalFixa()">+ Nova conta fixa</button>
+      </div>
     </div>
+    <div id="lista-fixas"></div>
   </div>
   <div class="sub" id="sub-variaveis">
-    <div class="ebox warn-border">
-      <h3>🔄 Contas Variáveis</h3>
-      <p>Faturas de cartão, parcelas e gastos que variam mês a mês. Selecione o cartão vinculado para calcular o limite comprometido automaticamente.</p>
-      <div class="scroll"><table class="dtbl" id="tbl-var"></table></div>
-      <div class="act">
-        <button class="btn btn-warn" onclick="addDivida('Variável')">+ Nova conta variável</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:700">🔄 Compras & Parcelas</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Parcelamento automático baseado no fechamento do cartão</div>
       </div>
-      <div id="anos-list"></div>
+      <button class="btn btn-warn" onclick="abrirModalCompra()">+ Nova compra / parcela</button>
     </div>
+    <div id="lista-var"></div>
+    <div id="anos-list"></div>
   </div>
 </div>
 
@@ -673,132 +687,91 @@ select{cursor:pointer;}
     <button class="stab" onclick="switchSub('invest','inv-carteira',this)">📊 Carteira</button>
     <button class="stab" onclick="switchSub('invest','inv-indicadores',this)">📡 Indicadores</button>
   </div>
-
-  <!-- VISÃO -->
   <div class="sub on" id="sub-inv-visao">
-    <div class="gcards" id="inv-cards"></div>
+    <div class="gcards mb" id="inv-cards"></div>
     <div class="panel mb">
-      <div class="panel-head">
-        <span class="panel-title">💰 Disponível para investir — mês a mês</span>
-        <span class="panel-badge">Regras automáticas</span>
-      </div>
+      <div class="panel-head"><span class="panel-title">💰 Disponível para investir — mês a mês</span><span class="panel-badge">Regras automáticas</span></div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;display:flex;flex-wrap:wrap;gap:12px">
-        <span>🟢 <strong>Sobra ≥ Meta CC</strong> → 50% da sobra para investimentos</span>
-        <span>🟡 <strong>0 &lt; Sobra &lt; Meta CC</strong> → 50% da sobra para investimentos</span>
-        <span>🔴 <strong>Contas &gt; Entradas</strong> → R$ 0,00 disponível</span>
+        <span>🟢 <strong>Sobra ≥ Meta CC</strong> → 50% da sobra</span>
+        <span>🟡 <strong>0 &lt; Sobra &lt; Meta CC</strong> → 50% da sobra</span>
+        <span>🔴 <strong>Contas &gt; Entradas</strong> → R$ 0,00</span>
       </div>
       <div class="scroll"><table class="tbl-wide" id="inv-mes-tbl"></table></div>
     </div>
   </div>
-
-  <!-- ARCA -->
   <div class="sub" id="sub-inv-arca">
-    <div class="arca-alert-box" id="arca-alert"></div>
+    <div id="arca-alert" class="arca-alert-box"></div>
     <div class="arca-grid" id="arca-cards"></div>
     <div class="g2 mb">
-      <div class="panel">
-        <div class="panel-head"><span class="panel-title">🍩 Distribuição atual</span></div>
-        <div class="chart-wrap" style="height:240px"><canvas id="cArcaDough"></canvas></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><span class="panel-title">🎯 Progresso vs metas</span></div>
-        <div id="arca-prog" style="padding-top:4px"></div>
-      </div>
+      <div class="panel"><div class="panel-head"><span class="panel-title">🍩 Distribuição atual</span></div><div class="chart-wrap" style="height:240px"><canvas id="cArcaDough"></canvas></div></div>
+      <div class="panel"><div class="panel-head"><span class="panel-title">🎯 Progresso vs metas</span></div><div id="arca-prog" style="padding-top:4px"></div></div>
     </div>
-    <div class="panel mb">
-      <div class="panel-head"><span class="panel-title">📊 Atual vs Meta por bucket</span></div>
-      <div class="chart-wrap" style="height:210px"><canvas id="cArcaBar"></canvas></div>
-    </div>
+    <div class="panel mb"><div class="panel-head"><span class="panel-title">📊 Atual vs Meta por bucket</span></div><div class="chart-wrap" style="height:210px"><canvas id="cArcaBar"></canvas></div></div>
   </div>
-
-  <!-- CARTEIRA -->
   <div class="sub" id="sub-inv-carteira">
-    <div class="gcards" id="inv-carteira-cards"></div>
+    <div class="gcards mb" id="inv-carteira-cards"></div>
     <div class="ebox teal-border mb">
       <h3>📊 Carteira de ativos</h3>
-      <p>Cadastre seus investimentos com classe, bucket ARCA, valor atual e índice de rendimento. Projeções são calculadas automaticamente com juros compostos.</p>
-      <div class="scroll"><table class="inv-tbl" id="ativos-tbl"></table></div>
+      <p>Cadastre seus investimentos com classe, bucket ARCA, valor atual e índice de rendimento.</p>
+      <div class="inv-tbl-wrap"><table class="inv-tbl" id="ativos-tbl"></table></div>
       <div class="act"><button class="btn btn-teal" onclick="addAtivo()">+ Novo ativo</button></div>
     </div>
-    <div class="panel mb">
-      <div class="panel-head"><span class="panel-title">📦 Resumo por bucket ARCA</span></div>
-      <div class="gcards" id="ativos-resumo"></div>
-    </div>
-    <div class="panel mb">
-      <div class="panel-head">
-        <span class="panel-title">📈 Projeções de patrimônio — juros compostos</span>
-        <span class="panel-badge">Reinvestimento total</span>
-      </div>
-      <div class="scroll"><table class="tbl-wide" id="proj-tbl" style="min-width:700px"></table></div>
-    </div>
-    <div class="panel mb">
-      <div class="panel-head"><span class="panel-title">📈 Curva de crescimento do patrimônio</span></div>
-      <div class="chart-wrap" style="height:280px"><canvas id="cProjLine"></canvas></div>
-    </div>
+    <div class="panel mb"><div class="panel-head"><span class="panel-title">📦 Resumo por bucket ARCA</span></div><div class="gcards" id="ativos-resumo"></div></div>
+    <div class="panel mb"><div class="panel-head"><span class="panel-title">📈 Projeções — juros compostos</span></div><div class="scroll"><table class="tbl-wide" id="proj-tbl" style="min-width:700px"></table></div></div>
+    <div class="panel mb"><div class="panel-head"><span class="panel-title">📈 Curva de crescimento</span></div><div class="chart-wrap" style="height:280px"><canvas id="cProjLine"></canvas></div></div>
   </div>
-
-  <!-- INDICADORES -->
   <div class="sub" id="sub-inv-indicadores">
-
-    <!-- Auto-atualização BCB -->
     <div class="ebox accent-border mb" style="border-color:rgba(16,185,129,.3)">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-        <div>
-          <h3 style="display:flex;align-items:center;gap:8px">🏦 Atualização automática — Banco Central</h3>
-          <p style="margin-bottom:0">Busca CDI, SELIC e IPCA em tempo real direto da API pública do Banco Central do Brasil (SGS/BCData). Sem chave de API, sem cadastro.</p>
-        </div>
-        <button class="btn btn-pos" id="btn-bcb-fetch" onclick="fetchBCB()" style="flex-shrink:0;height:42px;padding:0 22px;font-size:14px">
-          ⚡ Atualizar indicadores agora
-        </button>
+        <div><h3 style="display:flex;align-items:center;gap:8px">🏦 Atualização automática — Banco Central</h3><p style="margin-bottom:0">Busca CDI, SELIC e IPCA direto da API pública do BCB. Sem chave de API.</p></div>
+        <button class="btn btn-pos" id="btn-bcb-fetch" onclick="fetchBCB()" style="flex-shrink:0;height:42px;padding:0 22px">⚡ Atualizar agora</button>
       </div>
       <div id="bcb-status" style="margin-top:10px;font-size:12px;color:var(--text2);display:none"></div>
     </div>
-
-    <!-- Cards indicadores -->
     <div class="gcards" id="ind-cards"></div>
-
-    <!-- Formulários manuais -->
     <div class="etop mb">
       <div class="ebox pos-border">
-        <h3>📊 CDI / SELIC</h3>
-        <p>Atualizado automaticamente via BCB. Você também pode editar manualmente.</p>
+        <h3>📊 CDI / SELIC</h3><p>Atualizado automaticamente via BCB.</p>
         <div class="field"><label class="flabel">Acumulado 12m (%)</label><input type="number" id="ef-cdi12" step="0.01" onchange="D.cdi12=parseFloat(this.value)||0;scheduleAutoSave();renderIndicadores()"></div>
         <div class="field"><label class="flabel">Mês referência (%)</label><input type="number" id="ef-cdifev" step="0.01" onchange="D.cdifev=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">Acumulado 2026 (%)</label><input type="number" id="ef-cdi26" step="0.01" onchange="D.cdi26=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">SELIC meta (% a.a.)</label><input type="number" id="ef-selic" step="0.25" onchange="D.selic=parseFloat(this.value)||0;scheduleAutoSave()"></div>
       </div>
       <div class="ebox warn-border">
-        <h3>📋 IPCA</h3>
-        <p>Inflação oficial. Referência para proteger o poder de compra dos seus investimentos.</p>
+        <h3>📋 IPCA</h3><p>Inflação oficial.</p>
         <div class="field"><label class="flabel">Acumulado 12m (%)</label><input type="number" id="ef-ipca12" step="0.01" onchange="D.ipca12=parseFloat(this.value)||0;scheduleAutoSave();renderIndicadores()"></div>
         <div class="field"><label class="flabel">Mês referência (%)</label><input type="number" id="ef-ipcafev" step="0.01" onchange="D.ipcafev=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">Acumulado 2026 (%)</label><input type="number" id="ef-ipca26" step="0.01" onchange="D.ipca26=parseFloat(this.value)||0;scheduleAutoSave()"></div>
       </div>
       <div class="ebox accent-border">
-        <h3>🏛️ Metas ARCA</h3>
-        <p>Percentual alvo de cada bucket. Ajuste manualmente ou aplique a recomendação inteligente abaixo.</p>
+        <h3>🏛️ Metas ARCA</h3><p>Percentual alvo de cada bucket.</p>
         <div class="field"><label class="flabel">A — Ações Brasileiras (%)</label><input type="number" id="ef-arca-a" step="1" min="0" max="100" onchange="D.arcaMeta.a=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">R — Real Estate / FIIs (%)</label><input type="number" id="ef-arca-r" step="1" min="0" max="100" onchange="D.arcaMeta.r=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">C — Caixa (%)</label><input type="number" id="ef-arca-c" step="1" min="0" max="100" onchange="D.arcaMeta.c=parseFloat(this.value)||0;scheduleAutoSave()"></div>
         <div class="field"><label class="flabel">A — Ativos Internacionais (%)</label><input type="number" id="ef-arca-a2" step="1" min="0" max="100" onchange="D.arcaMeta.a2=parseFloat(this.value)||0;scheduleAutoSave()"></div>
       </div>
     </div>
-
-    <!-- ARCA Intelligence -->
     <div class="panel mb" id="arca-intel-panel">
-      <div class="panel-head">
-        <span class="panel-title">🧠 Inteligência ARCA — Recomendação baseada no mercado</span>
-        <span class="panel-badge" id="arca-intel-ciclo">Calculando...</span>
-      </div>
+      <div class="panel-head"><span class="panel-title">🧠 Inteligência ARCA — Recomendação de mercado</span><span class="panel-badge" id="arca-intel-ciclo">Calculando...</span></div>
       <div id="arca-intel-content"></div>
     </div>
-
-    <div class="panel">
-      <div class="panel-head"><span class="panel-title">📊 CDI vs IPCA — comparativo</span></div>
-      <div class="chart-wrap" style="height:200px"><canvas id="cIndComp"></canvas></div>
-    </div>
+    <div class="panel"><div class="panel-head"><span class="panel-title">📊 CDI vs IPCA</span></div><div class="chart-wrap" style="height:200px"><canvas id="cIndComp"></canvas></div></div>
   </div>
 </div>
+
+<!-- ████ FATURAS ████ -->
+<div class="page" id="page-faturas">
+  <div style="margin-bottom:20px">
+    <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">✅ Faturas</div>
+    <div style="font-size:13px;color:var(--text2);margin-top:4px">Marque o que foi pago. Contas pagas não entram no cálculo de dívidas.</div>
+  </div>
+  <div class="msel" id="faturas-months"></div>
+  <div id="faturas-mes-label" class="sec-label mb"></div>
+  <div class="gcards" id="faturas-summary"></div>
+  <div id="faturas-all-done" style="margin-bottom:14px;display:none"></div>
+  <div id="faturas-list"></div>
+</div>
+
 
 <!-- ████ PERFIL ████ -->
 <div class="page" id="page-perfil">
@@ -1222,5 +1195,97 @@ auth.onAuthStateChanged(function(user){
   });
 });
 </script>
+
+<!-- Modal nova entrada -->
+<div id="modal-entrada-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:500;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--card);border:1px solid var(--border2);border-radius:var(--r20);padding:28px;width:100%;max-width:420px;box-shadow:var(--shadow2)">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">💰 Entrada de renda</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Adicione uma fonte de renda ao seu planejamento</div>
+    <div class="field"><label class="flabel">Nome</label><input type="text" id="me-nome" placeholder="Ex: Salário, Freelance, 13° salário..."></div>
+    <div class="field"><label class="flabel">Valor (R$)</label><input type="number" id="me-valor" step="0.01" placeholder="0,00"></div>
+    <div class="field"><label class="flabel">Tipo de recorrência</label>
+      <select id="me-tipo" onchange="toggleEntradaMes()">
+        <option value="mensal">🔄 Mensal — todo mês</option>
+        <option value="anual">📅 Anual — uma vez por ano</option>
+        <option value="unico">1️⃣ Único — ocorrência única</option>
+      </select>
+    </div>
+    <div class="field" id="me-mes-field" style="display:none">
+      <label class="flabel">Mês de ocorrência</label>
+      <select id="me-mes">
+        <option value="">— selecione —</option>
+<option value="Mai/26">Mai/26</option><option value="Jun/26">Jun/26</option><option value="Jul/26">Jul/26</option><option value="Ago/26">Ago/26</option><option value="Set/26">Set/26</option><option value="Out/26">Out/26</option><option value="Nov/26">Nov/26</option><option value="Dez/26">Dez/26</option><option value="Jan/27">Jan/27</option><option value="Fev/27">Fev/27</option><option value="Mar/27">Mar/27</option><option value="Abr/27">Abr/27</option><option value="Mai/27">Mai/27</option><option value="Jun/27">Jun/27</option><option value="Jul/27">Jul/27</option><option value="Ago/27">Ago/27</option><option value="Set/27">Set/27</option><option value="Out/27">Out/27</option><option value="Nov/27">Nov/27</option><option value="Dez/27">Dez/27</option>
+      </select>
+    </div>
+    <div class="field"><label class="flabel">Categoria</label>
+      <select id="me-cat">
+        <option value="salario">💼 Salário</option>
+        <option value="freelance">💻 Freelance</option>
+        <option value="investimento">📈 Investimento</option>
+        <option value="aluguel">🏠 Aluguel</option>
+        <option value="venda">🛒 Venda</option>
+        <option value="bonus">🎁 Bônus/13°</option>
+        <option value="outros">📦 Outros</option>
+      </select>
+    </div>
+    <div class="field"><label class="flabel">Dia do mês (quando recebe)</label><input type="number" id="me-dia" min="1" max="31" value="1"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="fecharModalEntrada()">Cancelar</button>
+      <button class="btn btn-pri" id="btn-salvar-entrada">Salvar entrada</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal conta fixa -->
+<div id="modal-fixa-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:500;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--card);border:1px solid var(--border2);border-radius:var(--r20);padding:28px;width:100%;max-width:400px;box-shadow:var(--shadow2)">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">📌 Conta fixa</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Valor único, replicado em todos os meses</div>
+    <div class="field"><label class="flabel">Nome</label><input type="text" id="mf-nome" placeholder="Ex: Aluguel, Internet..."></div>
+    <div class="field"><label class="flabel">Categoria</label>
+      <select id="mf-cat">
+        <option value="moradia">🏠 Moradia</option><option value="alimentacao">🍽️ Alimentação</option>
+        <option value="transporte">🚗 Transporte</option><option value="saude">💊 Saúde</option>
+        <option value="educacao">🎓 Educação</option><option value="servicos">📱 Serviços</option>
+        <option value="impostos">📋 Impostos</option><option value="lazer">🎮 Lazer</option>
+        <option value="outros">📦 Outros</option>
+      </select>
+    </div>
+    <div class="field"><label class="flabel">Valor mensal (R$)</label><input type="number" id="mf-valor" step="0.01" placeholder="0,00"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-fixa-overlay').style.display='none'">Cancelar</button>
+      <button class="btn btn-pri" id="btn-salvar-fixa">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal compra variável -->
+<div id="modal-compra-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:500;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--card);border:1px solid var(--border2);border-radius:var(--r20);padding:28px;width:100%;max-width:440px;box-shadow:var(--shadow2)">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">🔄 Saída variável</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Parcelamento automático baseado na data de fechamento do cartão</div>
+    <div class="field"><label class="flabel">Descrição</label><input type="text" id="mc-nome" placeholder="Ex: Compra Amazon, Viagem..."></div>
+    <div class="field"><label class="flabel">Categoria</label>
+      <select id="mc-cat">
+        <option value="cartao">💳 Cartão de Crédito</option><option value="moradia">🏠 Moradia</option>
+        <option value="alimentacao">🍽️ Alimentação</option><option value="transporte">🚗 Transporte</option>
+        <option value="saude">💊 Saúde</option><option value="educacao">🎓 Educação</option>
+        <option value="lazer">🎮 Lazer</option><option value="impostos">📋 Impostos</option>
+        <option value="outros">📦 Outros</option>
+      </select>
+    </div>
+    <div class="field"><label class="flabel">Cartão</label><select id="mc-cartao" onchange="atualizarPreviewCompra()"></select></div>
+    <div class="field"><label class="flabel">Valor total (R$)</label><input type="number" id="mc-valor" step="0.01" placeholder="0,00" onchange="atualizarPreviewCompra()"></div>
+    <div class="field"><label class="flabel">Quantidade de parcelas</label><input type="number" id="mc-parcelas" min="1" max="48" value="1" onchange="atualizarPreviewCompra()"></div>
+    <div class="field"><label class="flabel">Data da compra</label><input type="date" id="mc-data" onchange="atualizarPreviewCompra()"></div>
+    <!-- Preview automático -->
+    <div id="mc-preview" style="padding:10px 14px;background:var(--card2);border-radius:var(--r8);margin-bottom:14px;font-size:12px;min-height:36px;border:1px solid var(--border)"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-compra-overlay').style.display='none'">Cancelar</button>
+      <button class="btn btn-pri" id="btn-salvar-compra">Salvar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
