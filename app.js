@@ -165,7 +165,15 @@ function migrateData(d) {
     });
   }
 
-  d.entradas.forEach(e => { if(!e.cat) e.cat='outros'; if(e.ativo===undefined) e.ativo=true; if(!e.id) e.id='e'+Date.now()+Math.random(); });
+  d.entradas.forEach(e => {
+    if(!e.cat) e.cat='outros';
+    if(e.ativo===undefined) e.ativo=true;
+    if(!e.id) e.id='e'+Date.now()+Math.random();
+    // Normaliza e.mes de anual/unico: 'Dez/26' → 'Dez'
+    if(e.tipo==='anual' && e.mes && e.mes.includes('/')) {
+      e.mes = e.mes.split('/')[0];
+    }
+  });
   d.fixas.forEach(f => { if(!f.cat) f.cat='outros'; if(f.ativo===undefined) f.ativo=true; if(!f.id) f.id='f'+Date.now()+Math.random(); });
   d.compras.forEach(c => { if(!c.cat) c.cat='outros'; if(c.ativo===undefined) c.ativo=true; if(!c.id) c.id='c'+Date.now()+Math.random(); if(!c.parcelas) c.parcelas=1; });
   d.cartoes.forEach(c => { if(!c.cor) c.cor='#6B7280'; if(!c.diaFechamento) c.diaFechamento=10; if(!c.diaVencimento) c.diaVencimento=17; });
@@ -183,8 +191,9 @@ function totalEMes(mi) {
     if(e.tipo==='mensal') return s+(e.valor||0);
     if(e.tipo==='anual') {
       if(!e.mes) return s;
-      // e.mes é só o nome do mês ("Jan","Fev",...) — compara só o número do mês
-      const mesNum = MMAP[e.mes] || 0;
+      // Suporta 'Dez' (novo) e 'Dez/26' (legado anterior à correção)
+      const mesAbrev = e.mes.includes('/') ? e.mes.split('/')[0] : e.mes;
+      const mesNum = MMAP[mesAbrev] || 0;
       return mesNum===m ? s+(e.valor||0) : s;
     }
     if(e.tipo==='unico') {
@@ -271,7 +280,7 @@ const nm = () => D.meses.length;
 const getLim = d => { const c=D.cartoes.find(x=>x.nome===d.cartao); return c?c.limite:0; };
 
 function calcInvest(i) {
-  const e=totalEMes(i), c=totalDivBruto(i), meta=D.metaCC||2000, sobra=e-c;
+  const e=totalEMes(i), c=totalDiv(i), meta=D.metaCC||2000, sobra=e-c;
   if(sobra<=0)   return {e,c,meta,saldo:0,sobra,regra:'negativo'};
   if(sobra<meta) return {e,c,meta,saldo:sobra*0.5,sobra,regra:'menor_meta'};
   return              {e,c,meta,saldo:sobra-meta,sobra,regra:'maior_meta'};
