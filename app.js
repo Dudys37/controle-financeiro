@@ -140,10 +140,10 @@ function migrateData(d) {
   if(!d.invManual)  d.invManual  = Array(d.meses.length).fill(null);
   while(d.invManual.length < d.meses.length) d.invManual.push(null);
 
-  // Migração legado: se tinha salario/outras, cria entrada mensal
-  if((d.salario||d.outras) && d.entradas.length===0) {
-    if(d.salario) d.entradas.push({id:'e_sal',nome:'Salário',valor:d.salario,tipo:'mensal',dia:15,cat:'salario',ativo:true});
-    if(d.outras)  d.entradas.push({id:'e_out',nome:'Outras entradas',valor:d.outras,tipo:'mensal',dia:1,cat:'outros',ativo:true});
+  // Migração legado: se tinha salario/outras e entradas está vazio
+  if(d.entradas.length === 0) {
+    if(d.salario > 0) d.entradas.push({id:'e_sal', nome:'Salário', valor:d.salario, tipo:'mensal', dia:15, cat:'salario', ativo:true});
+    if(d.outras  > 0) d.entradas.push({id:'e_out', nome:'Outras entradas', valor:d.outras, tipo:'mensal', dia:1, cat:'outros', ativo:true});
   }
 
   // Migração legado dividas → fixas/compras
@@ -291,6 +291,19 @@ function projetar(v,r,n){ return v*Math.pow(1+r,n); }
 function getYears() { const s=new Set(); D.meses.forEach(m=>{const p=m.match(/\/(\d+)/);if(p)s.add('20'+p[1]);}); return [...s].sort(); }
 function getMesesAno(yr) { return D.meses.map((m,i)=>({m,i})).filter(({m})=>m.includes('/'+yr.slice(2))); }
 function genId(prefix) { return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+
+// ── MESES ATIVOS ──────────────────────────────────
+// Retorna meses de 0 até o último que tem dado lançado
+function getActiveMeses() {
+  let last = 0;
+  for(let i=0; i<nm(); i++) {
+    const temFixa = (D.fixas||[]).some(f=>f.ativo&&(f.valor||0)>0);
+    const temCompra = (D.compras||[]).some(c=>c.ativo&&(calcValsCompra(c)[i]||0)>0);
+    const temEntrada = totalEMes(i) > 0;
+    if(temFixa || temCompra || temEntrada) last = i;
+  }
+  return D.meses.slice(0, last + 1);
+}
 
 // ── PAGAMENTOS ────────────────────────────────────
 function isPago(id, mi) {
@@ -760,6 +773,39 @@ function salvarEntrada(ei) {
 function fecharModalEntrada(){document.getElementById('modal-entrada-overlay').style.display='none';}
 function toggleEntrada(ei){D.entradas[ei].ativo=!D.entradas[ei].ativo;scheduleAutoSave();renderEntradas();}
 function removerEntrada(ei){if(!confirm(`Remover "${D.entradas[ei].nome}"?`))return;D.entradas.splice(ei,1);scheduleAutoSave();renderEntradas();}
+
+// ── CARTÕES RENDER ────────────────────────────────
+function renderCartoesTo(el, i) {
+  if(!el) return;
+  const cartoes = D.compras.filter(c=>c.ativo && c.cartao && (calcValsCompra(c)[i]||0)>0);
+  const cartoesUnicos = [...new Set(cartoes.map(c=>c.cartao))];
+  if(!cartoesUnicos.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">💳</div><div class="empty-text">Nenhuma fatura de cartão em ${D.meses[i]||'este mês'}.</div></div>`;
+    return;
+  }
+  el.innerHTML = cartoesUnicos.map(nomeCartao=>{
+    const cartao = D.cartoes.find(c=>c.nome===nomeCartao);
+    const cor = cartao?.cor||'#6B7280';
+    const lim = cartao?.limite||0;
+    const itens = cartoes.filter(c=>c.cartao===nomeCartao);
+    const totalMes = itens.reduce((s,c)=>s+(calcValsCompra(c)[i]||0),0);
+    const totalAberto = D.compras.filter(c=>c.ativo&&c.cartao===nomeCartao).reduce((s,c)=>s+calcValsCompra(c).reduce((a,v)=>a+v,0),0);
+    const pctUsado = lim>0?Math.min(100,Math.round((totalAberto/lim)*100)):null;
+    const barCor = pctUsado===null?'#6B7280':pctUsado>=80?'#EF4444':pctUsado>=50?'#F59E0B':'#10B981';
+    const cardCls = pctUsado!==null&&pctUsado>=80?'alert-card':pctUsado!==null&&pctUsado>=50?'warn-card':'';
+    return `<div class="cc-card ${cardCls}">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${cor};border-radius:var(--r16) var(--r16) 0 0"></div>
+      <div class="cc-name" style="margin-top:8px"><span style="font-size:18px">💳</span> ${nomeCartao}</div>
+      <div class="cc-amounts">
+        <div class="cc-amounts-left"><div class="lbl">Fatura ${D.meses[i]||''}</div><div class="val">${fmt(totalMes)}</div></div>
+        ${lim>0?`<div class="cc-amounts-right"><div class="lbl">Livre</div><div class="val">${fmt(Math.max(0,lim-totalAberto))}</div></div>`:''}
+      </div>
+      ${lim>0?`<div class="cc-bar"><div class="cc-bar-fill" style="width:${pctUsado}%;background:${barCor}"></div></div>
+      <div class="cc-meta"><span>Total aberto: <strong>${fmt(totalAberto)}</strong></span><span>Limite: <strong>${fmt(lim)}</strong> · <strong>${pctUsado}%</strong> usado</span></div>`:''}
+      <div class="cc-parcelas">${itens.map(c=>`<span class="cc-chip-sml">${c.nome}: ${fmtK(calcValsCompra(c)[i])}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
 
 // ── CARTEIRA ──────────────────────────────────────
 function renderCarteira() {
