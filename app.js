@@ -216,6 +216,18 @@ function calcValsCompra(compra) {
   let fm = mo, fy = yr;
   if(dy > diaFech) { fm++; if(fm>12){fm=1;fy++;} }
 
+  // Se tem valores customizados por parcela
+  if(compra.parcelasCustom && compra.parcelasCustom.length === parcelas) {
+    for(let p=0; p<parcelas; p++) {
+      let bm=fm+p, by=fy;
+      while(bm>12){bm-=12;by++;}
+      const mesStr=mkMes(bm,by);
+      const idx=D.meses.indexOf(mesStr);
+      if(idx>=0&&idx<n) vals[idx]=Math.round((vals[idx]+(compra.parcelasCustom[p]||0))*100)/100;
+    }
+    return vals;
+  }
+
   for(let p=0; p<parcelas; p++) {
     let bm=fm+p, by=fy;
     while(bm>12){bm-=12;by++;}
@@ -996,6 +1008,9 @@ function salvarFixa(fi) {
 function editarFixa(fi){abrirModalFixa(fi);}
 function removerFixa(fi){if(!confirm(`Remover "${D.fixas[fi].nome}"?`))return;D.fixas.splice(fi,1);scheduleAutoSave();renderSaidasFixas();}
 
+// Estado das parcelas editáveis no modal
+let _parcelasVals = []; // valores individuais de cada parcela
+
 function abrirModalCompra(ci=-1) {
   const c=ci>=0?D.compras[ci]:{nome:'',cat:'cartao',cartao:'',valor:0,parcelas:1,dataCompra:new Date().toISOString().slice(0,10),ativo:true};
   document.getElementById('modal-compra-overlay').style.display='flex';
@@ -1006,9 +1021,68 @@ function abrirModalCompra(ci=-1) {
   document.getElementById('mc-valor').value=c.valor||'';
   document.getElementById('mc-parcelas').value=c.parcelas||1;
   document.getElementById('mc-data').value=c.dataCompra||new Date().toISOString().slice(0,10);
+  // Inicializa valores individuais das parcelas
+  const n=c.parcelas||1;
+  const parcVal=c.valor>0?Math.round((c.valor/n)*100)/100:0;
+  _parcelasVals=Array(n).fill(parcVal);
   document.getElementById('btn-salvar-compra').onclick=()=>salvarCompra(ci);
+  renderParcelasFields();
   atualizarPreviewCompra();
 }
+
+function renderParcelasFields() {
+  const n=parseInt(document.getElementById('mc-parcelas').value)||1;
+  const valorTotal=parseFloat(document.getElementById('mc-valor').value)||0;
+  // Redimensiona _parcelasVals
+  const parcPadrao=valorTotal>0?Math.round((valorTotal/n)*100)/100:0;
+  while(_parcelasVals.length<n) _parcelasVals.push(parcPadrao);
+  while(_parcelasVals.length>n) _parcelasVals.pop();
+  // Se valor total foi preenchido e parcelas mudaram, redistribui igualmente
+  if(valorTotal>0) _parcelasVals=_parcelasVals.map(()=>Math.round((valorTotal/n)*100)/100);
+
+  const container=document.getElementById('mc-parcelas-fields');
+  if(!container) return;
+  if(n<=1) { container.innerHTML=''; return; }
+  container.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">
+      Valores por parcela <span style="color:var(--text3);font-weight:400">(edite individualmente se necessário)</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px">
+      ${_parcelasVals.map((v,i)=>`
+        <div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px;text-align:center">${i+1}ª parcela</div>
+          <input type="number" min="0" step="0.01" value="${v||''}" placeholder="R$ 0,00"
+            style="text-align:right;padding:7px 8px;font-size:13px;font-weight:600"
+            onchange="_parcelasVals[${i}]=parseFloat(this.value)||0;recalcTotalFromParcelas()">
+        </div>`).join('')}
+    </div>`;
+}
+
+function recalcTotalFromParcelas() {
+  const total=_parcelasVals.reduce((s,v)=>s+(v||0),0);
+  const el=document.getElementById('mc-valor');
+  if(el) el.value=Math.round(total*100)/100;
+  atualizarPreviewCompra();
+}
+
+function onValorChange() {
+  const valor=parseFloat(document.getElementById('mc-valor').value)||0;
+  const n=parseInt(document.getElementById('mc-parcelas').value)||1;
+  const parcPadrao=valor>0?Math.round((valor/n)*100)/100:0;
+  _parcelasVals=Array(n).fill(parcPadrao);
+  renderParcelasFields();
+  atualizarPreviewCompra();
+}
+
+function onParcelasChange() {
+  const n=parseInt(document.getElementById('mc-parcelas').value)||1;
+  const valor=parseFloat(document.getElementById('mc-valor').value)||0;
+  const parcPadrao=valor>0?Math.round((valor/n)*100)/100:0;
+  _parcelasVals=Array(n).fill(parcPadrao);
+  renderParcelasFields();
+  atualizarPreviewCompra();
+}
+
 function atualizarPreviewCompra() {
   const valor=parseFloat(document.getElementById('mc-valor').value)||0;
   const parcelas=parseInt(document.getElementById('mc-parcelas').value)||1;
@@ -1020,22 +1094,43 @@ function atualizarPreviewCompra() {
   const vals=calcValsCompra(tmpC);
   const mesesCom=D.meses.filter((_,i)=>vals[i]>0);
   if(!mesesCom.length){prev.innerHTML='<span style="color:var(--text3)">Nenhum mês no planejamento corresponde a esta data.</span>';return;}
-  prev.innerHTML=`<div style="font-size:12px;color:var(--text2)">Será lançado em: <strong>${mesesCom.map(m=>sM(m)).join(', ')}</strong></div>${parcelas>1?`<div style="font-size:11px;color:var(--text3)">${parcelas}x de ${fmt(valor/parcelas)}</div>`:''}`;
+  // Mostra preview com valores individuais se editados
+  const totalParcelas=_parcelasVals.reduce((s,v)=>s+(v||0),0);
+  const valorParc=parcelas>1?Math.round((valor/parcelas)*100)/100:valor;
+  prev.innerHTML=`
+    <div style="font-size:12px;color:var(--text2)">Será lançado em: <strong>${mesesCom.map(m=>sM(m)).join(', ')}</strong></div>
+    ${parcelas>1?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${parcelas}x · Valor total: ${fmt(totalParcelas>0?totalParcelas:valor)}</div>`:''}`;
 }
+
 function salvarCompra(ci) {
   const nome=document.getElementById('mc-nome').value.trim();
   const cat=document.getElementById('mc-cat').value;
   const cartao=document.getElementById('mc-cartao').value;
-  const valor=parseFloat(document.getElementById('mc-valor').value)||0;
   const parcelas=parseInt(document.getElementById('mc-parcelas').value)||1;
   const dataCompra=document.getElementById('mc-data').value;
   if(!nome){alert('Informe o nome.');return;}
+  // Usa soma das parcelas individuais como valor total
+  const totalParcelas=_parcelasVals.reduce((s,v)=>s+(v||0),0);
+  const valorInput=parseFloat(document.getElementById('mc-valor').value)||0;
+  const valor=totalParcelas>0?totalParcelas:valorInput;
+  if(!valor){alert('Informe o valor.');return;}
+  // Armazena os valores individuais das parcelas se foram editados
+  const parcelasCustom = parcelas>1&&_parcelasVals.some((v,i)=>Math.abs(v-(valor/parcelas))>0.01)
+    ? [..._parcelasVals]
+    : null;
   const obj={id:ci>=0?D.compras[ci].id:genId('c'),nome,cat,cartao,valor,parcelas,dataCompra,ativo:true};
+  if(parcelasCustom) obj.parcelasCustom=parcelasCustom;
   if(ci>=0) D.compras[ci]=obj; else D.compras.push(obj);
   document.getElementById('modal-compra-overlay').style.display='none';
   scheduleAutoSave(); renderSaidasVar(); renderAll();
 }
-function editarCompra(ci){abrirModalCompra(ci);}
+function editarCompra(ci){
+  // Carrega parcelasCustom se existir
+  const c=D.compras[ci];
+  if(c&&c.parcelasCustom) _parcelasVals=[...c.parcelasCustom];
+  else { const n=c?.parcelas||1; const pv=c?.valor>0?Math.round((c.valor/n)*100)/100:0; _parcelasVals=Array(n).fill(pv); }
+  abrirModalCompra(ci);
+}
 function removerCompra(ci){if(!confirm(`Remover "${D.compras[ci].nome}"?`))return;D.compras.splice(ci,1);scheduleAutoSave();renderSaidasVar();}
 
 // Gestão de anos
@@ -1236,36 +1331,51 @@ function renderInvestVisao(){
   const mt=document.getElementById('inv-mes-tbl');if(!mt)return;
   if(!D.invManual) D.invManual=Array(nm()).fill(null);
   const ativosInv=getActiveMeses();
-  const rows=ativosInv.map((m)=>{const i=D.meses.indexOf(m);
-    const r=calcInvest(i);
-    const manual=isManual(i);
-    const valFinal=invDisp(i);
-    const valCalc=invDispCalc(i);
-    const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
-    return `<tr style="${manual?'background:rgba(245,158,11,.06)':''}">
-      <td style="font-weight:600">${m}</td>
-      <td class="tr tpos">${fmt(r.e)}</td>
-      <td class="tr tneg">${fmt(r.c)}</td>
-      <td class="tr" style="color:var(--text2)">${fmt(r.sobra)}</td>
-      <td class="tr"><span>${icon}</span></td>
-      <td class="tr" style="min-width:180px">
-        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
-          ${manual?`<span title="Recomendado: ${fmt(valCalc)}" style="font-size:10px;color:var(--warn);cursor:pointer;white-space:nowrap" onclick="resetManual(${i})">⚡${fmt(valCalc)} ↩</span>`:''}
-          <input type="number" min="0" step="0.01"
-            value="${valFinal||''}"
-            placeholder="${fmt(valCalc)}"
-            title="${manual?'Valor manual (clique em ↩ para restaurar o automático)':'Calculado automaticamente — edite para sobrescrever'}"
-            style="width:120px;text-align:right;font-weight:700;
-              border-color:${manual?'var(--warn)':'var(--border2)'};
-              color:${manual?'var(--warn)':'var(--teal)'};
-              background:${manual?'var(--warn-bg)':'var(--card2)'}"
-            onchange="setManual(${i},this.value);renderInvestVisao()">
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-  const tot=D.meses.reduce((s,_,i)=>s+invDisp(i),0);
-  const temManual=D.meses.some((_,i)=>isManual(i));
+  const yrs=getYears();
+  const rows=[];
+  yrs.forEach(yr=>{
+    const mesesDoAno=ativosInv.filter(m=>m.includes('/'+yr.slice(2)));
+    if(!mesesDoAno.length) return;
+    let totE=0,totC=0,totSobra=0,totInv=0;
+    mesesDoAno.forEach(m=>{
+      const i=D.meses.indexOf(m);
+      const r=calcInvest(i);
+      const manual=isManual(i);
+      const valFinal=invDisp(i);
+      const valCalc=invDispCalc(i);
+      const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
+      totE+=r.e; totC+=r.c; totSobra+=r.sobra; totInv+=valFinal;
+      rows.push(`<tr style="${manual?'background:rgba(245,158,11,.06)':''}">
+        <td style="font-weight:500">${m}</td>
+        <td class="tr tpos">${fmt(r.e)}</td>
+        <td class="tr tneg">${fmt(r.c)}</td>
+        <td class="tr" style="color:var(--text2)">${fmt(r.sobra)}</td>
+        <td class="tr"><span>${icon}</span></td>
+        <td class="tr" style="min-width:180px">
+          <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+            ${manual?`<span title="Recomendado: ${fmt(valCalc)}" style="font-size:10px;color:var(--warn);cursor:pointer;white-space:nowrap" onclick="resetManual(${i})">⚡${fmt(valCalc)} ↩</span>`:''}
+            <input type="number" min="0" step="0.01"
+              value="${valFinal||''}"
+              placeholder="${fmt(valCalc)}"
+              title="${manual?'Valor manual — clique em ↩ para restaurar automático':'Calculado automaticamente — edite para sobrescrever'}"
+              style="width:120px;text-align:right;font-weight:700;border-color:${manual?'var(--warn)':'var(--border2)'};color:${manual?'var(--warn)':'var(--teal)'};background:${manual?'var(--warn-bg)':'var(--card2)'}"
+              onchange="setManual(${i},this.value);renderInvestVisao()">
+          </div>
+        </td>
+      </tr>`);
+    });
+    // Linha de subtotal do ano
+    rows.push(`<tr style="background:linear-gradient(90deg,${yr==='2026'?'rgba(59,130,246,.08)':'rgba(139,92,246,.08)'},transparent);font-weight:700;border-top:2px solid ${yr==='2026'?'rgba(59,130,246,.2)':'rgba(139,92,246,.2)'}">
+      <td style="color:${yr==='2026'?'var(--info)':'var(--accent)'};font-size:12px">Σ ${yr}</td>
+      <td class="tr tpos" style="font-size:12px">${fmt(totE)}</td>
+      <td class="tr tneg" style="font-size:12px">${fmt(totC)}</td>
+      <td class="tr" style="color:var(--text2);font-size:12px">${fmt(totSobra)}</td>
+      <td></td>
+      <td class="tr tteal" style="font-size:13px">${fmt(totInv)}</td>
+    </tr>`);
+  });
+  const tot=ativosInv.reduce((s,m)=>s+invDisp(D.meses.indexOf(m)),0);
+  const temManual=ativosInv.some(m=>isManual(D.meses.indexOf(m)));
   mt.innerHTML=`<thead class="thead-sticky"><tr>
     <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas</th>
     <th class="tr">Sobra bruta</th><th class="tr">Regra</th>
@@ -1273,10 +1383,10 @@ function renderInvestVisao(){
       💰 Disponível p/ investir
       ${temManual?`<button onclick="resetTodosManual()" title="Restaurar todos os valores automáticos" style="margin-left:6px;background:var(--warn-bg);color:var(--warn);border:1px solid rgba(245,158,11,.3);border-radius:4px;font-size:10px;padding:1px 6px;cursor:pointer;font-family:inherit">↩ resetar tudo</button>`:''}
     </th>
-  </tr></thead><tbody>${rows}
-  <tr style="background:var(--card2);font-weight:700">
+  </tr></thead><tbody>${rows.join('')}
+  <tr style="background:var(--card2);font-weight:700;border-top:3px solid var(--border2)">
     <td>TOTAL</td><td></td><td></td><td></td><td></td>
-    <td class="tr tteal">${fmt(tot)}</td>
+    <td class="tr tteal" style="font-size:15px">${fmt(tot)}</td>
   </tr></tbody>`;
 }
 
