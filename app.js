@@ -275,12 +275,60 @@ const totalDiv = (mi) => {
   return Math.max(0, base-desc);
 };
 const totalDivBruto = (mi) => totalFixasMes(mi) + totalComprasMes(mi);
-const sobraM = (mi) => totalEMes(mi) - totalDivBruto(mi);
+
+// ── PENDENTE DO MÊS ──────────────────────────────
+// Calcula exatamente o mesmo que Faturas "Pendente"
+// Usada tanto em calcInvest quanto em renderFaturas
+function calcPendenteMes(mi) {
+  const mes = D.meses[mi];
+  if(!mes) return {bruto:0, pendente:0, pago:0};
+  const pag = D.pagamentos && D.pagamentos[mes] || {};
+  let bruto=0, pago=0;
+
+  // Fixas
+  D.fixas.filter(f=>f.ativo&&(f.valor||0)>0).forEach(f=>{
+    const v=f.valor||0;
+    const id='fx_'+f.id;
+    bruto+=v;
+    if(pag[id]) pago+=v;
+  });
+
+  // Compras agrupadas por cartão (idêntico ao renderFaturas)
+  const porCartao={};
+  D.compras.filter(c=>c.ativo).forEach(c=>{
+    const v=calcValsCompra(c)[mi]||0;
+    if(!v) return;
+    const key=c.cartao||'__sem__';
+    if(!porCartao[key]) porCartao[key]={total:0,itens:[]};
+    porCartao[key].total+=v;
+    porCartao[key].itens.push({valor:v});
+  });
+
+  // Sem cartão — itens individuais
+  const semItens=porCartao['__sem__']?.itens||[];
+  delete porCartao['__sem__'];
+  semItens.forEach((it,idx)=>{
+    const id='sc_'+idx+'_'+mi;
+    bruto+=it.valor;
+    if(pag[id]) pago+=it.valor;
+  });
+
+  // Por cartão — fatura agrupada
+  Object.entries(porCartao).forEach(([nome,grp])=>{
+    const id='cc_'+nome.replace(/\s/g,'_')+'_'+mi;
+    bruto+=grp.total;
+    if(pag[id]) pago+=grp.total;
+  });
+
+  return {bruto:Math.round(bruto*100)/100, pago:Math.round(pago*100)/100, pendente:Math.round((bruto-pago)*100)/100};
+}
+
+const sobraM = (mi) => totalEMes(mi) - calcPendenteMes(mi).pendente;
 const nm = () => D.meses.length;
 const getLim = d => { const c=D.cartoes.find(x=>x.nome===d.cartao); return c?c.limite:0; };
 
 function calcInvest(i) {
-  const e=totalEMes(i), c=totalDiv(i), meta=D.metaCC||2000, sobra=e-c;
+  const e=totalEMes(i), c=calcPendenteMes(i).pendente, meta=D.metaCC||2000, sobra=e-c;
   if(sobra<=0)   return {e,c,meta,saldo:0,sobra,regra:'negativo'};
   if(sobra<meta) return {e,c,meta,saldo:sobra*0.5,sobra,regra:'menor_meta'};
   return              {e,c,meta,saldo:sobra-meta,sobra,regra:'maior_meta'};
@@ -1237,9 +1285,11 @@ function renderFaturas() {
 
   const pagas = grupos.filter(g=>pag[g.id]);
   const pendentes = grupos.filter(g=>!pag[g.id]);
-  const totBruto = grupos.reduce((s,g)=>s+g.valor,0);
-  const totPago  = pagas.reduce((s,g)=>s+g.valor,0);
-  const totPend  = pendentes.reduce((s,g)=>s+g.valor,0);
+  // Usa calcPendenteMes para garantir consistência com Investimentos
+  const _cp = calcPendenteMes(mi);
+  const totBruto = _cp.bruto;
+  const totPago  = _cp.pago;
+  const totPend  = _cp.pendente;
   const pctP = totBruto>0?Math.round((totPago/totBruto)*100):0;
 
   const sumEl=document.getElementById('faturas-summary');
