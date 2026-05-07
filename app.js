@@ -181,10 +181,22 @@ function totalEMes(mi) {
   return (D.entradas||[]).reduce((s,e) => {
     if(!e.ativo) return s;
     if(e.tipo==='mensal') return s+(e.valor||0);
-    if(e.tipo==='anual'||e.tipo==='unico') {
+    if(e.tipo==='anual') {
       if(!e.mes) return s;
-      const em = parseMes(e.mes);
-      return em.m===m && em.y===y ? s+(e.valor||0) : s;
+      // e.mes é só o nome do mês ("Jan","Fev",...) — compara só o número do mês
+      const mesNum = MMAP[e.mes] || 0;
+      return mesNum===m ? s+(e.valor||0) : s;
+    }
+    if(e.tipo==='unico') {
+      if(!e.mes) return s;
+      // e.mes pode ser "Jan" (mês) ou "Mai/26" (mês+ano legado)
+      if(e.mes.includes('/')) {
+        const em = parseMes(e.mes);
+        return em.m===m && em.y===y ? s+(e.valor||0) : s;
+      }
+      // Novo formato: só mês — considera apenas o mês (sem restrição de ano)
+      const mesNum = MMAP[e.mes] || 0;
+      return mesNum===m ? s+(e.valor||0) : s;
     }
     return s;
   }, 0);
@@ -254,12 +266,12 @@ const totalDiv = (mi) => {
   return Math.max(0, base-desc);
 };
 const totalDivBruto = (mi) => totalFixasMes(mi) + totalComprasMes(mi);
-const sobraM = (mi) => totalEMes(mi) - totalDiv(mi);
+const sobraM = (mi) => totalEMes(mi) - totalDivBruto(mi);
 const nm = () => D.meses.length;
 const getLim = d => { const c=D.cartoes.find(x=>x.nome===d.cartao); return c?c.limite:0; };
 
 function calcInvest(i) {
-  const e=totalEMes(i), c=totalDiv(i), meta=D.metaCC||2000, sobra=e-c;
+  const e=totalEMes(i), c=totalDivBruto(i), meta=D.metaCC||2000, sobra=e-c;
   if(sobra<=0)   return {e,c,meta,saldo:0,sobra,regra:'negativo'};
   if(sobra<meta) return {e,c,meta,saldo:sobra*0.5,sobra,regra:'menor_meta'};
   return              {e,c,meta,saldo:sobra-meta,sobra,regra:'maior_meta'};
@@ -482,9 +494,9 @@ function renderGeral() {
         <div class="hero-amount">${fmt(pl.liquido)}</div>
         <div class="hero-sub">${pl.ativos > 0 ? `${fmt(pl.ativos)} em investimentos` : 'Nenhum investimento cadastrado'}</div>
       </div>
-      <div class="hero-score">
+      <div class="hero-score" title="Saúde Financeira: mede equilíbrio entre entradas, dívidas e reservas. Diferente do perfil de investidor.">
         <div class="hero-score-val" style="color:${scoreCor}">${score}</div>
-        <div class="hero-score-label">${scoreLabel}</div>
+        <div class="hero-score-label">💚 Saúde financeira</div>
         <div class="score-bar"><div class="score-bar-fill" style="width:${score}%;background:${scoreCor}"></div></div>
       </div>
     </div>
@@ -687,12 +699,13 @@ function renderEntradas() {
   const ativas=D.entradas.filter(e=>{
     if(!selEntradas) return true;
     if(e.tipo==='mensal') return true;
+    if(e.tipo==='anual'){ const mn=MMAP[e.mes]||0; const {m}=parseMes(selEntradas); return mn===m; }
     return e.mes===selEntradas;
   });
 
   // Resumo
-  const totalMes=selEntradas
-    ? ativas.reduce((s,e)=>{ const mi=D.meses.indexOf(selEntradas); return s+totalEMes(mi===-1?0:mi); },0)
+  const totalMes = selEntradas
+    ? (() => { const mi=D.meses.indexOf(selEntradas); return mi>=0?totalEMes(mi):0; })()
     : totalEMes(0);
   const totalAnual=D.meses.reduce((s,_,i)=>s+totalEMes(i),0);
 
@@ -710,9 +723,10 @@ function renderEntradas() {
   lista.innerHTML=D.entradas.map((e,ei)=>{
     const info=CATS_ENTRADA[e.cat]||CATS_ENTRADA.outros;
     const tipoBadge=e.tipo==='mensal'?'<span class="badge badge-pos">Mensal</span>':e.tipo==='anual'?'<span class="badge badge-warn">Anual</span>':'<span class="badge badge-user">Único</span>';
-    const visivel=!selEntradas||(e.tipo==='mensal')||(e.mes===selEntradas);
+    const visivel=!selEntradas||(e.tipo==='mensal')||(e.tipo==='anual'&&(()=>{const mn=MMAP[e.mes]||0;const{m}=parseMes(selEntradas);return mn===m;})())||(e.mes===selEntradas);
     if(!visivel) return '';
-    const mesInfo=e.tipo!=='mensal'&&e.mes?` · ${e.mes}`:'';
+    const MNAMES={'Jan':'Janeiro','Fev':'Fevereiro','Mar':'Março','Abr':'Abril','Mai':'Maio','Jun':'Junho','Jul':'Julho','Ago':'Agosto','Set':'Setembro','Out':'Outubro','Nov':'Novembro','Dez':'Dezembro'};
+    const mesInfo=e.tipo!=='mensal'&&e.mes?(e.tipo==='anual'?` · todo ${MNAMES[e.mes]||e.mes}`:` · ${e.mes}`):'';
     return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r12);margin-bottom:8px;${!e.ativo?'opacity:.5':''}transition:all .15s" onmouseenter="this.style.borderColor='var(--border2)'" onmouseleave="this.style.borderColor='var(--border)'">
       <span style="font-size:22px">${info.icon}</span>
       <div style="flex:1;min-width:0">
@@ -721,7 +735,7 @@ function renderEntradas() {
       </div>
       <div style="text-align:right;min-width:120px">
         <div style="font-size:20px;font-weight:700;color:var(--pos)">${fmt(e.valor)}</div>
-        <div style="font-size:10px;color:var(--text2)">${e.tipo==='mensal'?'todo mês':e.tipo==='anual'?'todo ano':'ocorrência única'}</div>
+        <div style="font-size:10px;color:var(--text2)">${e.tipo==='mensal'?'todo mês':e.tipo==='anual'?`todo ano em ${MNAMES[e.mes]||e.mes||'—'}`:e.mes?`em ${e.mes}`:'ocorrência única'}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="editarEntrada(${ei})">✏️</button>
@@ -740,7 +754,9 @@ function abrirModalEntrada(ei=-1) {
   document.getElementById('me-tipo').value=e.tipo||'mensal';
   document.getElementById('me-dia').value=e.dia||1;
   document.getElementById('me-cat').value=e.cat||'salario';
-  document.getElementById('me-mes').value=e.mes||'';
+  // Para anual/unico: e.mes é agora só o nome abreviado ("Jan","Fev"...)
+  const mesVal=e.mes&&e.mes.includes('/')?e.mes.split('/')[0]:e.mes||'';
+  document.getElementById('me-mes').value=mesVal;
   toggleEntradaMes();
   document.getElementById('btn-salvar-entrada').onclick=()=>salvarEntrada(ei);
 }
@@ -819,7 +835,7 @@ function renderCarteira() {
         <div class="hero-amount">${RK(pl.liquido)}</div>
         <div class="hero-sub">Ativos ${RK(pl.ativos)}</div>
       </div>
-      <div class="hero-score"><div class="hero-score-val" style="color:${scoreCor}">${score}</div><div class="hero-score-label">Score</div><div class="score-bar"><div class="score-bar-fill" style="width:${score}%;background:${scoreCor}"></div></div></div>
+      <div class="hero-score"><div class="hero-score-val" style="color:${scoreCor}">${score}</div><div class="hero-score-label">Saúde financeira</div><div class="score-bar"><div class="score-bar-fill" style="width:${score}%;background:${scoreCor}"></div></div></div>
     </div>
     <div class="hero-pills">
       <div class="hero-pill green">💰 Renda: <strong>${RK(e0)}/mês</strong></div>
@@ -1407,7 +1423,7 @@ function renderArca(){
       <div style="font-size:12px;color:var(--text2);margin-top:3px;line-height:1.5">${perf.perfilDesc}</div>
     </div>
     <div style="text-align:right;flex-shrink:0">
-      <div style="font-size:10px;color:var(--text2)">Score de risco</div>
+      <div style="font-size:10px;color:var(--text2)">🎯 Apetite a risco</div>
       <div style="font-size:22px;font-weight:800;color:${perf.perfilCor}">${perf.risco}/100</div>
     </div>
   </div>
