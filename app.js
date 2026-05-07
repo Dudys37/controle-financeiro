@@ -353,7 +353,10 @@ function toggleTheme() {
 // ── AUTO-SAVE ─────────────────────────────────────
 function scheduleAutoSave() {
   clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(()=>{ if(window._firestoreSave) window._firestoreSave(false); },1500);
+  _saveTimer = setTimeout(() => {
+    collectFormFields(); // garante que campos do DOM estejam em D antes de salvar
+    if (window._firestoreSave) window._firestoreSave(false);
+  }, 1500);
 }
 
 // ── ROTEAMENTO ────────────────────────────────────
@@ -1136,15 +1139,6 @@ function getMesAtualIdx() {
 }
 
 // ── FORM COLLECTION ───────────────────────────────
-function collectFormFields(){
-  const el=document.getElementById('ef-saldo');if(el)D.saldo=parseFloat(el.value)||0;
-  const mc=document.getElementById('ef-metaCC');if(mc)D.metaCC=parseFloat(mc.value)||2000;
-  Object.entries(fields).forEach(([k,id])=>{ const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0; });
-  const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
-  Object.entries(arcaF).forEach(([id,k])=>{ const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0; });
-}
-function saveData(){collectFormFields();if(window._firestoreSave)window._firestoreSave(true);renderAll();}
-applyTheme();
 function renderInvestVisao(){
   const ref=calcInvest(0);
   const pl=patrimonioLiquido();
@@ -1739,16 +1733,32 @@ function applyARCARec(a, r, c, a2) {
 
 
 function collectFormFields(){
-  const el=document.getElementById('ef-saldo');if(el)D.saldo=parseFloat(el.value)||0;
-  const mc=document.getElementById('ef-metaCC');if(mc)D.metaCC=parseFloat(mc.value)||2000;
-  const fields={cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',
-    ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
-  Object.entries(fields).forEach(([k,id])=>{ const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0; });
-  const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
-  Object.entries(arcaF).forEach(([id,k])=>{ const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0; });
+  // Saldo e meta CC
+  const elSaldo=document.getElementById('ef-saldo');if(elSaldo)D.saldo=parseFloat(elSaldo.value)||0;
+  const elMeta=document.getElementById('ef-metaCC');if(elMeta)D.metaCC=parseFloat(elMeta.value)||2000;
+  // Indicadores — lê todos do DOM, mesmo que estejam em sub-aba oculta
+  const indicFields={
+    cdi12:'ef-cdi12', cdifev:'ef-cdifev', cdi26:'ef-cdi26',
+    ipca12:'ef-ipca12', ipcafev:'ef-ipcafev', ipca26:'ef-ipca26',
+    selic:'ef-selic'
+  };
+  Object.entries(indicFields).forEach(([k,id])=>{
+    const el=document.getElementById(id);
+    if(el&&el.value!=='') D[k]=parseFloat(el.value)||0;
+  });
+  // Metas ARCA
+  const arcaMap={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
+  Object.entries(arcaMap).forEach(([id,k])=>{
+    const el=document.getElementById(id);
+    if(el&&el.value!=='') D.arcaMeta[k]=parseFloat(el.value)||0;
+  });
 }
 
-function saveData(){collectFormFields();if(window._firestoreSave)window._firestoreSave(true);renderAll();}
+function saveData(){
+  collectFormFields();
+  if(window._firestoreSave) window._firestoreSave(true);
+  renderAll();
+}
 
 // ── INIT ──────────────────────────────────────────
 applyTheme();
