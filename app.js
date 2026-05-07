@@ -667,15 +667,16 @@ function renderMes() {
   const cMD=document.getElementById('cMesDough');
   if(cMD){ const catE=Object.entries(catTots).filter(([,v])=>v>0); CH['cMesDough']=new Chart(cMD,{type:'doughnut',data:{labels:catE.map(([k])=>(CATS[k]?.icon||'📦')+' '+(CATS[k]?.label||k)),datasets:[{data:catE.map(([,v])=>v),backgroundColor:catE.map(([k])=>CATS[k]?.cor||'#888'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:tc(),font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}}); }
 }
-function buildMonths(cid,sel,cb){const el=document.getElementById(cid);if(!el)return;el.innerHTML=D.meses.map((m,i)=>`<button class="msb${i===sel?' on':''}" onclick="(${cb.toString()})(${i})">${sM(m)}</button>`).join('');}
+function buildMonths(cid,sel,cb){const el=document.getElementById(cid);if(!el)return;const ativos=getActiveMeses();el.innerHTML=ativos.map((m)=>{const i=D.meses.indexOf(m);return`<button class="msb${i===sel?' on':''}" onclick="(${cb.toString()})(${i})">${sM(m)}</button>`;}).join('');}
 
 // ── ENTRADAS ──────────────────────────────────────
 function renderEntradas() {
   // Filtro de mês
   const filtroEl=document.getElementById('entradas-filtro');
-  if(filtroEl&&filtroEl.innerHTML==='') {
+  if(filtroEl) {
+    const ativosE=getActiveMeses();
     filtroEl.innerHTML=`<button class="msb${selEntradas===''?' on':''}" onclick="selEntradas='';renderEntradas()">Todos</button>`
-      +D.meses.map(m=>`<button class="msb${selEntradas===m?' on':''}" onclick="selEntradas='${m}';renderEntradas()">${sM(m)}</button>`).join('');
+      +ativosE.map(m=>`<button class="msb${selEntradas===m?' on':''}" onclick="selEntradas='${m}';renderEntradas()">${sM(m)}</button>`).join('');
   }
 
   const ativas=D.entradas.filter(e=>{
@@ -1012,7 +1013,7 @@ function removerUltimoAno() {
 function renderFaturas() {
   if(selFaturas===-1) selFaturas=getMesAtualIdx();
   const ms=document.getElementById('faturas-months');
-  if(ms) ms.innerHTML=D.meses.map((m,i)=>`<button class="msb${i===selFaturas?' on':''}" onclick="selFaturas=${i};renderFaturas()">${sM(m)}</button>`).join('');
+  if(ms){const ativosF=getActiveMeses();ms.innerHTML=ativosF.map(m=>{const i=D.meses.indexOf(m);return`<button class="msb${i===selFaturas?' on':''}" onclick="selFaturas=${i};renderFaturas()">${sM(m)}</button>`;}).join('');}
   const mi=selFaturas;
   const mesNome=D.meses[mi]||'';
   const lbl=document.getElementById('faturas-mes-label');if(lbl)lbl.textContent=`Faturas de ${mesNome}`;
@@ -1092,7 +1093,6 @@ function getMesAtualIdx() {
 function collectFormFields(){
   const el=document.getElementById('ef-saldo');if(el)D.saldo=parseFloat(el.value)||0;
   const mc=document.getElementById('ef-metaCC');if(mc)D.metaCC=parseFloat(mc.value)||2000;
-  const fields={cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
   Object.entries(fields).forEach(([k,id])=>{ const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0; });
   const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
   Object.entries(arcaF).forEach(([id,k])=>{ const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0; });
@@ -1139,7 +1139,8 @@ function renderInvestVisao(){
 
   const mt=document.getElementById('inv-mes-tbl');if(!mt)return;
   if(!D.invManual) D.invManual=Array(nm()).fill(null);
-  const rows=D.meses.map((m,i)=>{
+  const ativosInv=getActiveMeses();
+  const rows=ativosInv.map((m)=>{const i=D.meses.indexOf(m);
     const r=calcInvest(i);
     const manual=isManual(i);
     const valFinal=invDisp(i);
@@ -1692,11 +1693,11 @@ function applyARCARec(a, r, c, a2) {
 
 
 function collectFormFields(){
-  const fields={salario:'ef-salario',outras:'ef-outras',saldo:'ef-saldo',
-    cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',
+  const el=document.getElementById('ef-saldo');if(el)D.saldo=parseFloat(el.value)||0;
+  const mc=document.getElementById('ef-metaCC');if(mc)D.metaCC=parseFloat(mc.value)||2000;
+  const fields={cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',
     ipca12:'ef-ipca12',ipcafev:'ef-ipcafev',ipca26:'ef-ipca26'};
   Object.entries(fields).forEach(([k,id])=>{ const el=document.getElementById(id);if(el)D[k]=parseFloat(el.value)||0; });
-  const mc=document.getElementById('ef-metaCC');if(mc)D.metaCC=parseFloat(mc.value)||2000;
   const arcaF={'ef-arca-a':'a','ef-arca-r':'r','ef-arca-c':'c','ef-arca-a2':'a2'};
   Object.entries(arcaF).forEach(([id,k])=>{ const el=document.getElementById(id);if(el)D.arcaMeta[k]=parseFloat(el.value)||0; });
 }
