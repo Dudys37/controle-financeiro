@@ -304,8 +304,8 @@ function calcPendenteMes(mi) {
   return {bruto:Math.round(bruto*100)/100, pago:Math.round(pago*100)/100, pendente:Math.round((bruto-pago)*100)/100};
 }
 
-// BUG FIX: sobraM usa totalDivBruto (não pendente) — independe de pagamentos marcados
-const sobraM = (mi) => totalEMes(mi) - totalDivBruto(mi);
+// sobraM usa pendente — desconta o que já foi pago, igual ao calcInvest
+const sobraM = (mi) => totalEMes(mi) - calcPendenteMes(mi).pendente;
 const nm = () => D.meses.length;
 const getLim = d => { const c=D.cartoes.find(x=>x.nome===d.cartao); return c?c.limite:0; };
 
