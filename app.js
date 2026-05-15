@@ -310,9 +310,9 @@ const nm = () => D.meses.length;
 const getLim = d => { const c=D.cartoes.find(x=>x.nome===d.cartao); return c?c.limite:0; };
 
 function calcInvest(i) {
-  // BUG FIX: usa totalDivBruto (total de contas), não apenas pendentes
-  // Garante que "disponível p/ investir" é consistente independente de pagamentos marcados
-  const e=totalEMes(i), c=totalDivBruto(i), meta=D.metaCC||2000, sobra=e-c;
+  // "Contas" = apenas o que ainda está PENDENTE de pagar (não inclui o já pago)
+  // Assim, ao marcar contas como pagas, o "disponível p/ investir" aumenta corretamente
+  const e=totalEMes(i), c=calcPendenteMes(i).pendente, meta=D.metaCC||2000, sobra=e-c;
   if(sobra<=0)   return {e,c,meta,saldo:0,sobra,regra:'negativo'};
   if(sobra<meta) return {e,c,meta,saldo:sobra*0.5,sobra,regra:'menor_meta'};
   return              {e,c,meta,saldo:sobra-meta,sobra,regra:'maior_meta'};
@@ -1839,8 +1839,9 @@ function renderInvestVisao(){
       <div class="msub">base para cálculo</div>
     </div>
     <div class="mcard mcard-neg">
-      <div class="mlabel">💸 Contas mês 1</div>
+      <div class="mlabel">💸 Contas pendentes mês 1</div>
       <div class="mval mval-neg">${fmt(ref.c)}</div>
+      <div class="msub" style="color:var(--text3)">descontando pagamentos feitos</div>
     </div>
     <div class="mcard mcard-warn">
       <div class="mlabel">🎯 Meta conta corrente</div>
@@ -1912,7 +1913,7 @@ function renderInvestVisao(){
   const tot=ativosInv.reduce((s,m)=>s+invDisp(D.meses.indexOf(m)),0);
   const temManual=ativosInv.some(m=>isManual(D.meses.indexOf(m)));
   mt.innerHTML=`<thead class="thead-sticky"><tr>
-    <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas</th>
+    <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas pendentes</th>
     <th class="tr">Sobra bruta</th><th class="tr">Regra</th>
     <th class="tr" style="color:var(--teal)">
       💰 Disponível p/ investir
