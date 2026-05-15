@@ -86,10 +86,34 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 .mobile-ntab{display:block;width:100%;text-align:left;padding:14px 16px;border-radius:var(--r8);border:none;background:none;color:var(--text2);font-family:inherit;font-size:15px;font-weight:500;cursor:pointer;margin-bottom:4px;transition:all .18s;}
 .mobile-ntab:hover,.mobile-ntab.on{background:var(--card2);color:var(--text);}
 .mobile-ntab.on{color:var(--accent);font-weight:700;}
+/* ── BOTTOM NAV ── */
+#bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
+  height:64px;background:var(--bg);border-top:1px solid var(--border);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  display:flex;align-items:center;justify-content:space-around;padding:0 8px;
+}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;color:var(--text2);font-family:inherit;
+  font-size:11px;font-weight:500;cursor:pointer;padding:6px 12px;
+  border-radius:var(--r8);transition:all var(--t);min-width:52px;
+}
+.bnav-btn span:first-child{font-size:20px;}
+.bnav-btn.on{color:var(--accent);}
+.bnav-btn.on .bnav-label{color:var(--accent);font-weight:700;}
+.bnav-btn:hover{color:var(--text);}
+.bnav-fab{background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;border-radius:50%;width:52px;height:52px;
+  box-shadow:0 4px 16px var(--accent-glow);
+  margin-top:-20px;min-width:unset;padding:0;
+}
+.bnav-fab:hover{opacity:.9;transform:scale(1.05);}
+.bnav-label{font-size:10px;}
 @media(max-width:768px){
   .ham-btn{display:flex;}
   .nav-tabs{display:none !important;}
   .nav-user-chip .nav-username-text{display:none;}
+  #bottom-nav{display:flex !important;}
+  .page{padding:14px 14px 80px;} /* extra bottom padding for bottom nav */
 }
 
 /* ── PAGES ── */
@@ -393,6 +417,7 @@ select{cursor:pointer;}
     <button class="ntab" onclick="go('saidas',this)"><span class="ni">💸</span>Saídas</button>
     <button class="ntab" onclick="go('invest',this)"><span class="ni">📈</span>Investimentos</button>
     <button class="ntab" onclick="go('pagar',this)"><span class="ni">✅</span>Pagar Contas</button>
+    <button class="ntab" onclick="go('metas',this)"><span class="ni">🎯</span>Metas</button>
     <button class="ntab" onclick="go('perfil',this)"><span class="ni">👤</span>Perfil</button>
     <button class="ntab" id="tab-admin" onclick="go('admin',this)" style="display:none"><span class="ni">⚙️</span>Admin</button>
   </div>
@@ -410,7 +435,7 @@ select{cursor:pointer;}
   </div>
 </nav>
 
-<!-- MOBILE MENU -->
+<!-- MOBILE MENU (slide-down) -->
 <div class="mobile-menu" id="mobile-menu">
   <button class="mobile-ntab on" onclick="goMobile('dash')">📊 Dashboard</button>
   <button class="mobile-ntab" onclick="goMobile('entradas')">💰 Entradas</button>
@@ -418,13 +443,33 @@ select{cursor:pointer;}
   <button class="mobile-ntab" onclick="goMobile('saidas')">💸 Saídas</button>
   <button class="mobile-ntab" onclick="goMobile('invest')">📈 Investimentos</button>
   <button class="mobile-ntab" onclick="goMobile('pagar')">✅ Pagar Contas</button>
+  <button class="mobile-ntab" onclick="goMobile('metas')">🎯 Metas</button>
   <button class="mobile-ntab" onclick="goMobile('perfil')">👤 Perfil</button>
   <button class="mobile-ntab" id="mm-admin" onclick="goMobile('admin')" style="display:none">⚙️ Admin</button>
   <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px">
-    <button class="nbtn nbtn-pri" onclick="saveData();closeMobileMenu()" style="flex:1">Salvar</button>
+    <button class="nbtn nbtn-pri" onclick="if(window._firestoreSave)window._firestoreSave(true);closeMobileMenu()" style="flex:1">Salvar</button>
     <button class="nbtn nbtn-danger" onclick="document.getElementById('btn-sair').click()" style="flex:1">Sair</button>
   </div>
 </div>
+
+<!-- BOTTOM NAV (mobile fixed bar) -->
+<nav id="bottom-nav">
+  <button class="bnav-btn on" data-page="dash" onclick="goMobile('dash');setBottomNav('dash')">
+    <span>📊</span><span class="bnav-label">Dashboard</span>
+  </button>
+  <button class="bnav-btn" data-page="saidas" onclick="goMobile('saidas');setBottomNav('saidas')">
+    <span>💸</span><span class="bnav-label">Saídas</span>
+  </button>
+  <button class="bnav-btn bnav-fab" onclick="abrirLancamentoRapido()">
+    <span style="font-size:22px">⚡</span>
+  </button>
+  <button class="bnav-btn" data-page="pagar" onclick="goMobile('pagar');setBottomNav('pagar')">
+    <span>✅</span><span class="bnav-label">Pagar</span>
+  </button>
+  <button class="bnav-btn" data-page="invest" onclick="goMobile('invest');setBottomNav('invest')">
+    <span>📈</span><span class="bnav-label">Investir</span>
+  </button>
+</nav>
 
 <!-- ████ DASHBOARD ████ -->
 <div class="page on" id="page-dash">
@@ -433,7 +478,8 @@ select{cursor:pointer;}
     <button class="stab" onclick="switchSub('dash','mes',this)">📅 Por Mês</button>
   </div>
   <div class="sub on" id="sub-geral">
-    <div id="dash-alerts"></div>
+    <div id="dash-vencimentos"></div>
+  <div id="dash-alerts"></div>
     <div class="hero-banner mb" id="dash-hero"></div>
     <div class="gcards mb" id="dash-mcards"></div>
     <div class="divider"><span class="divider-text">Saúde financeira</span></div>
@@ -546,6 +592,8 @@ select{cursor:pointer;}
     </div>
     <!-- Gestão de anos do planejamento -->
     <div id="anos-list-var"></div>
+    <!-- Busca e ordenação -->
+    <div id="var-searchbar"></div>
     <!-- Filtro por mês -->
     <div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Filtrar por mês da fatura</div>
@@ -647,6 +695,40 @@ select{cursor:pointer;}
   <div class="gcards" id="faturas-summary"></div>
   <div id="faturas-all-done" style="margin-bottom:14px;display:none"></div>
   <div id="faturas-list"></div>
+</div>
+
+<!-- ████ METAS ████ -->
+<div class="page" id="page-metas">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+    <div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🎯 Metas financeiras</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Defina limites por categoria e acompanhe seus objetivos</div>
+    </div>
+  </div>
+  <div class="stab-bar">
+    <button class="stab on" onclick="switchSub('metas','objetivos',this)">🎯 Objetivos</button>
+    <button class="stab" onclick="switchSub('metas','orcamentos',this)">📊 Orçamentos</button>
+  </div>
+  <div class="sub on" id="sub-objetivos">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div>
+        <div style="font-size:15px;font-weight:700">🎯 Objetivos financeiros</div>
+        <div style="font-size:12px;color:var(--text2)">Defina metas como viagem, carro, imóvel e acompanhe o progresso</div>
+      </div>
+      <button class="btn btn-accent" onclick="abrirModalObjetivo()">+ Novo objetivo</button>
+    </div>
+    <div id="objetivos-list"></div>
+  </div>
+  <div class="sub" id="sub-orcamentos">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div>
+        <div style="font-size:15px;font-weight:700">📊 Orçamentos por categoria</div>
+        <div style="font-size:12px;color:var(--text2)">Defina um limite mensal para cada tipo de gasto e receba alertas</div>
+      </div>
+      <button class="btn btn-info" onclick="abrirModalOrcamento()">+ Definir limite</button>
+    </div>
+    <div id="orcamentos-list"></div>
+  </div>
 </div>
 
 <!-- ████ PERFIL ████ -->
@@ -766,7 +848,7 @@ firebase.initializeApp({
   appId:"1:361900607129:web:901ff0ee9e3053a144da08"
 });
 const auth=firebase.auth(), db=firebase.firestore();
-let _user=null,_role=null,_userDoc=null,_resetUid='';
+let _user=null,_role=null,_userDoc=null,_resetUid='',_resetEmail='';
 
 /* ── Toast ── */
 function toast(msg,ok=true){
@@ -790,6 +872,7 @@ window._firestoreSave=function(loud=true){
   db.collection('userData').doc(_user.uid).set({
     data:JSON.stringify(D),updatedAt:new Date().toISOString(),v:3
   }).then(()=>{
+    if(typeof _temAlteracoes!=='undefined') _temAlteracoes=false;
     if(loud)toast('Dados salvos com sucesso!');
   }).catch(e=>{
     toast('Erro ao salvar: '+e.message,false);
@@ -973,6 +1056,7 @@ document.getElementById('btn-criar-user').onclick=function(){
 
 function openReset(uid,email){
   _resetUid=uid;
+  _resetEmail=email;
   document.getElementById('modal-reset-email').textContent=email;
   document.getElementById('modal-reset-pass').value='';
   document.getElementById('modal-err').classList.remove('show');
@@ -983,11 +1067,21 @@ document.getElementById('btn-conf-reset').onclick=function(){
   const np=document.getElementById('modal-reset-pass').value;
   if(np.length<6){showAlert('modal-err','Mínimo 6 caracteres.');return;}
   this.disabled=true;this.textContent='Salvando...';
-  db.collection('pendingReset').doc(_resetUid).set({
-    newPassword:np,requestedAt:new Date().toISOString(),requestedBy:_user.uid
-  }).then(()=>{closeModal();toast('Redefinição registrada com sucesso.');})
-  .catch(e=>showAlert('modal-err',e.message))
-  .finally(()=>{this.disabled=false;this.textContent='Redefinir senha';});
+  // SEGURANÇA: Não armazena senha em texto claro — usa Firebase Auth reset email
+  auth.sendPasswordResetEmail(_resetEmail)
+    .then(()=>{
+      closeModal();
+      toast('✉️ Email de redefinição de senha enviado para o usuário!');
+    })
+    .catch(e=>{
+      // Fallback: registra pedido sem a senha
+      db.collection('pendingReset').doc(_resetUid).set({
+        requestedAt:new Date().toISOString(), requestedBy:_user.uid, status:'pending'
+        // NUNCA salva newPassword em texto claro
+      }).then(()=>{closeModal();toast('Reset agendado. Oriente o usuário a usar Esqueci minha senha.',false);})
+      .catch(err=>showAlert('modal-err',err.message));
+    })
+    .finally(()=>{this.disabled=false;this.textContent='Redefinir senha';});
 };
 
 function reloadAdmin(btn){
@@ -1042,6 +1136,21 @@ function delUser(uid,name){
 }
 
 /* ── Auth State ── */
+// Sync bottom nav with page navigation
+const _origGo = window.go;
+window.go = function(id, el) {
+  if(_origGo) _origGo(id, el);
+  // Update bottom nav
+  document.querySelectorAll('#bottom-nav .bnav-btn[data-page]').forEach(b=>{
+    b.classList.toggle('on', b.getAttribute('data-page')===id);
+  });
+  // Update mobile menu active
+  document.querySelectorAll('.mobile-ntab').forEach(b=>{
+    const onclick = b.getAttribute('onclick')||'';
+    b.classList.toggle('on', onclick.includes("'"+id+"'"));
+  });
+};
+
 auth.onAuthStateChanged(function(user){
   if(!user){
     window.location.replace('index.html');

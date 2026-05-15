@@ -7,6 +7,18 @@
 const MMAP = {Jan:1,Fev:2,Mar:3,Abr:4,Mai:5,Jun:6,Jul:7,Ago:8,Set:9,Out:10,Nov:11,Dez:12};
 const MMAP_R = {1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',7:'Jul',8:'Ago',9:'Set',10:'Out',11:'Nov',12:'Dez'};
 
+// Gera n meses a partir do mes atual (dinamicamente, nao hardcoded)
+function gerarMesesFuturos(n) {
+  n = n || 20;
+  var r = [], d = new Date();
+  var m = d.getMonth() + 1, y = d.getFullYear();
+  for (var i = 0; i < n; i++) {
+    r.push(MMAP_R[m] + '/' + String(y).slice(2));
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return r;
+}
+
 // Converte "Mai/26" → {m:5, y:2026}
 function parseMes(str) {
   const [mn, yr] = str.split('/');
@@ -19,66 +31,23 @@ function mkMes(m, y) {
   return `${MMAP_R[m]}/${String(y).slice(2)}`;
 }
 
-// ── DADOS PADRÃO ──────────────────────────────────
-const DEFAULT = {
-  saldo:0,
-  cdi12:14.80, cdifev:1.21, cdi26:3.41,
-  ipca12:4.14, ipcafev:0.88, ipca26:1.92,
-  arcaMeta:{a:25,r:25,c:25,a2:25}, metaCC:2000,
-  meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
-         'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
-         'Set/27','Out/27','Nov/27','Dez/27'],
-  invManual: Array(20).fill(null),
-  entradas: [
-    {id:'e1', nome:'Salário', valor:6500, tipo:'mensal', dia:15, ativo:true},
-  ],
-  cartoes:[
-    {nome:'Nubank PF',    limite:3700,  bandeira:'Mastercard',cor:'#820ad1',diaFechamento:3, diaVencimento:10},
-    {nome:'Nubank PJ',    limite:9700,  bandeira:'Mastercard',cor:'#820ad1',diaFechamento:3, diaVencimento:10},
-    {nome:'Mercado Pago', limite:11000, bandeira:'Mastercard',cor:'#009ee3',diaFechamento:10,diaVencimento:17},
-    {nome:'Renner',       limite:7200,  bandeira:'Mastercard',cor:'#e60000',diaFechamento:20,diaVencimento:27},
-    {nome:'Amazon',       limite:2580,  bandeira:'Visa',      cor:'#ff9900',diaFechamento:5, diaVencimento:12},
-    {nome:'SICREDI',      limite:6300,  bandeira:'Visa',      cor:'#006633',diaFechamento:10,diaVencimento:17},
-  ],
-  // Contas fixas (valor único, replica todos os meses)
-  fixas: [
-    {id:'f1', nome:'Faculdade', cat:'educacao', valor:644.05, ativo:true},
-    {id:'f2', nome:'Claro',     cat:'servicos', valor:120,    ativo:true},
-    {id:'f3', nome:'DAS',       cat:'impostos', valor:85,     ativo:true},
-  ],
-  // Compras variáveis / parceladas
-  compras: [
-    {id:'c1', nome:'Nubank PF - Fatura mai',  cat:'cartao', cartao:'Nubank PF',  valor:2148.08, parcelas:1, dataCompra:'2026-05-01', ativo:true},
-    {id:'c2', nome:'Nubank PJ - Fatura mai',  cat:'cartao', cartao:'Nubank PJ',  valor:961.41,  parcelas:1, dataCompra:'2026-05-01', ativo:true},
-    {id:'c3', nome:'SICREDI - Fatura mai',    cat:'cartao', cartao:'SICREDI',    valor:1370.44, parcelas:1, dataCompra:'2026-05-01', ativo:true},
-    {id:'c4', nome:'Mercado Pago - Parcelas', cat:'cartao', cartao:'Mercado Pago',valor:4739.05,parcelas:9, dataCompra:'2026-05-01', ativo:true},
-    {id:'c5', nome:'Renner - Parcelas',       cat:'cartao', cartao:'Renner',     valor:1859.64, parcelas:8, dataCompra:'2026-05-01', ativo:true},
-    {id:'c6', nome:'Amazon - Parcelas',       cat:'cartao', cartao:'Amazon',     valor:634.20,  parcelas:6, dataCompra:'2026-05-01', ativo:true},
-    {id:'c7', nome:'IR',                      cat:'impostos',cartao:'',          valor:675.29,  parcelas:7, dataCompra:'2026-06-01', ativo:true},
-  ],
-  // Legado — mantido para migração
-  dividas: [],
-  pagamentos: {},
-  ativos:[
-    {nome:'Tesouro Selic 2027',classe:'Renda Fixa',bucket:'C', valor:0,indice:'SELIC',pct:100,ticker:'TESOURO SELIC'},
-    {nome:'FII XPML11',        classe:'FII',       bucket:'R', valor:0,indice:'CDI',  pct:90, ticker:'XPML11'},
-    {nome:'IVVB11',            classe:'ETF',       bucket:'A2',valor:0,indice:'CDI',  pct:110,ticker:'IVVB11'},
-    {nome:'BOVA11',            classe:'ETF',       bucket:'A', valor:0,indice:'CDI',  pct:100,ticker:'BOVA11'},
-  ]
-};
-
-// ── TEMPLATE EM BRANCO ────────────────────────────
+// ── DADOS PADRÃO — limpo (sem dados pessoais) ─────
+// BLANK e DEFAULT são iguais; dados reais vêm do Firestore
 const BLANK = {
-  saldo:0,
-  cdi12:14.80, cdifev:1.21, cdi26:3.41,
-  ipca12:4.14, ipcafev:0.88, ipca26:1.92,
-  arcaMeta:{a:25,r:25,c:25,a2:25}, metaCC:2000,
-  meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
-         'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
-         'Set/27','Out/27','Nov/27','Dez/27'],
-  invManual: Array(20).fill(null),
-  entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[]
+  saldo: 0,
+  cdi12: 14.40, cdifev: 1.09, cdi26: 4.54,   // CDI correto (não 0.43%)
+  ipca12: 4.39, ipcafev: 1.09, ipca26: 1.83,
+  arcaMeta: {a:25, r:25, c:25, a2:25}, metaCC: 2000, selic: 14.50,
+  meses: [], // preenchido dinamicamente em migrateData
+  invManual: [],
+  entradas: [], fixas: [], compras: [],
+  dividas: [], pagamentos: {}, ativos: [], cartoes: [],
+  orcamentos: {},   // {cat: valorMaxMensal}
+  objetivos: [],    // [{id,nome,meta,atual,prazo,icone,cor}]
+  historico: [],    // [{mes,saldo,patrimonio,sobra}] — evolução mensal
+  _hasUnsaved: false
 };
+const DEFAULT = BLANK; // alias — sem dados pessoais hardcoded
 
 // ── ESTADO ────────────────────────────────────────
 let D = JSON.parse(JSON.stringify(DEFAULT));
@@ -127,7 +96,13 @@ const CHART_COLORS=['#EF4444','#F59E0B','#3B82F6','#8B5CF6','#F97316','#06B6D4',
 
 // ── MIGRAÇÃO ──────────────────────────────────────
 function migrateData(d) {
-  if(!d) return JSON.parse(JSON.stringify(BLANK));
+  if(!d) {
+    // Novo usuário: gera meses dinamicamente a partir do mês atual
+    const b = JSON.parse(JSON.stringify(BLANK));
+    b.meses = gerarMesesFuturos(20);
+    b.invManual = Array(20).fill(null);
+    return b;
+  }
   // Migra campos novos
   if(!d.entradas)   d.entradas   = [];
   if(!d.fixas)      d.fixas      = [];
@@ -136,7 +111,12 @@ function migrateData(d) {
   if(!d.ativos)     d.ativos     = [];
   if(!d.arcaMeta)   d.arcaMeta   = {a:25,r:25,c:25,a2:25};
   if(!d.metaCC)     d.metaCC     = 2000;
-  if(!d.meses)      d.meses      = [...BLANK.meses];
+  if(!d.selic)      d.selic      = 14.50;
+  if(!d.orcamentos) d.orcamentos = {};
+  if(!d.objetivos)  d.objetivos  = [];
+  if(!d.historico)  d.historico  = [];
+  // Gera meses dinamicamente se não existir ou estiver vazio
+  if(!d.meses || !d.meses.length) d.meses = gerarMesesFuturos(20);
   if(!d.pagamentos) d.pagamentos = {};
   if(!d.invManual)  d.invManual  = Array(d.meses.length).fill(null);
   while(d.invManual.length < d.meses.length) d.invManual.push(null);
@@ -324,12 +304,15 @@ function calcPendenteMes(mi) {
   return {bruto:Math.round(bruto*100)/100, pago:Math.round(pago*100)/100, pendente:Math.round((bruto-pago)*100)/100};
 }
 
-const sobraM = (mi) => totalEMes(mi) - calcPendenteMes(mi).pendente;
+// BUG FIX: sobraM usa totalDivBruto (não pendente) — independe de pagamentos marcados
+const sobraM = (mi) => totalEMes(mi) - totalDivBruto(mi);
 const nm = () => D.meses.length;
 const getLim = d => { const c=D.cartoes.find(x=>x.nome===d.cartao); return c?c.limite:0; };
 
 function calcInvest(i) {
-  const e=totalEMes(i), c=calcPendenteMes(i).pendente, meta=D.metaCC||2000, sobra=e-c;
+  // BUG FIX: usa totalDivBruto (total de contas), não apenas pendentes
+  // Garante que "disponível p/ investir" é consistente independente de pagamentos marcados
+  const e=totalEMes(i), c=totalDivBruto(i), meta=D.metaCC||2000, sobra=e-c;
   if(sobra<=0)   return {e,c,meta,saldo:0,sobra,regra:'negativo'};
   if(sobra<meta) return {e,c,meta,saldo:sobra*0.5,sobra,regra:'menor_meta'};
   return              {e,c,meta,saldo:sobra-meta,sobra,regra:'maior_meta'};
@@ -346,9 +329,17 @@ function setManual(i,val) { if(!D.invManual)D.invManual=Array(nm()).fill(null); 
 function resetTodosManual() { D.invManual=Array(nm()).fill(null); scheduleAutoSave(); renderInvestVisao(); renderAll(); }
 
 function patrimonioLiquido() {
-  const ativos=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-  const passivos=D.meses.reduce((s,_,i)=>s+totalComprasMes(i),0); // total em aberto
-  return {ativos, passivos, liquido:ativos-passivos};
+  const ativos = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
+  // BUG FIX: passivos = apenas parcelas futuras (a partir do mês atual)
+  // Antes somava TODOS os meses, contando parcelas já pagas/vencidas
+  const hoje = getMesAtualIdx();
+  const passivos = D.compras
+    .filter(c=>c.ativo)
+    .reduce((total,c) => {
+      const vals = calcValsCompra(c);
+      return total + vals.slice(hoje).reduce((s,v)=>s+(v||0),0);
+    }, 0);
+  return {ativos, passivos, liquido: ativos-passivos};
 }
 function scoreFinanceiro() {
   const n=nm(); if(!n)return 50;
@@ -368,23 +359,44 @@ function caixaAtual()     { return D.ativos.filter(a=>a.bucket==='C').reduce((s,
 function custoFixoMes()   { return totalFixasMes(0); }
 function metaEmergencia() { return custoFixoMes()*6; }
 function arcaBloqueado()  { return caixaAtual()<metaEmergencia(); }
-function taxaAnual(a) { const base=a.indice==='SELIC'?(D.cdi12||14.80):a.indice==='IPCA'?(D.ipca12||4.14):(D.cdi12||14.80); return (base*(a.pct||100)/100)/100; }
-function projetar(v,r,n){ return v*Math.pow(1+r,n); }
+function taxaAnual(a) {
+  // Taxa anual do ativo como decimal (0.1440 = 14.40% a.a.)
+  const cdiAnual = (D.cdi12||14.40)/100;
+  const base = a.indice==='SELIC' ? (D.selic||14.50)/100
+             : a.indice==='IPCA'  ? (D.ipca12||4.39)/100
+             : cdiAnual; // CDI padrão
+  return base * ((a.pct||100)/100);
+}
+// Projeção com juros compostos anuais
+function projetar(v, taxaAa, anos) { return v * Math.pow(1 + taxaAa, anos); }
+// Valor real: desconta inflação do valor nominal
+function valorReal(nominal, anos) {
+  const inflacao = (D.ipca12||4.39)/100;
+  return nominal / Math.pow(1 + inflacao, anos);
+}
 function getYears() { const s=new Set(); D.meses.forEach(m=>{const p=m.match(/\/(\d+)/);if(p)s.add('20'+p[1]);}); return [...s].sort(); }
 function getMesesAno(yr) { return D.meses.map((m,i)=>({m,i})).filter(({m})=>m.includes('/'+yr.slice(2))); }
 function genId(prefix) { return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
 
 // ── MESES ATIVOS ──────────────────────────────────
-// Retorna meses de 0 até o último que tem dado lançado
+// Retorna meses de 0 até o último que tem alguma compra/entrada lançada.
+// Fixas repetem em todos os meses, então não limitam o range.
 function getActiveMeses() {
-  let last = 0;
+  let last = Math.min(5, nm()-1); // mínimo: sempre mostra 6 meses
   for(let i=0; i<nm(); i++) {
-    const temFixa = (D.fixas||[]).some(f=>f.ativo&&(f.valor||0)>0);
     const temCompra = (D.compras||[]).some(c=>c.ativo&&(calcValsCompra(c)[i]||0)>0);
     const temEntrada = totalEMes(i) > 0;
-    if(temFixa || temCompra || temEntrada) last = i;
+    if(temCompra || temEntrada) last = i;
   }
   return D.meses.slice(0, last + 1);
+}
+
+// Índice do mês atual no array D.meses
+function getMesAtualIdx() {
+  const hoje = new Date();
+  const mesAtualNome = MMAP_R[hoje.getMonth()+1]+'/'+String(hoje.getFullYear()).slice(2);
+  const idx = D.meses.indexOf(mesAtualNome);
+  return idx >= 0 ? idx : 0;
 }
 
 // ── PAGAMENTOS ────────────────────────────────────
@@ -434,10 +446,12 @@ function toggleTheme() {
 
 // ── AUTO-SAVE ─────────────────────────────────────
 function scheduleAutoSave() {
+  _temAlteracoes = true; // marca que há alterações não salvas
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
     collectFormFields(); // garante que campos do DOM estejam em D antes de salvar
     if (window._firestoreSave) window._firestoreSave(false);
+    _temAlteracoes = false;
   }, 1500);
 }
 
@@ -457,8 +471,15 @@ function renderPage(id) {
   else if(id==='invest')   renderInvestAtiva();
   else if(id==='pagar')    renderFaturas();
   else if(id==='faturas')  renderFaturas(); // compat legado
+  else if(id==='metas')    renderMetas();
   else if(id==='perfil')   { if(window._renderPerfil) window._renderPerfil(); }
   else if(id==='admin')    { if(window._renderAdmin)  window._renderAdmin(); }
+}
+
+function renderMetas() {
+  const sub = getActiveSub('metas') || 'objetivos';
+  if(sub==='objetivos') renderObjetivos('objetivos-list');
+  else if(sub==='orcamentos') renderOrcamentos('orcamentos-list');
 }
 
 // Helper para menu mobile — não precisa passar o elemento ntab
@@ -466,6 +487,302 @@ function goMobile(id) {
   go(id, null);
   if(window.closeMobileMenu) closeMobileMenu();
 }
+
+// ── ORÇAMENTOS (Metas por categoria) ─────────────
+function getGastoCategoriaMes(cat, mi) {
+  let total = 0;
+  D.fixas.filter(f=>f.ativo&&f.cat===cat).forEach(f=>total+=f.valor||0);
+  D.compras.filter(c=>c.ativo&&c.cat===cat).forEach(c=>total+=(calcValsCompra(c)[mi]||0));
+  return total;
+}
+
+function renderOrcamentos(containerId) {
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const mi = getMesAtualIdx();
+  const cats = Object.keys(CATS);
+  const orcItems = cats.map(cat=>{
+    const gasto = getGastoCategoriaMes(cat, mi);
+    const limite = D.orcamentos[cat] || 0;
+    const pct = limite>0 ? Math.min(120, Math.round((gasto/limite)*100)) : 0;
+    const cor = pct>=100?'var(--neg)':pct>=80?'var(--warn)':'var(--pos)';
+    return {cat, gasto, limite, pct, cor, info:CATS[cat]};
+  }).filter(o=>o.gasto>0||o.limite>0);
+
+  if(!orcItems.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">🎯</div>
+      <div class="empty-text">Defina limites por categoria para controlar seus gastos.<br>
+      <button class="btn btn-ghost" style="margin-top:10px;height:32px" onclick="abrirModalOrcamento()">+ Definir limites</button></div></div>`;
+    return;
+  }
+  el.innerHTML=orcItems.map(o=>`
+    <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${o.cor};border-radius:var(--r12);padding:14px 16px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">${o.info.icon}</span>
+          <div>
+            <div style="font-weight:600;font-size:13px">${o.info.label}</div>
+            <div style="font-size:11px;color:var(--text2)">${fmt(o.gasto)}${o.limite>0?' de '+fmt(o.limite):' (sem limite definido)'}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${o.pct>=100?`<span class="badge badge-neg">⚠️ ${o.pct}%</span>`:''}
+          <input type="number" value="${o.limite||''}" placeholder="Limite R$" min="0" step="10"
+            style="width:110px;text-align:right;font-size:12px;height:32px"
+            onchange="D.orcamentos['${o.cat}']=parseFloat(this.value)||0;scheduleAutoSave();renderOrcamentos('${containerId}')"
+            title="Limite mensal para ${o.info.label}">
+          <button class="btn-rm" onclick="delete D.orcamentos['${o.cat}'];scheduleAutoSave();renderOrcamentos('${containerId}')">✕</button>
+        </div>
+      </div>
+      ${o.limite>0?`<div style="margin-top:8px">
+        <div style="height:5px;background:var(--card3);border-radius:99px;overflow:hidden">
+          <div style="height:5px;width:${Math.min(100,o.pct)}%;background:${o.cor};border-radius:99px;transition:width .5s"></div>
+        </div>
+      </div>`:''}
+    </div>`).join('');
+
+  el.innerHTML+=`<button class="btn btn-ghost" style="height:32px;font-size:12px;margin-top:4px" onclick="abrirModalOrcamento()">+ Adicionar limite</button>`;
+}
+
+function abrirModalOrcamento() {
+  const cats = Object.keys(CATS).filter(c=>!D.orcamentos[c]);
+  if(!cats.length){alert('Todos os categorias já têm limites definidos.');return;}
+  const catList=cats.map((c,i)=>`${i+1}. ${CATS[c].icon} ${CATS[c].label}`).join('\n');
+  const cat=prompt('Categoria:\n'+catList+'\n\nDigite o número:');
+  if(!cat) return;
+  const idx=parseInt(cat)-1;
+  if(idx<0||idx>=cats.length) return;
+  const key=cats[idx];
+  const val=parseFloat(prompt(`Limite mensal para ${CATS[key].label} (R$):`));
+  if(!val||val<=0) return;
+  D.orcamentos[key]=val;
+  scheduleAutoSave();
+  renderOrcamentos('orcamentos-list');
+}
+
+// ── OBJETIVOS (Metas financeiras) ────────────────
+function renderObjetivos(containerId) {
+  const el=document.getElementById(containerId);
+  if(!el) return;
+  const objs=D.objetivos||[];
+  if(!objs.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">🎯</div>
+      <div class="empty-text">Nenhum objetivo cadastrado. Defina metas financeiras e acompanhe o progresso.
+      <br><button class="btn btn-ghost" style="margin-top:10px;height:32px" onclick="abrirModalObjetivo()">+ Novo objetivo</button></div></div>`;
+    return;
+  }
+  el.innerHTML=objs.map((obj,oi)=>{
+    const pct=obj.meta>0?Math.min(100,Math.round((obj.atual/obj.meta)*100)):0;
+    const falta=Math.max(0,obj.meta-obj.atual);
+    const cor=obj.cor||'var(--accent)';
+    const prazoStr=obj.prazo?new Date(obj.prazo).toLocaleDateString('pt-BR'):'Sem prazo';
+    const diasRestantes=obj.prazo?Math.ceil((new Date(obj.prazo)-new Date())/(1000*60*60*24)):null;
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${cor};border-radius:var(--r16);padding:20px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:22px">${obj.icone||'🎯'}</span>
+            <div style="font-size:15px;font-weight:700">${obj.nome}</div>
+            ${pct>=100?'<span class="badge badge-pos">✅ Concluído!</span>':''}
+          </div>
+          <div style="font-size:12px;color:var(--text2)">Meta: <strong>${fmt(obj.meta)}</strong> · Atual: <strong style="color:${cor}">${fmt(obj.atual)}</strong> · Faltam: <strong>${fmt(falta)}</strong></div>
+          ${obj.prazo?`<div style="font-size:11px;color:${diasRestantes<30?'var(--warn)':'var(--text2)'};margin-top:3px">📅 Prazo: ${prazoStr}${diasRestantes!==null?' ('+diasRestantes+' dias)':''}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:flex-start;flex-shrink:0">
+          <button class="btn btn-ghost" style="height:30px;font-size:11px" onclick="editarObjetivo(${oi})">✏️</button>
+          <button class="btn-rm" onclick="removerObjetivo(${oi})">✕</button>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:5px">
+          <span>${pct}% concluído</span>
+          <button class="btn btn-ghost" style="height:24px;font-size:10px;padding:0 10px" onclick="atualizarObjetivo(${oi})">Atualizar valor</button>
+        </div>
+        <div style="height:8px;background:var(--card3);border-radius:99px;overflow:hidden">
+          <div style="height:8px;width:${pct}%;background:${cor};border-radius:99px;transition:width .6s"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML+=`<button class="btn btn-accent" style="height:36px;margin-top:4px" onclick="abrirModalObjetivo()">+ Novo objetivo</button>`;
+}
+
+function abrirModalObjetivo(oi=-1) {
+  const obj=oi>=0?D.objetivos[oi]:{nome:'',meta:0,atual:0,prazo:'',icone:'🎯',cor:'#8B5CF6'};
+  const html=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px" id="modal-objetivo-overlay">
+    <div style="background:var(--card);border:1px solid var(--border2);border-radius:var(--r20);padding:28px;width:100%;max-width:400px;box-shadow:var(--shadow2)">
+      <div style="font-size:20px;font-weight:700;margin-bottom:16px">🎯 ${oi>=0?'Editar objetivo':'Novo objetivo'}</div>
+      <div class="field"><label class="flabel">Nome do objetivo</label><input type="text" id="ob-nome" value="${obj.nome}" placeholder="Ex: Viagem, Reserva, Carro..."></div>
+      <div class="field"><label class="flabel">Ícone</label><input type="text" id="ob-icone" value="${obj.icone||'🎯'}" style="width:80px"></div>
+      <div class="field"><label class="flabel">Meta (R$)</label><input type="number" id="ob-meta" value="${obj.meta||''}" step="100" placeholder="0,00"></div>
+      <div class="field"><label class="flabel">Valor atual (R$)</label><input type="number" id="ob-atual" value="${obj.atual||''}" step="100" placeholder="0,00"></div>
+      <div class="field"><label class="flabel">Prazo</label><input type="date" id="ob-prazo" value="${obj.prazo||''}"></div>
+      <div class="field"><label class="flabel">Cor</label><input type="color" id="ob-cor" value="${obj.cor||'#8B5CF6'}" style="width:60px;height:36px;padding:2px;border-radius:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-ghost" onclick="document.getElementById('modal-objetivo-overlay').remove()">Cancelar</button>
+        <button class="btn btn-pri" onclick="salvarObjetivo(${oi})">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function salvarObjetivo(oi) {
+  const nome=document.getElementById('ob-nome').value.trim();
+  const meta=parseFloat(document.getElementById('ob-meta').value)||0;
+  const atual=parseFloat(document.getElementById('ob-atual').value)||0;
+  const prazo=document.getElementById('ob-prazo').value;
+  const icone=document.getElementById('ob-icone').value||'🎯';
+  const cor=document.getElementById('ob-cor').value||'#8B5CF6';
+  if(!nome){alert('Informe o nome do objetivo.');return;}
+  const obj={id:oi>=0?(D.objetivos[oi].id||genId('obj')):genId('obj'),nome,meta,atual,prazo,icone,cor};
+  if(oi>=0) D.objetivos[oi]=obj; else D.objetivos.push(obj);
+  document.getElementById('modal-objetivo-overlay').remove();
+  scheduleAutoSave(); renderObjetivos('objetivos-list');
+}
+
+function atualizarObjetivo(oi) {
+  const obj=D.objetivos[oi]; if(!obj) return;
+  const val=parseFloat(prompt(`Valor atual de "${obj.nome}" (R$):`, obj.atual||0));
+  if(val===null||isNaN(val)) return;
+  D.objetivos[oi].atual=val;
+  scheduleAutoSave(); renderObjetivos('objetivos-list');
+}
+
+function editarObjetivo(oi) { abrirModalObjetivo(oi); }
+function removerObjetivo(oi) {
+  if(!confirm(`Remover objetivo "${D.objetivos[oi].nome}"?`)) return;
+  D.objetivos.splice(oi,1); scheduleAutoSave(); renderObjetivos('objetivos-list');
+}
+
+// ── ALERTAS DE VENCIMENTO ────────────────────────
+function getAlertasVencimento() {
+  const hoje = new Date();
+  const diaHoje = hoje.getDate();
+  const mi = getMesAtualIdx();
+  const alertas = [];
+
+  D.cartoes.forEach(ct=>{
+    const diasAteVenc = ct.diaVencimento >= diaHoje
+      ? ct.diaVencimento - diaHoje
+      : (30 - diaHoje + ct.diaVencimento);
+
+    // Calcula fatura do cartão no mês atual
+    const fatura = D.compras.filter(c=>c.ativo&&c.cartao===ct.nome)
+      .reduce((s,c)=>(calcValsCompra(c)[mi]||0)+s,0);
+    if(fatura>0 && diasAteVenc<=7) {
+      alertas.push({tipo:'vencimento', cartao:ct.nome, valor:fatura, dias:diasAteVenc,
+        cor:diasAteVenc<=2?'var(--neg)':diasAteVenc<=5?'var(--warn)':'var(--info)'});
+    }
+  });
+
+  // Objetivos próximos do prazo
+  (D.objetivos||[]).forEach(obj=>{
+    if(!obj.prazo) return;
+    const diasRestantes=Math.ceil((new Date(obj.prazo)-hoje)/(1000*60*60*24));
+    if(diasRestantes>=0&&diasRestantes<=30&&obj.atual<obj.meta) {
+      alertas.push({tipo:'objetivo', nome:obj.nome, diasRestantes, pct:Math.round((obj.atual/obj.meta)*100),
+        cor:diasRestantes<=7?'var(--neg)':'var(--warn)'});
+    }
+  });
+
+  return alertas;
+}
+
+// ── BUSCA/FILTRO EM COMPRAS ──────────────────────
+let _comprasFiltro = '';
+let _comprasOrdem = 'data'; // 'data' | 'valor' | 'nome'
+
+// ── MODAL DE LANÇAMENTO RÁPIDO ───────────────────
+function abrirLancamentoRapido() {
+  const html=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px" id="modal-rapido-overlay">
+    <div style="background:var(--card);border:1px solid var(--border2);border-radius:var(--r20);padding:28px;width:100%;max-width:420px;box-shadow:var(--shadow2)">
+      <div style="font-size:20px;font-weight:700;margin-bottom:6px">⚡ Lançamento rápido</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Adicione uma entrada ou saída rapidamente</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn" id="lr-tipo-saida" style="flex:1;height:36px;background:var(--neg-bg);color:var(--neg);border:1px solid rgba(239,68,68,.3);font-weight:700" onclick="setLrTipo('saida')">💸 Saída</button>
+        <button class="btn" id="lr-tipo-entrada" style="flex:1;height:36px;background:var(--card3);color:var(--text2);border:1px solid var(--border)" onclick="setLrTipo('entrada')">💰 Entrada</button>
+      </div>
+      <div class="field"><label class="flabel">Descrição</label><input type="text" id="lr-nome" placeholder="Ex: Farmácia, Jantar..."></div>
+      <div class="field"><label class="flabel">Valor (R$)</label><input type="number" id="lr-valor" step="0.01" placeholder="0,00"></div>
+      <div class="field" id="lr-cartao-field"><label class="flabel">Cartão (opcional)</label>
+        <select id="lr-cartao"><option value="">— À vista / PIX —</option>${D.cartoes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label class="flabel">Categoria</label>
+        <select id="lr-cat">${Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-ghost" onclick="document.getElementById('modal-rapido-overlay').remove()">Cancelar</button>
+        <button class="btn btn-pri" onclick="salvarLancamentoRapido()">Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  document.getElementById('lr-nome').focus();
+}
+
+let _lrTipo = 'saida';
+function setLrTipo(tipo) {
+  _lrTipo=tipo;
+  const btnS=document.getElementById('lr-tipo-saida');
+  const btnE=document.getElementById('lr-tipo-entrada');
+  const cartaoF=document.getElementById('lr-cartao-field');
+  if(tipo==='saida'){
+    btnS.style.cssText='flex:1;height:36px;background:var(--neg-bg);color:var(--neg);border:1px solid rgba(239,68,68,.3);font-weight:700';
+    btnE.style.cssText='flex:1;height:36px;background:var(--card3);color:var(--text2);border:1px solid var(--border)';
+    if(cartaoF) cartaoF.style.display='';
+    // Change cat to expense categories
+    const catEl=document.getElementById('lr-cat');
+    if(catEl) catEl.innerHTML=Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
+  } else {
+    btnE.style.cssText='flex:1;height:36px;background:var(--pos-bg);color:var(--pos);border:1px solid rgba(16,185,129,.3);font-weight:700';
+    btnS.style.cssText='flex:1;height:36px;background:var(--card3);color:var(--text2);border:1px solid var(--border)';
+    if(cartaoF) cartaoF.style.display='none';
+    const catEl=document.getElementById('lr-cat');
+    if(catEl) catEl.innerHTML=Object.entries(CATS_ENTRADA).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
+  }
+}
+
+function salvarLancamentoRapido() {
+  const nome=document.getElementById('lr-nome').value.trim();
+  const valor=parseFloat(document.getElementById('lr-valor').value)||0;
+  const cat=document.getElementById('lr-cat').value;
+  if(!nome){alert('Informe a descrição.');return;}
+  if(!valor){alert('Informe o valor.');return;}
+  if(_lrTipo==='saida'){
+    const cartao=document.getElementById('lr-cartao').value;
+    D.compras.push({id:genId('c'),nome,cat,cartao,valor,parcelas:1,
+      dataCompra:new Date().toISOString().slice(0,10),ativo:true});
+    scheduleAutoSave(); renderSaidasVar();
+  } else {
+    D.entradas.push({id:genId('e'),nome,valor,tipo:'mensal',dia:1,cat,ativo:true});
+    scheduleAutoSave(); renderEntradas();
+  }
+  document.getElementById('modal-rapido-overlay').remove();
+  renderAll();
+  toast('Lançamento salvo! ✓');
+}
+
+// ── AVISO ANTES DE SAIR SEM SALVAR ──────────────
+let _temAlteracoes = false;
+function marcarAlterado() { _temAlteracoes=true; }
+function marcarSalvo()    { _temAlteracoes=false; }
+window.addEventListener('beforeunload', function(e) {
+  if(_temAlteracoes) {
+    e.preventDefault();
+    e.returnValue='Você tem alterações não salvas. Deseja sair mesmo assim?';
+    return e.returnValue;
+  }
+});
+
+function setBottomNav(page) {
+  document.querySelectorAll('.bnav-btn[data-page]').forEach(b=>{
+    b.classList.toggle('on', b.getAttribute('data-page')===page);
+  });
+  // Also update mobile menu
+  document.querySelectorAll('.mobile-ntab').forEach(b=>b.classList.remove('on'));
+}
+
 function renderAll() {
   const a=document.querySelector('.page.on');
   const id=a?a.id.replace('page-',''):'dash';
@@ -479,6 +796,7 @@ function switchSub(pid,sid,el) {
   if(pid==='invest') renderInvestSub(sid);
   else if(pid==='dash') { if(sid==='geral') renderGeral(); else renderMes(); }
   else if(pid==='saidas') { if(sid==='fixas') renderSaidasFixas(); else renderSaidasVar(); }
+  else if(pid==='metas') { if(sid==='objetivos') renderObjetivos('objetivos-list'); else renderOrcamentos('orcamentos-list'); }
 }
 function getActiveSub(pid) { const a=document.querySelector(`#page-${pid} .sub.on`); return a?a.id.replace('sub-',''):null; }
 function renderInvestAtiva()  { const s=getActiveSub('invest')||'inv-visao'; renderInvestSub(s); }
@@ -548,6 +866,29 @@ function renderGeral() {
   const ativos    = D.meses.length;
   const n         = getActiveMeses().length;
 
+  // ── Alertas de vencimento (cartões nos próximos 7 dias) ──
+  const alertasVenc = getAlertasVencimento();
+  const vencEl = document.getElementById('dash-vencimentos');
+  if(vencEl) {
+    if(alertasVenc.length) {
+      vencEl.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        ${alertasVenc.map(a=>{
+          if(a.tipo==='vencimento') return `<div style="background:var(--card);border:1px solid ${a.cor.replace('var(','')}33;border-left:3px solid ${a.cor};border-radius:var(--r12);padding:10px 14px;display:flex;align-items:center;gap:10px;flex:1;min-width:200px">
+            <span style="font-size:20px">💳</span>
+            <div><div style="font-size:12px;font-weight:700;color:${a.cor}">${a.cartao} vence em ${a.dias===0?'HOJE!':a.dias===1?'amanhã':a.dias+' dias'}</div>
+            <div style="font-size:11px;color:var(--text2)">Fatura: <strong>${fmt(a.valor)}</strong></div></div>
+            <button class="btn btn-ghost" style="height:26px;font-size:10px;margin-left:auto" onclick="goMobile('pagar')">Pagar</button>
+          </div>`;
+          if(a.tipo==='objetivo') return `<div style="background:var(--card);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:var(--r12);padding:10px 14px;flex:1;min-width:200px">
+            <div style="font-size:12px;font-weight:700;color:var(--warn)">🎯 Meta "${a.nome}" vence em ${a.diasRestantes} dias</div>
+            <div style="font-size:11px;color:var(--text2)">Progresso: ${a.pct}%</div>
+          </div>`;
+          return '';
+        }).join('')}
+      </div>`;
+    } else vencEl.innerHTML='';
+  }
+
   // ── Alertas de configuração ──
   const alerts = getEmptyStateAlerts();
   const alertEl = document.getElementById('dash-alerts');
@@ -590,6 +931,7 @@ function renderGeral() {
       <div class="hero-pill green">💰 ${fmt(entrada)}/mês</div>
       <div class="hero-pill ${sobra>=0?'green':'red'}">${sobra>=0?'✅':'⚠️'} Sobra: ${fmt(sobra)}</div>
       <div class="hero-pill blue">🚀 Investir: ${fmt(investir)}</div>
+      <button onclick="abrirLancamentoRapido()" style="background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:6px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px">⚡ Lançamento rápido</button>
     </div>`;
 
   // ── 4 CARDS PRINCIPAIS: o que importa agora ──
@@ -1021,6 +1363,28 @@ function renderSaidasVar() {
   // Renderiza gestão de anos
   renderAnosList();
 
+  // Barra de busca e ordenação
+  const searchBar = document.getElementById('var-searchbar');
+  if(searchBar && !searchBar.innerHTML.trim()) {
+    searchBar.innerHTML=`
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <input type="text" placeholder="🔍 Buscar compra..." style="flex:1;min-width:180px;height:34px"
+          oninput="_comprasFiltro=this.value.toLowerCase();renderSaidasVar()" value="${_comprasFiltro}">
+        <select style="height:34px;width:auto" onchange="_comprasOrdem=this.value;renderSaidasVar()">
+          <option value="data"${_comprasOrdem==='data'?' selected':''}>📅 Por data</option>
+          <option value="valor"${_comprasOrdem==='valor'?' selected':''}>💰 Por valor</option>
+          <option value="nome"${_comprasOrdem==='nome'?' selected':''}>🔤 Por nome</option>
+        </select>
+        ${_comprasFiltro?`<button class="btn btn-ghost" style="height:34px" onclick="_comprasFiltro='';document.querySelector('#var-searchbar input').value='';renderSaidasVar()">✕ Limpar</button>`:''}
+      </div>`;
+  } else if(searchBar) {
+    // Atualiza apenas o botão limpar sem reconstruir
+    const clearBtn = searchBar.querySelector('.btn');
+    if(_comprasFiltro && !clearBtn) {
+      searchBar.innerHTML+=`<button class="btn btn-ghost" style="height:34px" onclick="_comprasFiltro='';document.querySelector('#var-searchbar input').value='';renderSaidasVar()">✕</button>`;
+    }
+  }
+
   // Monta seletor de meses com dados
   const mesesComDados = new Set();
   D.compras.filter(c=>c.ativo).forEach(c=>{
@@ -1039,13 +1403,27 @@ function renderSaidasVar() {
 
   if(!D.compras.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">🔄</div><div class="empty-text">Nenhuma compra/parcela. Clique em + para adicionar.</div></div>`; return; }
 
-  // Filtra compras que tem valor no mês selecionado
-  const comprasFiltradas = selSaidasMes
+  // Filtra por mês selecionado
+  let comprasFiltradas = selSaidasMes
     ? D.compras.filter(c=>{ const mi=D.meses.indexOf(selSaidasMes); return mi>=0 && (calcValsCompra(c)[mi]||0)>0; })
     : D.compras;
 
+  // Aplica busca por texto
+  if(_comprasFiltro) {
+    comprasFiltradas = comprasFiltradas.filter(c=>
+      c.nome.toLowerCase().includes(_comprasFiltro) ||
+      (c.cartao||'').toLowerCase().includes(_comprasFiltro) ||
+      (CATS[c.cat]?.label||'').toLowerCase().includes(_comprasFiltro)
+    );
+  }
+
+  // Aplica ordenação
+  if(_comprasOrdem==='valor') comprasFiltradas = [...comprasFiltradas].sort((a,b)=>(b.valor||0)-(a.valor||0));
+  else if(_comprasOrdem==='nome') comprasFiltradas = [...comprasFiltradas].sort((a,b)=>a.nome.localeCompare(b.nome));
+  else comprasFiltradas = [...comprasFiltradas].sort((a,b)=>new Date(b.dataCompra||0)-new Date(a.dataCompra||0));
+
   if(!comprasFiltradas.length){
-    el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma parcela em ${selSaidasMes}.</div></div>`;
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">${_comprasFiltro?`Nenhum resultado para "${_comprasFiltro}"`:`Nenhuma parcela em ${selSaidasMes}`}.</div></div>`;
     return;
   }
 
@@ -1706,29 +2084,46 @@ function renderAtivos(){
     `;
   }
 
-  // Projeções
+  // Projeções — juros compostos com valor real (deflacionado pelo IPCA)
   const proj=document.getElementById('proj-tbl');
   if(proj){
     const ANOS=[1,2,3,5,10,20,30];
-    const ativos=D.ativos.filter(a=>(a.valor||0)>0);
-    const atTot=ativos.reduce((s,a)=>s+(a.valor||0),0);
-    const txMedia=atTot>0?ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/atTot:0;
-    const heads=ANOS.map(a=>`<th class="tr">${a}a</th>`).join('');
-    const rows=[...ativos,{nome:'<strong>Total</strong>',valor:atTot,_tx:txMedia,_tot:true}].map(a=>{
+    const ativosV=D.ativos.filter(a=>(a.valor||0)>0);
+    const atTot=ativosV.reduce((s,a)=>s+(a.valor||0),0);
+    const txMedia=atTot>0?ativosV.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/atTot:0;
+    const heads=ANOS.map(a=>`<th class="tr" colspan="2" style="border-left:1px solid var(--border)">${a}a</th>`).join('');
+    const subheads=ANOS.map(()=>`<th class="tr" style="font-size:9px;color:var(--teal)">Nominal</th><th class="tr" style="font-size:9px;color:var(--text2)">Real*</th>`).join('');
+    const rows=[...ativosV,{nome:'<strong>Total</strong>',valor:atTot,_tx:txMedia,_tot:true}].map(a=>{
       const tx=a._tx!==undefined?a._tx:taxaAnual(a);
       const cols=ANOS.map(n=>{
-        const v=projetar(a.valor||0,tx,n);
-        const g=v-(a.valor||0);
-        return `<td class="tr"><div class="proj-val">${RK(v)}</div><div class="proj-gain">+${RK(g)}</div></td>`;
+        const nominal=projetar(a.valor||0,tx,n);
+        const real=valorReal(nominal,n);
+        const gNom=nominal-(a.valor||0);
+        return `<td class="tr" style="border-left:1px solid var(--border)">
+          <div class="proj-val" style="color:var(--teal)">${RK(nominal)}</div>
+          <div class="proj-gain">+${RK(gNom)}</div>
+        </td>
+        <td class="tr">
+          <div style="font-size:11px;color:var(--text2)">${RK(real)}</div>
+        </td>`;
       }).join('');
-      const sub=a._tot?`taxa média: ${P(tx*100)}`:`${a.indice} ${a.pct}% = ${P(tx*100)}/a`;
+      const sub=a._tot?`taxa média: ${P(tx*100)}/a`:`${a.indice} ${a.pct}% = ${P(tx*100)}/a`;
       return `<tr${a._tot?' style="background:var(--card2);border-top:2px solid var(--border)"':''}>
         <td><strong>${a.nome}</strong><div style="font-size:10px;color:var(--text2)">${sub}</div></td>
         <td class="tr" style="font-weight:600">${RK(a.valor||0)}</td>
         ${cols}
       </tr>`;
     }).join('');
-    proj.innerHTML=`<thead class="thead-sticky"><tr><th>Ativo</th><th class="tr">Atual</th>${heads}</tr></thead><tbody>${rows}</tbody>`;
+    const inflNote=`<div style="font-size:10px;color:var(--text2);padding:10px 0">*Valor real descontando IPCA de ${P(D.ipca12||4.39)}/a. O dinheiro de hoje vale mais do que no futuro.</div>`;
+    proj.innerHTML=`<thead class="thead-sticky">
+      <tr><th rowspan="2">Ativo</th><th rowspan="2" class="tr">Atual</th>${heads}</tr>
+      <tr>${subheads}</tr>
+    </thead><tbody>${rows}</tbody>`;
+    // Append inflation note after table
+    const projWrap=proj.parentElement;
+    let note=projWrap.querySelector('.proj-note');
+    if(!note){note=document.createElement('div');note.className='proj-note';projWrap.appendChild(note);}
+    note.innerHTML=inflNote;
   }
 
   // Gráfico projeção
