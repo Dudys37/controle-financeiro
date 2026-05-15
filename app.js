@@ -1820,13 +1820,13 @@ function renderIndicadores(){
 }// ── BCB API + ARCA INTELLIGENCE ───────────────────
 
 // Séries temporais do Banco Central (SGS/BCData)
+// NOTA: série 4389 retorna CDI Over anualizado (% a.a.) ≈ 14.40 quando SELIC = 14.50
+// O CDI mensal não existe como série direta confiável — calculamos via juros compostos
 const BCB_SERIES = {
-  cdiMes:   4389,  // CDI acumulado no mês (% a.m.)
-  cdi12m:   4391,  // CDI % a.a. (últimos 12 meses)
-  selicMes: 4390,  // SELIC acumulada no mês
-  selicMeta:432,   // Meta SELIC % a.a.
-  ipcaMes:  433,   // IPCA mensal
-  ipca12m:  13522, // IPCA acumulado 12 meses
+  cdiAnual:  4389,  // CDI Over anualizado (% a.a.) — ≈ 14.40%
+  selicMeta: 432,   // Meta SELIC (% a.a.) — ≈ 14.50%
+  ipcaMes:   433,   // IPCA mensal (% a.m.) — ≈ 0.67%
+  ipca12m:   13522, // IPCA acumulado 12 meses (% a.a.) — ≈ 4.39%
 };
 
 async function bcbFetch(serie, n=1) {
@@ -1854,47 +1854,41 @@ async function fetchBCB() {
   if (stat) { stat.style.display = ''; stat.innerHTML = '⏳ Conectando ao Banco Central do Brasil...'; }
 
   try {
-    // Busca todas as séries em paralelo
-    const [cdiMes, cdi12m, selicMeta, ipcaMes, ipca12m] = await Promise.all([
-      bcbFetch(BCB_SERIES.cdiMes,  1),
-      bcbFetch(BCB_SERIES.cdi12m,  1),
-      bcbFetch(BCB_SERIES.selicMeta,1),
-      bcbFetch(BCB_SERIES.ipcaMes, 1),
-      bcbFetch(BCB_SERIES.ipca12m, 1),
+    // Busca as 4 séries em paralelo — sem chamadas duplicadas
+    const [cdiAnual, selicMeta, ipcaMes, ipca12m] = await Promise.all([
+      bcbFetch(BCB_SERIES.cdiAnual,  1),  // CDI anualizado (% a.a.) ≈ 14.40
+      bcbFetch(BCB_SERIES.selicMeta, 1),  // Meta SELIC (% a.a.) ≈ 14.50
+      bcbFetch(BCB_SERIES.ipcaMes,   1),  // IPCA mensal (% a.m.) ≈ 0.67
+      bcbFetch(BCB_SERIES.ipca12m,   1),  // IPCA 12 meses (% a.a.) ≈ 4.39
     ]);
 
-    // Calcula acumulado 2026 (meses disponíveis)
-    const ano = new Date().getFullYear();
-    const mesesAno = await bcbFetch(BCB_SERIES.ipcaMes, 12);
-    // Acumulado anual = últimos meses do ano corrente
-    const ipcaAcumArr = await Promise.all(
-      Array.from({length: new Date().getMonth()+1}, (_,i) =>
-        bcbFetch(BCB_SERIES.ipcaMes, new Date().getMonth()+1 - i)
-      )
-    );
+    // ── CDI anual (% a.a.) ────────────────────────────────────────────────
+    // Série 4389 retorna o CDI Over anualizado, ex: 14.40 = 14.40% ao ano
+    D.cdi12  = parseFloat(cdiAnual.valor)  || D.cdi12;
 
-    // Atualiza D
-    D.cdi12   = parseFloat(cdi12m.valor)  || D.cdi12;
-    D.cdifev  = parseFloat(cdiMes.valor)  || D.cdifev;
+    // ── CDI mensal — derivado do anual por juros compostos ─────────────────
+    // Formula: ((1 + taxa_anual)^(1/12) - 1) × 100
+    // Ex: ((1.1440)^(1/12) - 1) × 100 = 1.092% ao mês  ✓
+    D.cdifev = parseFloat(((Math.pow(1 + D.cdi12 / 100, 1 / 12) - 1) * 100).toFixed(4));
+
+    // ── SELIC meta ────────────────────────────────────────────────────────
+    D.selic  = parseFloat(selicMeta.valor) || D.selic || 14.75;
+
+    // ── IPCA ──────────────────────────────────────────────────────────────
     D.ipca12  = parseFloat(ipca12m.valor) || D.ipca12;
     D.ipcafev = parseFloat(ipcaMes.valor) || D.ipcafev;
-    D.selic   = parseFloat(selicMeta.valor)|| D.selic||14.75;
 
-    // Acumulado no ano (CDI e IPCA)
-    const cdi12mArr = await Promise.all(
-      Array.from({length: new Date().getMonth()+1}, () =>
-        bcbFetch(BCB_SERIES.cdiMes, 1)
-      )
-    );
-    // Simplificado: usa 12m / 12 * meses_do_ano
-    const mesesDecorridos = new Date().getMonth() + 1;
-    D.cdi26  = parseFloat(((D.cdi12 / 12) * mesesDecorridos).toFixed(2));
-    D.ipca26 = parseFloat(((D.ipca12 / 12) * mesesDecorridos).toFixed(2));
+    // ── Acumulado no ano via juros compostos ───────────────────────────────
+    // Usa meses completos (dados BCB chegam com 1 mês de atraso)
+    // getMonth() retorna 0=Jan…4=Mai → 4 meses completos disponíveis em Maio ✓
+    const mesesCompletos = Math.max(1, new Date().getMonth()); // Jan=0→1, Mai=4→4
+    D.cdi26  = parseFloat(((Math.pow(1 + D.cdi12  / 100, mesesCompletos / 12) - 1) * 100).toFixed(2));
+    D.ipca26 = parseFloat(((Math.pow(1 + D.ipca12 / 100, mesesCompletos / 12) - 1) * 100).toFixed(2));
 
     if (!D.invManual) D.invManual = Array(nm()).fill(null);
 
-    const dataRef = cdi12m.data || ipcaMes.data || '—';
-    if (stat) stat.innerHTML = `✅ Dados atualizados com sucesso! Referência: <strong>${dataRef}</strong> · CDI 12m: <strong>${D.cdi12}%</strong> · IPCA 12m: <strong>${D.ipca12}%</strong> · SELIC meta: <strong>${D.selic}%</strong>`;
+    const dataRef = cdiAnual.data || ipcaMes.data || '—';
+    if (stat) stat.innerHTML = `✅ Dados atualizados! Ref: <strong>${dataRef}</strong> · CDI a.a.: <strong>${D.cdi12.toFixed(2)}%</strong> · CDI mensal: <strong>${D.cdifev.toFixed(2)}%</strong> · SELIC: <strong>${D.selic}%</strong> · IPCA 12m: <strong>${D.ipca12.toFixed(2)}%</strong>`;
 
     scheduleAutoSave();
     renderIndicadores();
@@ -1905,7 +1899,7 @@ async function fetchBCB() {
     if (stat) stat.innerHTML = `❌ Erro ao buscar dados: ${e.message}. Verifique sua conexão ou atualize manualmente.`;
     if (stat) stat.style.color = 'var(--neg)';
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar indicadores agora'; }
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar agora'; }
   }
 }
 
