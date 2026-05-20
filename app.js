@@ -24,7 +24,7 @@ const DEFAULT = {
   saldo:0,
   cdi12:14.80, cdifev:1.21, cdi26:3.41,
   ipca12:4.14, ipcafev:0.88, ipca26:1.92,
-  arcaMeta:{a:25,r:25,c:25,a2:25}, metaCC:2000,
+  arcaMeta:{a:25,r:25,c:25,a2:25}, metaCC:2000, diaCorte:20,
   meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
          'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
          'Set/27','Out/27','Nov/27','Dez/27'],
@@ -101,7 +101,8 @@ function calcMesRefAuto() {
   let idx = D.meses.findIndex(ms=>{const p=parseMes(ms);return p.m===m&&p.y===y;});
   if(idx===-1) idx=0;
   // Após dia 20, avança para o próximo mês
-  if(dia>=20 && idx<nm()-1) idx++;
+  const diaCorte = D.diaCorte || 20;
+  if(dia>=diaCorte && idx<nm()-1) idx++;
   return idx;
 }
 function setMesRef(idx) {
@@ -174,6 +175,7 @@ function migrateData(d) {
   if(!d.meses)      d.meses      = [...BLANK.meses];
   if(!d.pagamentos) d.pagamentos = {};
   if(!d.invManual)  d.invManual  = Array(d.meses.length).fill(null);
+  if(!d.diaCorte)   d.diaCorte   = 20;
   while(d.invManual.length < d.meses.length) d.invManual.push(null);
 
   // Migração legado: se tinha salario/outras e entradas está vazio
@@ -373,11 +375,37 @@ const invDispCalc = i => calcInvest(i).saldo;
 function invDisp(i) {
   if(!D.invManual) D.invManual=Array(nm()).fill(null);
   const m=D.invManual[i];
+  if(m==='skip') return 0; // linha removida pelo usuário
   return (m!==null&&m!==undefined&&!isNaN(m))?m:invDispCalc(i);
 }
-function isManual(i) { if(!D.invManual)return false; const v=D.invManual[i]; return v!==null&&v!==undefined&&!isNaN(v); }
+function isSkipped(i) { return D.invManual&&D.invManual[i]==='skip'; }
+function skipMes(i) {
+  if(!D.invManual) D.invManual=Array(nm()).fill(null);
+  D.invManual[i]='skip';
+  scheduleAutoSave(); renderInvestVisao();
+}
+function unskipMes(i) {
+  if(!D.invManual) D.invManual=Array(nm()).fill(null);
+  D.invManual[i]=null;
+  scheduleAutoSave(); renderInvestVisao();
+}
+function isManual(i) { if(!D.invManual)return false; const v=D.invManual[i]; return v!==null&&v!==undefined&&v!=='X'&&!isNaN(v); }
 function resetManual(i) { if(!D.invManual)D.invManual=Array(nm()).fill(null); D.invManual[i]=null; scheduleAutoSave(); renderInvestVisao(); }
 function setManual(i,val) { if(!D.invManual)D.invManual=Array(nm()).fill(null); D.invManual[i]=(val===''||val===null)?null:(parseFloat(val)||0); scheduleAutoSave(); renderAll(); }
+
+function excluirMesInvest(i) {
+  if(!D.invManual) D.invManual = Array(nm()).fill(null);
+  // Marca como "excluído" com valor especial -1
+  D.invManual[i] = 'X';
+  scheduleAutoSave();
+  renderInvestVisao();
+}
+function restaurarMesInvest(i) {
+  if(!D.invManual) D.invManual = Array(nm()).fill(null);
+  D.invManual[i] = null;
+  scheduleAutoSave();
+  renderInvestVisao();
+}
 function resetTodosManual() { D.invManual=Array(nm()).fill(null); scheduleAutoSave(); renderInvestVisao(); renderAll(); }
 
 function patrimonioLiquido() {
@@ -420,6 +448,9 @@ function getActiveMeses() {
     if(temFixa || temCompra || temEntrada) last = i;
   }
   return D.meses.slice(0, last + 1);
+}
+function isExcluido(i) {
+  return D.invManual && D.invManual[i] === 'X';
 }
 
 // ── PAGAMENTOS ────────────────────────────────────
@@ -743,38 +774,204 @@ function renderTopGastosMes(mi) {
 
 // ── POR MÊS ───────────────────────────────────────
 function renderMes() {
-  const i=selDash;
-  const e=totalEMes(i),d=totalDivBruto(i),s=sobraM(i),inv=invDisp(i);
-  const r=calcInvest(i);
-  const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
-  const pl=patrimonioLiquido();
-  document.getElementById('dash-sec-label').textContent='Resumo de '+(D.meses[i]||'');
-  buildMonths('dash-months',i,j=>{selDash=j;renderMes();});
+  const i = selDash;
+  const e = totalEMes(i);
+  const cp = calcPendenteMes(i);
+  const inv = invDisp(i);
+  const r = calcInvest(i);
+  const pl = patrimonioLiquido();
+  const tudoPago = cp.bruto > 0 && cp.pendente === 0;
+  const mesNome = D.meses[i] || '';
+  const isRefMes = i === getMesRefIdx();
+
+  document.getElementById('dash-sec-label').textContent = 'Resumo de ' + mesNome + (isRefMes ? ' (referência)' : '');
+  buildMonths('dash-months', i, j => { selDash = j; renderMes(); });
+
+  const mc = document.getElementById('mes-cards');
+  if(!mc) return;
+
+  // ── SEÇÃO 1: Visão geral financeira do mês ──
+  const sobraLiquida = e - cp.bruto;
+  const icon = r.regra === 'negativo' ? '🔴' : r.regra === 'menor_meta' ? '🟡' : '🟢';
+  const regrasDesc = { maior_meta: 'Sobra − Meta CC', menor_meta: '50% da sobra', negativo: 'Contas > Entradas' };
+
+  mc.innerHTML = `
+    <!-- Entradas -->
+    <div class="mcard mcard-pos">
+      <div class="mlabel">💰 Entradas em ${mesNome}</div>
+      <div class="mval mval-pos">${fmt(e)}</div>
+      <div class="msub">${D.entradas.filter(e=>e.ativo).length} fonte(s) · salário e outros</div>
+    </div>
+
+    <!-- Total faturas -->
+    <div class="mcard mcard-neg">
+      <div class="mlabel">💸 Total de faturas</div>
+      <div class="mval mval-neg">${fmt(cp.bruto)}</div>
+      <div class="msub">${pct(cp.bruto, e)} da renda · fixas + variáveis</div>
+    </div>
+
+    ${tudoPago
+      ? `<!-- Tudo pago: sem sobra, mostra patrimônio -->
+        <div class="mcard" style="border-color:rgba(16,185,129,.3);background:var(--pos-bg)">
+          <div class="mlabel" style="color:var(--pos)">✅ Todas as faturas pagas!</div>
+          <div class="mval mval-pos" style="font-size:16px">${fmt(cp.pago)} pagos</div>
+          <div class="msub">Mês quitado · Parabéns! 🎉</div>
+        </div>`
+      : `<!-- Pendente -->
+        <div class="mcard mcard-warn">
+          <div class="mlabel">⏳ Ainda pendente</div>
+          <div class="mval mval-warn">${fmt(cp.pendente)}</div>
+          <div class="msub">Pago: ${fmt(cp.pago)} · ${pct(cp.pago, cp.bruto)}</div>
+        </div>
+
+        <!-- Disponível para investir -->
+        <div class="mcard mcard-teal" style="border-color:rgba(6,182,212,.3)">
+          <div class="mlabel">${icon} Disponível p/ investir</div>
+          <div class="mval mval-teal">${fmt(inv)}</div>
+          <div class="msub">${regrasDesc[r.regra]}</div>
+        </div>`
+    }
+
+    <!-- Patrimônio líquido -->
+    <div class="mcard mcard-accent">
+      <div class="mlabel">💎 Patrimônio líquido</div>
+      <div class="mval ${pl.liquido >= 0 ? 'mval-accent' : 'mval-neg'}">${fmt(pl.liquido)}</div>
+      <div class="msub">Ativos ${fmt(pl.ativos)}</div>
+    </div>
+  `;
+
+  // ── SEÇÃO 2: Progresso das faturas ──
+  const progEl = document.getElementById('mes-progresso');
+  if(progEl && cp.bruto > 0) {
+    const pctPago = Math.round((cp.pago / cp.bruto) * 100);
+    progEl.innerHTML = `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:16px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-weight:600;font-size:13px">📊 Progresso das faturas em ${mesNome}</span>
+          <span style="font-size:13px;font-weight:700;color:${pctPago===100?'var(--pos)':'var(--warn)'}">${pctPago}%</span>
+        </div>
+        <div style="height:8px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:10px">
+          <div style="height:8px;width:${pctPago}%;background:${pctPago===100?'var(--pos)':'var(--accent)'};border-radius:99px;transition:width .5s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
+          <span>✅ Pago: <strong style="color:var(--pos)">${fmt(cp.pago)}</strong></span>
+          <span>⏳ Pendente: <strong style="color:var(--warn)">${fmt(cp.pendente)}</strong></span>
+          <span>💸 Total: <strong>${fmt(cp.bruto)}</strong></span>
+        </div>
+        <div style="margin-top:10px;text-align:center">
+          <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="go('faturas',document.querySelectorAll('.ntab')[5])">
+            📋 Ver faturas detalhadas →
+          </button>
+        </div>
+      </div>`;
+  } else if(progEl) progEl.innerHTML = '';
+
+  // ── SEÇÃO 3: Gastos por categoria ──
+  const cats = {};
+  D.fixas.filter(f=>f.ativo).forEach(f=>{ const c=f.cat||'outros'; if(!cats[c])cats[c]={total:0,items:[]}; cats[c].total+=f.valor; cats[c].items.push({nome:f.nome,v:f.valor}); });
+  D.compras.filter(c=>c.ativo).forEach(c=>{ const v=calcValsCompra(c)[i]||0; if(!v)return; const cat=c.cat||'outros'; if(!cats[cat])cats[cat]={total:0,items:[]}; cats[cat].total+=v; cats[cat].items.push({nome:c.nome,v}); });
+  const cc = document.getElementById('mes-cat-cards');
+  if(cc) cc.innerHTML = Object.entries(cats).sort(([,a],[,b])=>b.total-a.total).map(([cat,{total,items}])=>{
+    const info = CATS[cat] || CATS.outros;
+    return `<div class="mcard" style="border-color:${info.cor}33">
+      <div class="mlabel" style="color:${info.cor}">${info.icon} ${info.label}</div>
+      <div class="mval tneg" style="font-size:18px">${fmt(total)}</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:6px;line-height:1.6">${items.map(x=>`${x.nome}: <strong>${fmt(x.v)}</strong>`).join(' · ')}</div>
+    </div>`;
+  }).join('');
+
+  renderCartoesTo(document.getElementById('mes-cartoes'), i);
+
+  // ── SEÇÃO 4: Gráficos ──
+  dc('cMesBar'); dc('cMesDough');
+  const cMB = document.getElementById('cMesBar');
+  const atM = getActiveMeses();
+  if(cMB) CH['cMesBar'] = new Chart(cMB, {type:'bar', data:{
+    labels: atM.map(sM),
+    datasets:[
+      {label:'Faturas',    data:atM.map(m=>totalDivBruto(D.meses.indexOf(m))), backgroundColor:'rgba(239,68,68,.75)', borderRadius:4},
+      {label:'P/Investir', data:atM.map(m=>invDisp(D.meses.indexOf(m))),       backgroundColor:'rgba(6,182,212,.75)',  borderRadius:4},
+    ]
+  }, options:chartOpts()});
+
+  const catTots = {};
+  D.fixas.filter(f=>f.ativo).forEach(f=>{ catTots[f.cat||'outros']=(catTots[f.cat||'outros']||0)+f.valor; });
+  D.compras.filter(c=>c.ativo).forEach(c=>{ const v=calcValsCompra(c)[i]||0; if(v) catTots[c.cat||'outros']=(catTots[c.cat||'outros']||0)+v; });
+  const cMD = document.getElementById('cMesDough');
+  if(cMD){ const catE=Object.entries(catTots).filter(([,v])=>v>0); CH['cMesDough']=new Chart(cMD,{type:'doughnut',data:{labels:catE.map(([k])=>(CATS[k]?.icon||'📦')+' '+(CATS[k]?.label||k)),datasets:[{data:catE.map(([,v])=>v),backgroundColor:catE.map(([k])=>CATS[k]?.cor||'#888'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:tc(),font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}}); }
+}
+
+
   const mc=document.getElementById('mes-cards');
   if(mc) mc.innerHTML=`
-    <div class="mcard mcard-pos"><div class="mlabel">💰 Entradas</div><div class="mval mval-pos">${fmt(e)}</div></div>
-    <div class="mcard mcard-neg"><div class="mlabel">💸 Saídas</div><div class="mval mval-neg">${fmt(d)}</div><div class="msub">${pct(d,e)} da renda</div></div>
-    <div class="mcard ${s>=0?'mcard-pos':'mcard-neg'}"><div class="mlabel">📊 Sobra</div><div class="mval ${s>=0?'mval-pos':'mval-neg'}">${fmt(s)}</div></div>
-    <div class="mcard mcard-teal" style="border-color:rgba(6,182,212,.3)"><div class="mlabel">${icon} P/ investir</div><div class="mval mval-teal">${fmt(inv)}</div></div>
-    <div class="mcard mcard-info"><div class="mlabel">🏦 Saldo CC</div><div class="mval mval-info">${fmt(D.saldo)}</div></div>
-    <div class="mcard mcard-accent"><div class="mlabel">💎 Patrimônio líquido</div><div class="mval mval-accent">${fmt(pl.liquido)}</div></div>
+    <!-- Entradas -->
+    <div class="mcard mcard-pos">
+      <div class="mlabel">💰 Entradas em ${mesNome}</div>
+      <div class="mval mval-pos">${fmt(e)}</div>
+      <div class="msub">${D.entradas.filter(e=>e.ativo).length} fonte(s) de renda</div>
+    </div>
+
+    <!-- Faturas total -->
+    <div class="mcard mcard-neg">
+      <div class="mlabel">💸 Total de faturas</div>
+      <div class="mval mval-neg">${fmt(bruto)}</div>
+      <div class="msub">${pct(bruto,e)} da renda</div>
+    </div>
+
+    <!-- Pendente / Pago -->
+    ${tudoPago
+      ? `<div class="mcard" style="border-color:rgba(16,185,129,.3);background:var(--pos-bg)">
+          <div class="mlabel" style="color:var(--pos)">✅ Tudo pago!</div>
+          <div class="mval mval-pos" style="font-size:16px">${fmt(pago)}</div>
+          <div class="msub">Parabéns! Todas as faturas quitadas.</div>
+        </div>`
+      : `<div class="mcard mcard-warn">
+          <div class="mlabel">⏳ Pendente</div>
+          <div class="mval mval-warn">${fmt(pendente)}</div>
+          <div class="msub">Pago: ${fmt(pago)} (${pct(pago,bruto)})</div>
+        </div>`
+    }
+
+    <!-- Disponível para investir (só se não tudo pago) -->
+    ${!tudoPago
+      ? `<div class="mcard mcard-teal" style="border-color:rgba(6,182,212,.3)">
+          <div class="mlabel">${icon} Disponível p/ investir</div>
+          <div class="mval mval-teal">${fmt(inv)}</div>
+          <div class="msub">${r.regra==='maior_meta'?'Sobra − Meta CC':r.regra==='menor_meta'?'50% da sobra':'Contas > Entradas'}</div>
+        </div>`
+      : ''
+    }
+
+    <!-- Patrimônio líquido -->
+    <div class="mcard mcard-accent">
+      <div class="mlabel">💎 Patrimônio líquido</div>
+      <div class="mval ${pl.liquido>=0?'mval-accent':'mval-neg'}">${fmt(pl.liquido)}</div>
+      <div class="msub">ativos ${fmt(pl.ativos)}</div>
+    </div>
   `;
-  // Por categoria
+
+  // Gastos por categoria
   const cats={};
   D.fixas.filter(f=>f.ativo).forEach(f=>{ const c=f.cat||'outros'; if(!cats[c])cats[c]={total:0,items:[]}; cats[c].total+=f.valor; cats[c].items.push({nome:f.nome,v:f.valor}); });
   D.compras.filter(c=>c.ativo).forEach(c=>{ const v=calcValsCompra(c)[i]||0; if(!v)return; const cat=c.cat||'outros'; if(!cats[cat])cats[cat]={total:0,items:[]}; cats[cat].total+=v; cats[cat].items.push({nome:c.nome,v}); });
   const cc=document.getElementById('mes-cat-cards');
   if(cc) cc.innerHTML=Object.entries(cats).sort(([,a],[,b])=>b.total-a.total).map(([cat,{total,items}])=>{
     const info=CATS[cat]||CATS.outros;
-    return `<div class="mcard" style="border-color:${info.cor}33"><div class="mlabel" style="color:${info.cor}">${info.icon} ${info.label}</div><div class="mval tneg" style="font-size:18px">${fmt(total)}</div><div style="font-size:10px;color:var(--text2);margin-top:6px;line-height:1.6">${items.map(x=>`${x.nome}: <strong>${fmt(x.v)}</strong>`).join(' · ')}</div></div>`;
+    return `<div class="mcard" style="border-color:${info.cor}33">
+      <div class="mlabel" style="color:${info.cor}">${info.icon} ${info.label}</div>
+      <div class="mval tneg" style="font-size:18px">${fmt(total)}</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:6px;line-height:1.6">${items.map(x=>`${x.nome}: <strong>${fmt(x.v)}</strong>`).join(' · ')}</div>
+    </div>`;
   }).join('');
+
   renderCartoesTo(document.getElementById('mes-cartoes'),i);
-  // Charts
+
+  // Gráficos
   dc('cMesBar');dc('cMesDough');
   const cMB=document.getElementById('cMesBar');
-  if(cMB) CH['cMesBar']=new Chart(cMB,{type:'bar',data:{labels:D.meses.map(sM),datasets:[
-    {label:'Saídas',    data:D.meses.map((_,j)=>totalDivBruto(j)),backgroundColor:'rgba(239,68,68,.75)',borderRadius:4},
-    {label:'P/Investir',data:D.meses.map((_,j)=>invDisp(j)),      backgroundColor:'rgba(6,182,212,.75)',borderRadius:4},
+  if(cMB) CH['cMesBar']=new Chart(cMB,{type:'bar',data:{labels:getActiveMeses().map(sM),datasets:[
+    {label:'Faturas',    data:getActiveMeses().map(m=>totalDivBruto(D.meses.indexOf(m))),backgroundColor:'rgba(239,68,68,.75)',borderRadius:4},
+    {label:'P/Investir', data:getActiveMeses().map(m=>invDisp(D.meses.indexOf(m))),      backgroundColor:'rgba(6,182,212,.75)',borderRadius:4},
   ]},options:chartOpts()});
   const catTots={};
   D.fixas.filter(f=>f.ativo).forEach(f=>{ catTots[f.cat||'outros']=(catTots[f.cat||'outros']||0)+f.valor; });
@@ -917,6 +1114,8 @@ function renderCartoesTo(el, i) {
 function renderCarteira() {
   const el=document.getElementById('ef-saldo');if(el)el.value=D.saldo||0;
   const mc=document.getElementById('ef-metaCC');if(mc)mc.value=D.metaCC||2000;
+  const dc2=document.getElementById('ef-diacorte');if(dc2)dc2.value=D.diaCorte||20;
+  const dc=document.getElementById('ef-diacorte');if(dc)dc.value=D.diaCorte||20;
 
   // Mês de referência
   const refIdx = getMesRefIdx();
@@ -931,7 +1130,7 @@ function renderCarteira() {
           ${D.meses.map((m,i)=>`<option value="${i}"${i===refIdx?' selected':''}>${m}${i===autoIdx?' ← hoje':''}</option>`).join('')}
         </select>
         ${!isAuto?`<button class="btn btn-ghost" style="height:32px;font-size:11px" onclick="resetMesRefAuto()">↺ Automático</button>`:''}
-        <span style="font-size:11px;color:var(--text3)">${isAuto?'🔄 Avança automaticamente no dia 20':'✏️ Definido manualmente'}</span>
+        <span style="font-size:11px;color:var(--text3)">${isAuto?`🔄 Avança automaticamente no dia ${D.diaCorte||20}`:'✏️ Definido manualmente'}</span>
       </div>`;
   }
 
@@ -1473,6 +1672,8 @@ function renderInvestVisao(){
     let totE=0,totC=0,totSobra=0,totInv=0;
     mesesDoAno.forEach(m=>{
       const i=D.meses.indexOf(m);
+      if(isSkipped(i)) return; // pula linhas removidas
+      if(isExcluido(i)) return; // mês removido pelo usuário
       const r=calcInvest(i);
       const manual=isManual(i);
       const valFinal=invDisp(i);
@@ -1480,7 +1681,7 @@ function renderInvestVisao(){
       const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
       totE+=r.e; totC+=r.c; totSobra+=r.sobra; totInv+=valFinal;
       rows.push(`<tr style="${manual?'background:rgba(245,158,11,.06)':''}">
-        <td style="font-weight:500">${m}</td>
+        <td style="font-weight:500;display:flex;align-items:center;gap:8px">${m}<button onclick="excluirMesInvest(${i})" title="Remover este mês da tabela" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 4px;line-height:1;opacity:.6" onmouseover="this.style.color='var(--neg)';this.style.opacity=1" onmouseout="this.style.color='var(--text3)';this.style.opacity=.6">✕</button></td>
         <td class="tr tpos">${fmt(r.e)}</td>
         <td class="tr tneg">${fmt(r.c)}</td>
         <td class="tr" style="color:var(--text2)">${fmt(r.sobra)}</td>
@@ -1496,6 +1697,7 @@ function renderInvestVisao(){
               onchange="setManual(${i},this.value);renderInvestVisao()">
           </div>
         </td>
+        <td><button class="btn-rm" title="Remover este mês da tabela" onclick="skipMes(${i})" style="font-size:10px;padding:4px 7px;opacity:.5" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=.5">🗑️</button></td>
       </tr>`);
     });
     // Linha de subtotal do ano
@@ -1510,6 +1712,12 @@ function renderInvestVisao(){
   });
   const tot=ativosInv.reduce((s,m)=>s+invDisp(D.meses.indexOf(m)),0);
   const temManual=ativosInv.some(m=>isManual(D.meses.indexOf(m)));
+  // Meses removidos (skip)
+  const skippedMeses = ativosInv.filter(m=>isSkipped(D.meses.indexOf(m)));
+  const skippedHTML = skippedMeses.length ? `<div style="margin-top:10px;font-size:11px;color:var(--text2)">
+    <strong>Meses removidos:</strong> ${skippedMeses.map(m=>`<button onclick="unskipMes(${D.meses.indexOf(m)})" style="margin-left:4px;background:var(--card2);border:1px solid var(--border);border-radius:4px;font-size:10px;padding:2px 7px;cursor:pointer;color:var(--text2)">↩ ${sM(m)}</button>`).join('')}
+  </div>` : '';
+
   mt.innerHTML=`<thead class="thead-sticky"><tr>
     <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas</th>
     <th class="tr">Sobra bruta</th><th class="tr">Regra</th>
@@ -1517,6 +1725,7 @@ function renderInvestVisao(){
       💰 Disponível p/ investir
       ${temManual?`<button onclick="resetTodosManual()" title="Restaurar todos os valores automáticos" style="margin-left:6px;background:var(--warn-bg);color:var(--warn);border:1px solid rgba(245,158,11,.3);border-radius:4px;font-size:10px;padding:1px 6px;cursor:pointer;font-family:inherit">↩ resetar tudo</button>`:''}
     </th>
+    <th></th>
   </tr></thead><tbody>${rows.join('')}
   <tr style="background:var(--card2);font-weight:700;border-top:3px solid var(--border2)">
     <td>TOTAL</td><td></td><td></td><td></td><td></td>
@@ -2159,9 +2368,10 @@ function applyARCARec(a, r, c, a2) {
 
 
 function collectFormFields(){
-  // Saldo e meta CC
+  // Saldo, meta CC e dia de corte
   const elSaldo=document.getElementById('ef-saldo');if(elSaldo)D.saldo=parseFloat(elSaldo.value)||0;
-  const elMeta=document.getElementById('ef-metaCC');if(elMeta)D.metaCC=parseFloat(elMeta.value)||2000;
+  const elMeta=document.getElementById('ef-metaCC');if(elMeta&&elMeta.value!==''&&parseFloat(elMeta.value)>0)D.metaCC=parseFloat(elMeta.value);
+  const elDiaCorte=document.getElementById('ef-diacorte');if(elDiaCorte&&elDiaCorte.value!==''&&parseInt(elDiaCorte.value)>0)D.diaCorte=parseInt(elDiaCorte.value);
   // Indicadores — lê todos do DOM, mesmo que estejam em sub-aba oculta
   const indicFields={
     cdi12:'ef-cdi12', cdifev:'ef-cdifev', cdi26:'ef-cdi26',
