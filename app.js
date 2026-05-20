@@ -7,18 +7,6 @@
 const MMAP = {Jan:1,Fev:2,Mar:3,Abr:4,Mai:5,Jun:6,Jul:7,Ago:8,Set:9,Out:10,Nov:11,Dez:12};
 const MMAP_R = {1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',7:'Jul',8:'Ago',9:'Set',10:'Out',11:'Nov',12:'Dez'};
 
-// Gera n meses a partir do mes atual (dinamicamente, nao hardcoded)
-function gerarMesesFuturos(n) {
-  n = n || 20;
-  var r = [], d = new Date();
-  var m = d.getMonth() + 1, y = d.getFullYear();
-  for (var i = 0; i < n; i++) {
-    r.push(MMAP_R[m] + '/' + String(y).slice(2));
-    m++; if (m > 12) { m = 1; y++; }
-  }
-  return r;
-}
-
 // Converte "Mai/26" → {m:5, y:2026}
 function parseMes(str) {
   const [mn, yr] = str.split('/');
@@ -31,34 +19,110 @@ function mkMes(m, y) {
   return `${MMAP_R[m]}/${String(y).slice(2)}`;
 }
 
-// ── DADOS PADRÃO — limpo (sem dados pessoais) ─────
-// BLANK e DEFAULT são iguais; dados reais vêm do Firestore
-const BLANK = {
-  saldo: 0,
-  cdi12: 14.40, cdifev: 1.09, cdi26: 4.54,   // CDI correto (não 0.43%)
-  ipca12: 4.39, ipcafev: 1.09, ipca26: 1.83,
-  arcaMeta: {a:25, r:25, c:25, a2:25}, metaCC: 2000, selic: 14.50,
-  meses: [], // preenchido dinamicamente em migrateData
-  invManual: [],
-  entradas: [], fixas: [], compras: [],
-  dividas: [], pagamentos: {}, ativos: [], cartoes: [],
-  orcamentos: {},   // {cat: valorMaxMensal}
-  objetivos: [],    // [{id,nome,meta,atual,prazo,icone,cor}]
-  historico: [],    // [{mes,saldo,patrimonio,sobra}] — evolução mensal
-  _hasUnsaved: false
+// ── DADOS PADRÃO ──────────────────────────────────
+const DEFAULT = {
+  saldo:0,
+  cdi12:14.80, cdifev:1.21, cdi26:3.41,
+  ipca12:4.14, ipcafev:0.88, ipca26:1.92,
+  arcaMeta:{a:25,r:25,c:25,a2:25}, metaCC:2000,
+  meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
+         'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
+         'Set/27','Out/27','Nov/27','Dez/27'],
+  invManual: Array(20).fill(null),
+  entradas: [
+    {id:'e1', nome:'Salário', valor:6500, tipo:'mensal', dia:15, ativo:true},
+  ],
+  cartoes:[
+    {nome:'Nubank PF',    limite:3700,  bandeira:'Mastercard',cor:'#820ad1',diaFechamento:3, diaVencimento:10},
+    {nome:'Nubank PJ',    limite:9700,  bandeira:'Mastercard',cor:'#820ad1',diaFechamento:3, diaVencimento:10},
+    {nome:'Mercado Pago', limite:11000, bandeira:'Mastercard',cor:'#009ee3',diaFechamento:10,diaVencimento:17},
+    {nome:'Renner',       limite:7200,  bandeira:'Mastercard',cor:'#e60000',diaFechamento:20,diaVencimento:27},
+    {nome:'Amazon',       limite:2580,  bandeira:'Visa',      cor:'#ff9900',diaFechamento:5, diaVencimento:12},
+    {nome:'SICREDI',      limite:6300,  bandeira:'Visa',      cor:'#006633',diaFechamento:10,diaVencimento:17},
+  ],
+  // Contas fixas (valor único, replica todos os meses)
+  fixas: [
+    {id:'f1', nome:'Faculdade', cat:'educacao', valor:644.05, ativo:true},
+    {id:'f2', nome:'Claro',     cat:'servicos', valor:120,    ativo:true},
+    {id:'f3', nome:'DAS',       cat:'impostos', valor:85,     ativo:true},
+  ],
+  // Compras variáveis / parceladas
+  compras: [
+    {id:'c1', nome:'Nubank PF - Fatura mai',  cat:'cartao', cartao:'Nubank PF',  valor:2148.08, parcelas:1, dataCompra:'2026-05-01', ativo:true},
+    {id:'c2', nome:'Nubank PJ - Fatura mai',  cat:'cartao', cartao:'Nubank PJ',  valor:961.41,  parcelas:1, dataCompra:'2026-05-01', ativo:true},
+    {id:'c3', nome:'SICREDI - Fatura mai',    cat:'cartao', cartao:'SICREDI',    valor:1370.44, parcelas:1, dataCompra:'2026-05-01', ativo:true},
+    {id:'c4', nome:'Mercado Pago - Parcelas', cat:'cartao', cartao:'Mercado Pago',valor:4739.05,parcelas:9, dataCompra:'2026-05-01', ativo:true},
+    {id:'c5', nome:'Renner - Parcelas',       cat:'cartao', cartao:'Renner',     valor:1859.64, parcelas:8, dataCompra:'2026-05-01', ativo:true},
+    {id:'c6', nome:'Amazon - Parcelas',       cat:'cartao', cartao:'Amazon',     valor:634.20,  parcelas:6, dataCompra:'2026-05-01', ativo:true},
+    {id:'c7', nome:'IR',                      cat:'impostos',cartao:'',          valor:675.29,  parcelas:7, dataCompra:'2026-06-01', ativo:true},
+  ],
+  // Legado — mantido para migração
+  dividas: [],
+  pagamentos: {},
+  ativos:[
+    {nome:'Tesouro Selic 2027',classe:'Renda Fixa',bucket:'C', valor:0,indice:'SELIC',pct:100,ticker:'TESOURO SELIC'},
+    {nome:'FII XPML11',        classe:'FII',       bucket:'R', valor:0,indice:'CDI',  pct:90, ticker:'XPML11'},
+    {nome:'IVVB11',            classe:'ETF',       bucket:'A2',valor:0,indice:'CDI',  pct:110,ticker:'IVVB11'},
+    {nome:'BOVA11',            classe:'ETF',       bucket:'A', valor:0,indice:'CDI',  pct:100,ticker:'BOVA11'},
+  ]
 };
-const DEFAULT = BLANK; // alias — sem dados pessoais hardcoded
+
+// ── TEMPLATE EM BRANCO ────────────────────────────
+const BLANK = {
+  saldo:0,
+  cdi12:14.80, cdifev:1.21, cdi26:3.41,
+  ipca12:4.14, ipcafev:0.88, ipca26:1.92,
+  arcaMeta:{a:25,r:25,c:25,a2:25}, metaCC:2000,
+  meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
+         'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
+         'Set/27','Out/27','Nov/27','Dez/27'],
+  invManual: Array(20).fill(null),
+  entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[]
+};
 
 // ── ESTADO ────────────────────────────────────────
 let D = JSON.parse(JSON.stringify(DEFAULT));
 let selDash = 0;
 let selEntradas = '';  // mês filtro entradas ('' = todos)
-let selFaturas = -1;   // mês selecionado em faturas (= pagar contas)
+let selFaturas = -1;   // mês selecionado em faturas
+let mesRefIdx = -1;    // -1 = automático (calculado por getMesRefIdx)
+
+// ── MÊS DE REFERÊNCIA ─────────────────────────────
+// Retorna o índice do mês de referência:
+// - Se mesRefIdx foi definido manualmente pelo usuário, usa ele
+// - Caso contrário: usa mês atual, após dia 20 avança para o próximo
+function getMesRefIdx() {
+  if(mesRefIdx >= 0 && mesRefIdx < nm()) return mesRefIdx;
+  return calcMesRefAuto();
+}
+function calcMesRefAuto() {
+  const hoje = new Date();
+  const m = hoje.getMonth()+1, y = hoje.getFullYear(), dia = hoje.getDate();
+  let idx = D.meses.findIndex(ms=>{const p=parseMes(ms);return p.m===m&&p.y===y;});
+  if(idx===-1) idx=0;
+  // Após dia 20, avança para o próximo mês
+  if(dia>=20 && idx<nm()-1) idx++;
+  return idx;
+}
+function setMesRef(idx) {
+  mesRefIdx = parseInt(idx);
+  // Salva no D para persistência
+  D.mesRefIdx = mesRefIdx;
+  scheduleAutoSave();
+  renderCarteira();
+  renderAll();
+}
+function resetMesRefAuto() {
+  mesRefIdx = -1;
+  D.mesRefIdx = -1;
+  scheduleAutoSave();
+  renderCarteira();
+  renderAll();
+}
 let CH = {};
 let yrCollapsed = {};
 let _saveTimer = null;
 let isDark = (localStorage.getItem('cf_theme')||'dark') === 'dark';
-let _adminCreatingUser = false; // flag para não resetar D durante criação de usuário
 
 // ── CATEGORIAS ────────────────────────────────────
 const CATS = {
@@ -96,27 +160,18 @@ const CHART_COLORS=['#EF4444','#F59E0B','#3B82F6','#8B5CF6','#F97316','#06B6D4',
 
 // ── MIGRAÇÃO ──────────────────────────────────────
 function migrateData(d) {
-  if(!d) {
-    // Novo usuário: gera meses dinamicamente a partir do mês atual
-    const b = JSON.parse(JSON.stringify(BLANK));
-    b.meses = gerarMesesFuturos(20);
-    b.invManual = Array(20).fill(null);
-    return b;
-  }
+  if(!d) return JSON.parse(JSON.stringify(BLANK));
   // Migra campos novos
   if(!d.entradas)   d.entradas   = [];
   if(!d.fixas)      d.fixas      = [];
+  // Restaura mês de referência salvo
+  if(d.mesRefIdx !== undefined) { mesRefIdx = d.mesRefIdx; }
   if(!d.compras)    d.compras    = [];
   if(!d.cartoes)    d.cartoes    = [];
   if(!d.ativos)     d.ativos     = [];
   if(!d.arcaMeta)   d.arcaMeta   = {a:25,r:25,c:25,a2:25};
   if(!d.metaCC)     d.metaCC     = 2000;
-  if(!d.selic)      d.selic      = 14.50;
-  if(!d.orcamentos) d.orcamentos = {};
-  if(!d.objetivos)  d.objetivos  = [];
-  if(!d.historico)  d.historico  = [];
-  // Gera meses dinamicamente se não existir ou estiver vazio
-  if(!d.meses || !d.meses.length) d.meses = gerarMesesFuturos(20);
+  if(!d.meses)      d.meses      = [...BLANK.meses];
   if(!d.pagamentos) d.pagamentos = {};
   if(!d.invManual)  d.invManual  = Array(d.meses.length).fill(null);
   while(d.invManual.length < d.meses.length) d.invManual.push(null);
@@ -304,14 +359,11 @@ function calcPendenteMes(mi) {
   return {bruto:Math.round(bruto*100)/100, pago:Math.round(pago*100)/100, pendente:Math.round((bruto-pago)*100)/100};
 }
 
-// sobraM usa pendente — desconta o que já foi pago, igual ao calcInvest
 const sobraM = (mi) => totalEMes(mi) - calcPendenteMes(mi).pendente;
 const nm = () => D.meses.length;
 const getLim = d => { const c=D.cartoes.find(x=>x.nome===d.cartao); return c?c.limite:0; };
 
 function calcInvest(i) {
-  // "Contas" = apenas o que ainda está PENDENTE de pagar (não inclui o já pago)
-  // Assim, ao marcar contas como pagas, o "disponível p/ investir" aumenta corretamente
   const e=totalEMes(i), c=calcPendenteMes(i).pendente, meta=D.metaCC||2000, sobra=e-c;
   if(sobra<=0)   return {e,c,meta,saldo:0,sobra,regra:'negativo'};
   if(sobra<meta) return {e,c,meta,saldo:sobra*0.5,sobra,regra:'menor_meta'};
@@ -329,17 +381,9 @@ function setManual(i,val) { if(!D.invManual)D.invManual=Array(nm()).fill(null); 
 function resetTodosManual() { D.invManual=Array(nm()).fill(null); scheduleAutoSave(); renderInvestVisao(); renderAll(); }
 
 function patrimonioLiquido() {
-  const ativos = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-  // BUG FIX: passivos = apenas parcelas futuras (a partir do mês atual)
-  // Antes somava TODOS os meses, contando parcelas já pagas/vencidas
-  const hoje = getMesAtualIdx();
-  const passivos = D.compras
-    .filter(c=>c.ativo)
-    .reduce((total,c) => {
-      const vals = calcValsCompra(c);
-      return total + vals.slice(hoje).reduce((s,v)=>s+(v||0),0);
-    }, 0);
-  return {ativos, passivos, liquido: ativos-passivos};
+  const ativos=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
+  const passivos=D.meses.reduce((s,_,i)=>s+totalComprasMes(i),0); // total em aberto
+  return {ativos, passivos, liquido:ativos-passivos};
 }
 function scoreFinanceiro() {
   const n=nm(); if(!n)return 50;
@@ -352,51 +396,30 @@ function scoreFinanceiro() {
   score+=Math.min(30,Math.round((mesesPos/n)*30));
   score+=Math.min(25,Math.round(Math.max(0,1-(totD/Math.max(totE,1)))*25));
   score+=Math.min(25,Math.round(pctMetaE*25));
-  score+=Math.min(20,ativos>0?Math.min(20,Math.round((ativos/(totalEMes(0)*12||1))*20)):0);
+  score+=Math.min(20,ativos>0?Math.min(20,Math.round((ativos/(totalEMes(getMesRefIdx())*12||1))*20)):0);
   return Math.min(100,score);
 }
 function caixaAtual()     { return D.ativos.filter(a=>a.bucket==='C').reduce((s,a)=>s+(a.valor||0),0); }
 function custoFixoMes()   { return totalFixasMes(0); }
 function metaEmergencia() { return custoFixoMes()*6; }
 function arcaBloqueado()  { return caixaAtual()<metaEmergencia(); }
-function taxaAnual(a) {
-  // Taxa anual do ativo como decimal (0.1440 = 14.40% a.a.)
-  const cdiAnual = (D.cdi12||14.40)/100;
-  const base = a.indice==='SELIC' ? (D.selic||14.50)/100
-             : a.indice==='IPCA'  ? (D.ipca12||4.39)/100
-             : cdiAnual; // CDI padrão
-  return base * ((a.pct||100)/100);
-}
-// Projeção com juros compostos anuais
-function projetar(v, taxaAa, anos) { return v * Math.pow(1 + taxaAa, anos); }
-// Valor real: desconta inflação do valor nominal
-function valorReal(nominal, anos) {
-  const inflacao = (D.ipca12||4.39)/100;
-  return nominal / Math.pow(1 + inflacao, anos);
-}
+function taxaAnual(a) { const base=a.indice==='SELIC'?(D.cdi12||14.80):a.indice==='IPCA'?(D.ipca12||4.14):(D.cdi12||14.80); return (base*(a.pct||100)/100)/100; }
+function projetar(v,r,n){ return v*Math.pow(1+r,n); }
 function getYears() { const s=new Set(); D.meses.forEach(m=>{const p=m.match(/\/(\d+)/);if(p)s.add('20'+p[1]);}); return [...s].sort(); }
 function getMesesAno(yr) { return D.meses.map((m,i)=>({m,i})).filter(({m})=>m.includes('/'+yr.slice(2))); }
 function genId(prefix) { return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
 
 // ── MESES ATIVOS ──────────────────────────────────
-// Retorna meses de 0 até o último que tem alguma compra/entrada lançada.
-// Fixas repetem em todos os meses, então não limitam o range.
+// Retorna meses de 0 até o último que tem dado lançado
 function getActiveMeses() {
-  let last = Math.min(5, nm()-1); // mínimo: sempre mostra 6 meses
+  let last = 0;
   for(let i=0; i<nm(); i++) {
+    const temFixa = (D.fixas||[]).some(f=>f.ativo&&(f.valor||0)>0);
     const temCompra = (D.compras||[]).some(c=>c.ativo&&(calcValsCompra(c)[i]||0)>0);
     const temEntrada = totalEMes(i) > 0;
-    if(temCompra || temEntrada) last = i;
+    if(temFixa || temCompra || temEntrada) last = i;
   }
   return D.meses.slice(0, last + 1);
-}
-
-// Índice do mês atual no array D.meses
-function getMesAtualIdx() {
-  const hoje = new Date();
-  const mesAtualNome = MMAP_R[hoje.getMonth()+1]+'/'+String(hoje.getFullYear()).slice(2);
-  const idx = D.meses.indexOf(mesAtualNome);
-  return idx >= 0 ? idx : 0;
 }
 
 // ── PAGAMENTOS ────────────────────────────────────
@@ -446,12 +469,10 @@ function toggleTheme() {
 
 // ── AUTO-SAVE ─────────────────────────────────────
 function scheduleAutoSave() {
-  _temAlteracoes = true; // marca que há alterações não salvas
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
     collectFormFields(); // garante que campos do DOM estejam em D antes de salvar
     if (window._firestoreSave) window._firestoreSave(false);
-    _temAlteracoes = false;
   }, 1500);
 }
 
@@ -469,320 +490,10 @@ function renderPage(id) {
   else if(id==='carteira') renderCarteira();
   else if(id==='saidas')   renderSaidas();
   else if(id==='invest')   renderInvestAtiva();
-  else if(id==='pagar')    renderFaturas();
-  else if(id==='faturas')  renderFaturas(); // compat legado
-  else if(id==='metas')    renderMetas();
+  else if(id==='faturas')  renderFaturas();
   else if(id==='perfil')   { if(window._renderPerfil) window._renderPerfil(); }
   else if(id==='admin')    { if(window._renderAdmin)  window._renderAdmin(); }
 }
-
-function renderMetas() {
-  const sub = getActiveSub('metas') || 'objetivos';
-  if(sub==='objetivos') renderObjetivos('objetivos-list');
-  else if(sub==='orcamentos') renderOrcamentos('orcamentos-list');
-}
-
-// Helper para menu mobile — não precisa passar o elemento ntab
-function goMobile(id) {
-  go(id, null);
-  if(window.closeMobileMenu) closeMobileMenu();
-}
-
-// ── ORÇAMENTOS (Metas por categoria) ─────────────
-function getGastoCategoriaMes(cat, mi) {
-  let total = 0;
-  D.fixas.filter(f=>f.ativo&&f.cat===cat).forEach(f=>total+=f.valor||0);
-  D.compras.filter(c=>c.ativo&&c.cat===cat).forEach(c=>total+=(calcValsCompra(c)[mi]||0));
-  return total;
-}
-
-function renderOrcamentos(containerId) {
-  const el = document.getElementById(containerId);
-  if(!el) return;
-  const mi = getMesAtualIdx();
-  const cats = Object.keys(CATS);
-  const orcItems = cats.map(cat=>{
-    const gasto = getGastoCategoriaMes(cat, mi);
-    const limite = D.orcamentos[cat] || 0;
-    const pct = limite>0 ? Math.min(120, Math.round((gasto/limite)*100)) : 0;
-    const cor = pct>=100?'var(--neg)':pct>=80?'var(--warn)':'var(--pos)';
-    return {cat, gasto, limite, pct, cor, info:CATS[cat]};
-  }).filter(o=>o.gasto>0||o.limite>0);
-
-  if(!orcItems.length){
-    el.innerHTML=`<div class="empty"><div class="empty-icon">🎯</div>
-      <div class="empty-text">Defina limites por categoria para controlar seus gastos.<br>
-      <button class="btn btn-ghost" style="margin-top:10px;height:32px" onclick="abrirModalOrcamento()">+ Definir limites</button></div></div>`;
-    return;
-  }
-  el.innerHTML=orcItems.map(o=>`
-    <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${o.cor};border-radius:var(--r12);padding:14px 16px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:20px">${o.info.icon}</span>
-          <div>
-            <div style="font-weight:600;font-size:13px">${o.info.label}</div>
-            <div style="font-size:11px;color:var(--text2)">${fmt(o.gasto)}${o.limite>0?' de '+fmt(o.limite):' (sem limite definido)'}</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${o.pct>=100?`<span class="badge badge-neg">⚠️ ${o.pct}%</span>`:''}
-          <input type="number" value="${o.limite||''}" placeholder="Limite R$" min="0" step="10"
-            style="width:110px;text-align:right;font-size:12px;height:32px"
-            onchange="D.orcamentos['${o.cat}']=parseFloat(this.value)||0;scheduleAutoSave();renderOrcamentos('${containerId}')"
-            title="Limite mensal para ${o.info.label}">
-          <button class="btn-rm" onclick="delete D.orcamentos['${o.cat}'];scheduleAutoSave();renderOrcamentos('${containerId}')">✕</button>
-        </div>
-      </div>
-      ${o.limite>0?`<div style="margin-top:8px">
-        <div style="height:5px;background:var(--card3);border-radius:99px;overflow:hidden">
-          <div style="height:5px;width:${Math.min(100,o.pct)}%;background:${o.cor};border-radius:99px;transition:width .5s"></div>
-        </div>
-      </div>`:''}
-    </div>`).join('');
-
-  el.innerHTML+=`<button class="btn btn-ghost" style="height:32px;font-size:12px;margin-top:4px" onclick="abrirModalOrcamento()">+ Adicionar limite</button>`;
-}
-
-function abrirModalOrcamento() {
-  const cats = Object.keys(CATS).filter(c=>!D.orcamentos[c]);
-  if(!cats.length){alert('Todos os categorias já têm limites definidos.');return;}
-  const catList=cats.map((c,i)=>`${i+1}. ${CATS[c].icon} ${CATS[c].label}`).join('\n');
-  const cat=prompt('Categoria:\n'+catList+'\n\nDigite o número:');
-  if(!cat) return;
-  const idx=parseInt(cat)-1;
-  if(idx<0||idx>=cats.length) return;
-  const key=cats[idx];
-  const val=parseFloat(prompt(`Limite mensal para ${CATS[key].label} (R$):`));
-  if(!val||val<=0) return;
-  D.orcamentos[key]=val;
-  scheduleAutoSave();
-  renderOrcamentos('orcamentos-list');
-}
-
-// ── OBJETIVOS (Metas financeiras) ────────────────
-function renderObjetivos(containerId) {
-  const el=document.getElementById(containerId);
-  if(!el) return;
-  const objs=D.objetivos||[];
-  if(!objs.length){
-    el.innerHTML=`<div class="empty"><div class="empty-icon">🎯</div>
-      <div class="empty-text">Nenhum objetivo cadastrado. Defina metas financeiras e acompanhe o progresso.
-      <br><button class="btn btn-ghost" style="margin-top:10px;height:32px" onclick="abrirModalObjetivo()">+ Novo objetivo</button></div></div>`;
-    return;
-  }
-  el.innerHTML=objs.map((obj,oi)=>{
-    const pct=obj.meta>0?Math.min(100,Math.round((obj.atual/obj.meta)*100)):0;
-    const falta=Math.max(0,obj.meta-obj.atual);
-    const cor=obj.cor||'var(--accent)';
-    const prazoStr=obj.prazo?new Date(obj.prazo).toLocaleDateString('pt-BR'):'Sem prazo';
-    const diasRestantes=obj.prazo?Math.ceil((new Date(obj.prazo)-new Date())/(1000*60*60*24)):null;
-    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${cor};border-radius:var(--r16);padding:20px;margin-bottom:10px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-size:22px">${obj.icone||'🎯'}</span>
-            <div style="font-size:15px;font-weight:700">${obj.nome}</div>
-            ${pct>=100?'<span class="badge badge-pos">✅ Concluído!</span>':''}
-          </div>
-          <div style="font-size:12px;color:var(--text2)">Meta: <strong>${fmt(obj.meta)}</strong> · Atual: <strong style="color:${cor}">${fmt(obj.atual)}</strong> · Faltam: <strong>${fmt(falta)}</strong></div>
-          ${obj.prazo?`<div style="font-size:11px;color:${diasRestantes<30?'var(--warn)':'var(--text2)'};margin-top:3px">📅 Prazo: ${prazoStr}${diasRestantes!==null?' ('+diasRestantes+' dias)':''}</div>`:''}
-        </div>
-        <div style="display:flex;gap:6px;align-items:flex-start;flex-shrink:0">
-          <button class="btn btn-ghost" style="height:30px;font-size:11px" onclick="editarObjetivo(${oi})">✏️</button>
-          <button class="btn-rm" onclick="removerObjetivo(${oi})">✕</button>
-        </div>
-      </div>
-      <div style="margin-top:12px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:5px">
-          <span>${pct}% concluído</span>
-          <button class="btn btn-ghost" style="height:24px;font-size:10px;padding:0 10px" onclick="atualizarObjetivo(${oi})">Atualizar valor</button>
-        </div>
-        <div style="height:8px;background:var(--card3);border-radius:99px;overflow:hidden">
-          <div style="height:8px;width:${pct}%;background:${cor};border-radius:99px;transition:width .6s"></div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-  el.innerHTML+=`<button class="btn btn-accent" style="height:36px;margin-top:4px" onclick="abrirModalObjetivo()">+ Novo objetivo</button>`;
-}
-
-function abrirModalObjetivo(oi=-1) {
-  const obj=oi>=0?D.objetivos[oi]:{nome:'',meta:0,atual:0,prazo:'',icone:'🎯',cor:'#8B5CF6'};
-  const html=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px" id="modal-objetivo-overlay">
-    <div style="background:var(--card);border:1px solid var(--border2);border-radius:var(--r20);padding:28px;width:100%;max-width:400px;box-shadow:var(--shadow2)">
-      <div style="font-size:20px;font-weight:700;margin-bottom:16px">🎯 ${oi>=0?'Editar objetivo':'Novo objetivo'}</div>
-      <div class="field"><label class="flabel">Nome do objetivo</label><input type="text" id="ob-nome" value="${obj.nome}" placeholder="Ex: Viagem, Reserva, Carro..."></div>
-      <div class="field"><label class="flabel">Ícone</label><input type="text" id="ob-icone" value="${obj.icone||'🎯'}" style="width:80px"></div>
-      <div class="field"><label class="flabel">Meta (R$)</label><input type="number" id="ob-meta" value="${obj.meta||''}" step="100" placeholder="0,00"></div>
-      <div class="field"><label class="flabel">Valor atual (R$)</label><input type="number" id="ob-atual" value="${obj.atual||''}" step="100" placeholder="0,00"></div>
-      <div class="field"><label class="flabel">Prazo</label><input type="date" id="ob-prazo" value="${obj.prazo||''}"></div>
-      <div class="field"><label class="flabel">Cor</label><input type="color" id="ob-cor" value="${obj.cor||'#8B5CF6'}" style="width:60px;height:36px;padding:2px;border-radius:8px"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-        <button class="btn btn-ghost" onclick="document.getElementById('modal-objetivo-overlay').remove()">Cancelar</button>
-        <button class="btn btn-pri" onclick="salvarObjetivo(${oi})">Salvar</button>
-      </div>
-    </div>
-  </div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
-}
-
-function salvarObjetivo(oi) {
-  const nome=document.getElementById('ob-nome').value.trim();
-  const meta=parseFloat(document.getElementById('ob-meta').value)||0;
-  const atual=parseFloat(document.getElementById('ob-atual').value)||0;
-  const prazo=document.getElementById('ob-prazo').value;
-  const icone=document.getElementById('ob-icone').value||'🎯';
-  const cor=document.getElementById('ob-cor').value||'#8B5CF6';
-  if(!nome){alert('Informe o nome do objetivo.');return;}
-  const obj={id:oi>=0?(D.objetivos[oi].id||genId('obj')):genId('obj'),nome,meta,atual,prazo,icone,cor};
-  if(oi>=0) D.objetivos[oi]=obj; else D.objetivos.push(obj);
-  document.getElementById('modal-objetivo-overlay').remove();
-  scheduleAutoSave(); renderObjetivos('objetivos-list');
-}
-
-function atualizarObjetivo(oi) {
-  const obj=D.objetivos[oi]; if(!obj) return;
-  const val=parseFloat(prompt(`Valor atual de "${obj.nome}" (R$):`, obj.atual||0));
-  if(val===null||isNaN(val)) return;
-  D.objetivos[oi].atual=val;
-  scheduleAutoSave(); renderObjetivos('objetivos-list');
-}
-
-function editarObjetivo(oi) { abrirModalObjetivo(oi); }
-function removerObjetivo(oi) {
-  if(!confirm(`Remover objetivo "${D.objetivos[oi].nome}"?`)) return;
-  D.objetivos.splice(oi,1); scheduleAutoSave(); renderObjetivos('objetivos-list');
-}
-
-// ── ALERTAS DE VENCIMENTO ────────────────────────
-function getAlertasVencimento() {
-  const hoje = new Date();
-  const diaHoje = hoje.getDate();
-  const mi = getMesAtualIdx();
-  const alertas = [];
-
-  D.cartoes.forEach(ct=>{
-    const diasAteVenc = ct.diaVencimento >= diaHoje
-      ? ct.diaVencimento - diaHoje
-      : (30 - diaHoje + ct.diaVencimento);
-
-    // Calcula fatura do cartão no mês atual
-    const fatura = D.compras.filter(c=>c.ativo&&c.cartao===ct.nome)
-      .reduce((s,c)=>(calcValsCompra(c)[mi]||0)+s,0);
-    if(fatura>0 && diasAteVenc<=7) {
-      alertas.push({tipo:'vencimento', cartao:ct.nome, valor:fatura, dias:diasAteVenc,
-        cor:diasAteVenc<=2?'var(--neg)':diasAteVenc<=5?'var(--warn)':'var(--info)'});
-    }
-  });
-
-  // Objetivos próximos do prazo
-  (D.objetivos||[]).forEach(obj=>{
-    if(!obj.prazo) return;
-    const diasRestantes=Math.ceil((new Date(obj.prazo)-hoje)/(1000*60*60*24));
-    if(diasRestantes>=0&&diasRestantes<=30&&obj.atual<obj.meta) {
-      alertas.push({tipo:'objetivo', nome:obj.nome, diasRestantes, pct:Math.round((obj.atual/obj.meta)*100),
-        cor:diasRestantes<=7?'var(--neg)':'var(--warn)'});
-    }
-  });
-
-  return alertas;
-}
-
-// ── BUSCA/FILTRO EM COMPRAS ──────────────────────
-let _comprasFiltro = '';
-let _comprasOrdem = 'data'; // 'data' | 'valor' | 'nome'
-
-// ── MODAL DE LANÇAMENTO RÁPIDO ───────────────────
-function abrirLancamentoRapido() {
-  const html=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px" id="modal-rapido-overlay">
-    <div style="background:var(--card);border:1px solid var(--border2);border-radius:var(--r20);padding:28px;width:100%;max-width:420px;box-shadow:var(--shadow2)">
-      <div style="font-size:20px;font-weight:700;margin-bottom:6px">⚡ Lançamento rápido</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Adicione uma entrada ou saída rapidamente</div>
-      <div style="display:flex;gap:8px;margin-bottom:16px">
-        <button class="btn" id="lr-tipo-saida" style="flex:1;height:36px;background:var(--neg-bg);color:var(--neg);border:1px solid rgba(239,68,68,.3);font-weight:700" onclick="setLrTipo('saida')">💸 Saída</button>
-        <button class="btn" id="lr-tipo-entrada" style="flex:1;height:36px;background:var(--card3);color:var(--text2);border:1px solid var(--border)" onclick="setLrTipo('entrada')">💰 Entrada</button>
-      </div>
-      <div class="field"><label class="flabel">Descrição</label><input type="text" id="lr-nome" placeholder="Ex: Farmácia, Jantar..."></div>
-      <div class="field"><label class="flabel">Valor (R$)</label><input type="number" id="lr-valor" step="0.01" placeholder="0,00"></div>
-      <div class="field" id="lr-cartao-field"><label class="flabel">Cartão (opcional)</label>
-        <select id="lr-cartao"><option value="">— À vista / PIX —</option>${D.cartoes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('')}</select>
-      </div>
-      <div class="field"><label class="flabel">Categoria</label>
-        <select id="lr-cat">${Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-        <button class="btn btn-ghost" onclick="document.getElementById('modal-rapido-overlay').remove()">Cancelar</button>
-        <button class="btn btn-pri" onclick="salvarLancamentoRapido()">Salvar</button>
-      </div>
-    </div>
-  </div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
-  document.getElementById('lr-nome').focus();
-}
-
-let _lrTipo = 'saida';
-function setLrTipo(tipo) {
-  _lrTipo=tipo;
-  const btnS=document.getElementById('lr-tipo-saida');
-  const btnE=document.getElementById('lr-tipo-entrada');
-  const cartaoF=document.getElementById('lr-cartao-field');
-  if(tipo==='saida'){
-    btnS.style.cssText='flex:1;height:36px;background:var(--neg-bg);color:var(--neg);border:1px solid rgba(239,68,68,.3);font-weight:700';
-    btnE.style.cssText='flex:1;height:36px;background:var(--card3);color:var(--text2);border:1px solid var(--border)';
-    if(cartaoF) cartaoF.style.display='';
-    // Change cat to expense categories
-    const catEl=document.getElementById('lr-cat');
-    if(catEl) catEl.innerHTML=Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
-  } else {
-    btnE.style.cssText='flex:1;height:36px;background:var(--pos-bg);color:var(--pos);border:1px solid rgba(16,185,129,.3);font-weight:700';
-    btnS.style.cssText='flex:1;height:36px;background:var(--card3);color:var(--text2);border:1px solid var(--border)';
-    if(cartaoF) cartaoF.style.display='none';
-    const catEl=document.getElementById('lr-cat');
-    if(catEl) catEl.innerHTML=Object.entries(CATS_ENTRADA).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
-  }
-}
-
-function salvarLancamentoRapido() {
-  const nome=document.getElementById('lr-nome').value.trim();
-  const valor=parseFloat(document.getElementById('lr-valor').value)||0;
-  const cat=document.getElementById('lr-cat').value;
-  if(!nome){alert('Informe a descrição.');return;}
-  if(!valor){alert('Informe o valor.');return;}
-  if(_lrTipo==='saida'){
-    const cartao=document.getElementById('lr-cartao').value;
-    D.compras.push({id:genId('c'),nome,cat,cartao,valor,parcelas:1,
-      dataCompra:new Date().toISOString().slice(0,10),ativo:true});
-    scheduleAutoSave(); renderSaidasVar();
-  } else {
-    D.entradas.push({id:genId('e'),nome,valor,tipo:'mensal',dia:1,cat,ativo:true});
-    scheduleAutoSave(); renderEntradas();
-  }
-  document.getElementById('modal-rapido-overlay').remove();
-  renderAll();
-  toast('Lançamento salvo! ✓');
-}
-
-// ── AVISO ANTES DE SAIR SEM SALVAR ──────────────
-let _temAlteracoes = false;
-function marcarAlterado() { _temAlteracoes=true; }
-function marcarSalvo()    { _temAlteracoes=false; }
-window.addEventListener('beforeunload', function(e) {
-  if(_temAlteracoes) {
-    e.preventDefault();
-    e.returnValue='Você tem alterações não salvas. Deseja sair mesmo assim?';
-    return e.returnValue;
-  }
-});
-
-function setBottomNav(page) {
-  document.querySelectorAll('.bnav-btn[data-page]').forEach(b=>{
-    b.classList.toggle('on', b.getAttribute('data-page')===page);
-  });
-  // Also update mobile menu
-  document.querySelectorAll('.mobile-ntab').forEach(b=>b.classList.remove('on'));
-}
-
 function renderAll() {
   const a=document.querySelector('.page.on');
   const id=a?a.id.replace('page-',''):'dash';
@@ -796,7 +507,6 @@ function switchSub(pid,sid,el) {
   if(pid==='invest') renderInvestSub(sid);
   else if(pid==='dash') { if(sid==='geral') renderGeral(); else renderMes(); }
   else if(pid==='saidas') { if(sid==='fixas') renderSaidasFixas(); else renderSaidasVar(); }
-  else if(pid==='metas') { if(sid==='objetivos') renderObjetivos('objetivos-list'); else renderOrcamentos('orcamentos-list'); }
 }
 function getActiveSub(pid) { const a=document.querySelector(`#page-${pid} .sub.on`); return a?a.id.replace('sub-',''):null; }
 function renderInvestAtiva()  { const s=getActiveSub('invest')||'inv-visao'; renderInvestSub(s); }
@@ -810,31 +520,24 @@ function renderInvestSub(id) {
 // ── HELPERS ───────────────────────────────────────
 function getEmptyStateAlerts() {
   const alerts=[];
-  if(!D.entradas||D.entradas.filter(e=>e.ativo).length===0) alerts.push({icon:'💰',msg:'Você não tem entradas registradas. Cadastre suas fontes de renda.',page:'entradas',cta:'+ Adicionar entrada',cor:'var(--pos)'});
-  if(!D.fixas||D.fixas.filter(f=>f.ativo).length===0) alerts.push({icon:'📌',msg:'Nenhuma conta fixa cadastrada. Adicione aluguel, internet, etc.',page:'saidas',cta:'+ Adicionar conta',cor:'var(--info)'});
-  if(!D.ativos||D.ativos.every(a=>!(a.valor||0))) alerts.push({icon:'📈',msg:'Você não possui investimentos cadastrados. Registre seus ativos.',page:'invest',cta:'+ Registrar ativo',cor:'var(--accent)'});
-  if(!D.cartoes||D.cartoes.length===0) alerts.push({icon:'💳',msg:'Nenhum cartão de crédito cadastrado.',page:'carteira',cta:'+ Adicionar cartão',cor:'var(--warn)'});
+  if(!D.entradas||D.entradas.length===0) alerts.push({icon:'💰',msg:'Você não tem entradas cadastradas.',page:'entradas'});
+  if(!D.fixas||D.fixas.length===0) alerts.push({icon:'📌',msg:'Nenhuma conta fixa cadastrada.',page:'saidas'});
+  if(!D.ativos||D.ativos.every(a=>!a.valor)) alerts.push({icon:'📈',msg:'Nenhum investimento cadastrado.',page:'invest'});
+  if(!D.cartoes||D.cartoes.length===0) alerts.push({icon:'💳',msg:'Nenhum cartão cadastrado.',page:'carteira'});
   const metaE=metaEmergencia();
-  if(metaE>0&&caixaAtual()<metaE*0.5) alerts.push({icon:'🛡️',msg:`Reserva de emergência em ${Math.round(caixaAtual()/metaE*100)}% da meta (${fmt(metaEmergencia())} recomendado).`,page:'invest',cta:'Ver ARCA',cor:'var(--neg)'});
+  if(metaE>0&&caixaAtual()<metaE*0.5) alerts.push({icon:'🛡️',msg:`Reserva de emergência em ${Math.round(caixaAtual()/metaE*100)}% da meta.`,page:''});
   return alerts;
 }
 function calcPatrimonioFuturo() {
   const yrs=getYears();
-  if(!yrs.length) return null;
   const tot=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-  const txMedia=tot>0
-    ? D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/tot
-    : (D.cdi12||14.80)/100; // usa CDI como taxa padrão se não houver investimentos
-  const txMensal = Math.pow(1+txMedia,1/12)-1;
+  if(tot===0) return null;
+  const txMedia=D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/Math.max(tot,1);
   let saldo=tot;
   return yrs.map(yr=>{
     const meses=getMesesAno(yr);
     const aporte=meses.reduce((s,{i})=>s+invDisp(i),0);
-    // Compounding mensal com aporte mensal
-    meses.forEach(({i})=>{
-      const ap=invDisp(i);
-      saldo=saldo*(1+txMensal)+ap;
-    });
+    saldo=saldo*(1+txMedia)+aporte;
     return {yr,saldo:Math.round(saldo),aporte:Math.round(aporte)};
   });
 }
@@ -847,15 +550,12 @@ function renderDashboard() {
 
 function renderGeral() {
   // ── Dados do mês atual ──
-  const hoje = new Date();
-  const mesAtualNome = `${MMAP_R[hoje.getMonth()+1]}/${String(hoje.getFullYear()).slice(2)}`;
-  let mi = D.meses.indexOf(mesAtualNome);
-  if(mi === -1) mi = 0; // fallback para o primeiro mês
+  const mi = getMesRefIdx();
 
-  const entrada   = totalEMes(mi);
-  const saida     = totalDivBruto(mi);
-  const sobra     = sobraM(mi);
-  const investir  = invDisp(mi);
+  const entrada   = totalEMes(getMesRefIdx());
+  const saida     = calcPendenteMes(getMesRefIdx()).bruto;
+  const sobra     = sobraM(getMesRefIdx());
+  const investir  = invDisp(getMesRefIdx());
   const pl        = patrimonioLiquido();
   const score     = scoreFinanceiro();
   const caixa     = caixaAtual();
@@ -866,51 +566,14 @@ function renderGeral() {
   const ativos    = D.meses.length;
   const n         = getActiveMeses().length;
 
-  // ── Alertas de vencimento (cartões nos próximos 7 dias) ──
-  const alertasVenc = getAlertasVencimento();
-  const vencEl = document.getElementById('dash-vencimentos');
-  if(vencEl) {
-    if(alertasVenc.length) {
-      vencEl.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-        ${alertasVenc.map(a=>{
-          if(a.tipo==='vencimento') return `<div style="background:var(--card);border:1px solid ${a.cor.replace('var(','')}33;border-left:3px solid ${a.cor};border-radius:var(--r12);padding:10px 14px;display:flex;align-items:center;gap:10px;flex:1;min-width:200px">
-            <span style="font-size:20px">💳</span>
-            <div><div style="font-size:12px;font-weight:700;color:${a.cor}">${a.cartao} vence em ${a.dias===0?'HOJE!':a.dias===1?'amanhã':a.dias+' dias'}</div>
-            <div style="font-size:11px;color:var(--text2)">Fatura: <strong>${fmt(a.valor)}</strong></div></div>
-            <button class="btn btn-ghost" style="height:26px;font-size:10px;margin-left:auto" onclick="goMobile('pagar')">Pagar</button>
-          </div>`;
-          if(a.tipo==='objetivo') return `<div style="background:var(--card);border:1px solid rgba(245,158,11,.2);border-left:3px solid var(--warn);border-radius:var(--r12);padding:10px 14px;flex:1;min-width:200px">
-            <div style="font-size:12px;font-weight:700;color:var(--warn)">🎯 Meta "${a.nome}" vence em ${a.diasRestantes} dias</div>
-            <div style="font-size:11px;color:var(--text2)">Progresso: ${a.pct}%</div>
-          </div>`;
-          return '';
-        }).join('')}
-      </div>`;
-    } else vencEl.innerHTML='';
-  }
-
   // ── Alertas de configuração ──
   const alerts = getEmptyStateAlerts();
   const alertEl = document.getElementById('dash-alerts');
-  if(alertEl) {
-    if(alerts.length) {
-      alertEl.innerHTML = `
-        <div style="margin-bottom:20px">
-          <div style="font-size:13px;font-weight:700;color:var(--warn);margin-bottom:10px;display:flex;align-items:center;gap:8px">⚠️ Configure seu perfil financeiro</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
-            ${alerts.map(a=>`<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${a.cor};border-radius:var(--r12);padding:14px;display:flex;align-items:flex-start;gap:10px">
-              <span style="font-size:22px;flex-shrink:0">${a.icon}</span>
-              <div style="flex:1">
-                <div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px">${a.msg}</div>
-                ${a.page?`<button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="goMobile('${a.page}')">${a.cta}</button>`:''}
-              </div>
-            </div>`).join('')}
-          </div>
-        </div>`;
-    } else {
-      alertEl.innerHTML = '';
-    }
-  }
+  if(alertEl) alertEl.innerHTML = alerts.length ? `
+    <div style="background:var(--warn-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r12);padding:14px 16px;margin-bottom:20px">
+      <div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:8px">⚠️ Configure seu perfil financeiro</div>
+      ${alerts.map(a=>`<div style="font-size:12px;color:var(--text2);padding:3px 0;display:flex;align-items:center;gap:8px">${a.icon} ${a.msg}</div>`).join('')}
+    </div>` : '';
 
   // ── HERO: Banner principal ──
   const hero = document.getElementById('dash-hero');
@@ -931,7 +594,6 @@ function renderGeral() {
       <div class="hero-pill green">💰 ${fmt(entrada)}/mês</div>
       <div class="hero-pill ${sobra>=0?'green':'red'}">${sobra>=0?'✅':'⚠️'} Sobra: ${fmt(sobra)}</div>
       <div class="hero-pill blue">🚀 Investir: ${fmt(investir)}</div>
-      <button onclick="abrirLancamentoRapido()" style="background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:6px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px">⚡ Lançamento rápido</button>
     </div>`;
 
   // ── 4 CARDS PRINCIPAIS: o que importa agora ──
@@ -952,11 +614,19 @@ function renderGeral() {
       <div class="mval ${sobra>=0?'mval-pos':'mval-neg'}">${fmt(sobra)}</div>
       <div class="msub">${sobra>=0?'Você está no positivo':'Despesas maiores que renda'}</div>
     </div>
-    <div class="mcard mcard-teal">
-      <div class="mlabel">🚀 Disponível p/ investir</div>
-      <div class="mval mval-teal">${fmt(investir)}</div>
-      <div class="msub">${investir>0?'50% da sobra':'Sem sobra este mês'}</div>
-    </div>`;
+    ${(()=>{const _cp=calcPendenteMes(getMesRefIdx());const _tudoPago=_cp.bruto>0&&_cp.pendente===0;
+    return _tudoPago
+      ? `<div class="mcard" style="border-color:rgba(16,185,129,.3);background:var(--pos-bg)">
+          <div class="mlabel" style="color:var(--pos)">✅ Tudo pago este mês!</div>
+          <div class="mval mval-pos" style="font-size:16px">Parabéns!</div>
+          <div class="msub">Todas as faturas de ${D.meses[getMesRefIdx()]||''} foram quitadas.</div>
+        </div>`
+      : `<div class="mcard mcard-teal">
+          <div class="mlabel">🚀 Disponível p/ investir</div>
+          <div class="mval mval-teal">${fmt(investir)}</div>
+          <div class="msub">${investir>0?'Invista agora':'Sem sobra este mês'}</div>
+        </div>`;
+    })()}`;
 
   // ── SAÚDE FINANCEIRA ──
   const saude = document.getElementById('dash-saude');
@@ -1015,10 +685,8 @@ function renderGeral() {
   const pf = calcPatrimonioFuturo();
   const pfEl = document.getElementById('dash-patrimonio-futuro');
   if(pfEl && pf && pf.length){
-    const temInv = D.ativos.reduce((s,a)=>s+(a.valor||0),0) > 0;
-    const txRef = temInv ? '' : ` (usando CDI ${fmt(D.cdi12||14.80).replace('R$\u00a0','').trim()}% a.a.)`;
     pfEl.innerHTML = `
-      <div class="divider"><span class="divider-text">📈 Patrimônio futuro — seguindo as recomendações${txRef}</span></div>
+      <div class="divider"><span class="divider-text">📈 Onde você estará no futuro</span></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:8px">
         ${pf.map((p,i)=>`<div class="mcard ${i===pf.length-1?'mcard-accent':''}">
           <div class="mlabel">${p.yr}</div>
@@ -1026,7 +694,7 @@ function renderGeral() {
           <div class="msub">aportes: ${fmtK(p.aporte)}</div>
         </div>`).join('')}
       </div>
-      <div style="font-size:10px;color:var(--text3)">${temInv?'Projeção com juros compostos sobre seus ativos atuais + aportes recomendados.':'Projeção considerando os aportes recomendados investidos a CDI. Cadastre seus ativos na aba Investimentos para uma projeção mais precisa.'} Não garante rentabilidade futura.</div>`;
+      <div style="font-size:10px;color:var(--text3)">Projeção estimada com juros compostos. Não garante rentabilidade futura.</div>`;
   } else if(pfEl) pfEl.innerHTML = '';
 }
 
@@ -1136,7 +804,7 @@ function renderEntradas() {
   // Resumo
   const totalMes = selEntradas
     ? (() => { const mi=D.meses.indexOf(selEntradas); return mi>=0?totalEMes(mi):0; })()
-    : totalEMes(0);
+    : totalEMes(getMesRefIdx());
   const totalAnual=D.meses.reduce((s,_,i)=>s+totalEMes(i),0);
 
   const sumEl=document.getElementById('entradas-summary');
@@ -1250,11 +918,29 @@ function renderCarteira() {
   const el=document.getElementById('ef-saldo');if(el)el.value=D.saldo||0;
   const mc=document.getElementById('ef-metaCC');if(mc)mc.value=D.metaCC||2000;
 
+  // Mês de referência
+  const refIdx = getMesRefIdx();
+  const isAuto = mesRefIdx < 0;
+  const autoIdx = calcMesRefAuto();
+  const mesRefEl = document.getElementById('carteira-mes-ref');
+  if(mesRefEl) {
+    mesRefEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;background:var(--card2);border-radius:var(--r12);border:1px solid ${!isAuto?'var(--accent)':'var(--border)'}">
+        <span style="font-size:12px;font-weight:600;color:var(--text2)">📅 Mês de referência</span>
+        <select onchange="setMesRef(this.value)" style="flex:1;max-width:160px;padding:7px 10px;font-size:13px;font-weight:600;${!isAuto?'border-color:var(--accent);color:var(--accent)':''}">
+          ${D.meses.map((m,i)=>`<option value="${i}"${i===refIdx?' selected':''}>${m}${i===autoIdx?' ← hoje':''}</option>`).join('')}
+        </select>
+        ${!isAuto?`<button class="btn btn-ghost" style="height:32px;font-size:11px" onclick="resetMesRefAuto()">↺ Automático</button>`:''}
+        <span style="font-size:11px;color:var(--text3)">${isAuto?'🔄 Avança automaticamente no dia 20':'✏️ Definido manualmente'}</span>
+      </div>`;
+  }
+
+
   const pl=patrimonioLiquido();
   const totalLim=D.cartoes.reduce((s,c)=>s+(c.limite||0),0);
   const score=scoreFinanceiro();
   const scoreCor=score>=70?'#10B981':score>=40?'#F59E0B':'#EF4444';
-  const e0=totalEMes(0);
+  const e0=totalEMes(getMesRefIdx());
 
   // Hero
   const h=document.getElementById('carteira-hero');
@@ -1360,31 +1046,6 @@ let selSaidasMes = ''; // filtro de mês na aba Saídas Variáveis
 function renderSaidasVar() {
   const el=document.getElementById('lista-var');if(!el)return;
 
-  // Renderiza gestão de anos
-  renderAnosList();
-
-  // Barra de busca e ordenação
-  const searchBar = document.getElementById('var-searchbar');
-  if(searchBar && !searchBar.innerHTML.trim()) {
-    searchBar.innerHTML=`
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-        <input type="text" placeholder="🔍 Buscar compra..." style="flex:1;min-width:180px;height:34px"
-          oninput="_comprasFiltro=this.value.toLowerCase();renderSaidasVar()" value="${_comprasFiltro}">
-        <select style="height:34px;width:auto" onchange="_comprasOrdem=this.value;renderSaidasVar()">
-          <option value="data"${_comprasOrdem==='data'?' selected':''}>📅 Por data</option>
-          <option value="valor"${_comprasOrdem==='valor'?' selected':''}>💰 Por valor</option>
-          <option value="nome"${_comprasOrdem==='nome'?' selected':''}>🔤 Por nome</option>
-        </select>
-        ${_comprasFiltro?`<button class="btn btn-ghost" style="height:34px" onclick="_comprasFiltro='';document.querySelector('#var-searchbar input').value='';renderSaidasVar()">✕ Limpar</button>`:''}
-      </div>`;
-  } else if(searchBar) {
-    // Atualiza apenas o botão limpar sem reconstruir
-    const clearBtn = searchBar.querySelector('.btn');
-    if(_comprasFiltro && !clearBtn) {
-      searchBar.innerHTML+=`<button class="btn btn-ghost" style="height:34px" onclick="_comprasFiltro='';document.querySelector('#var-searchbar input').value='';renderSaidasVar()">✕</button>`;
-    }
-  }
-
   // Monta seletor de meses com dados
   const mesesComDados = new Set();
   D.compras.filter(c=>c.ativo).forEach(c=>{
@@ -1403,27 +1064,13 @@ function renderSaidasVar() {
 
   if(!D.compras.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">🔄</div><div class="empty-text">Nenhuma compra/parcela. Clique em + para adicionar.</div></div>`; return; }
 
-  // Filtra por mês selecionado
-  let comprasFiltradas = selSaidasMes
+  // Filtra compras que tem valor no mês selecionado
+  const comprasFiltradas = selSaidasMes
     ? D.compras.filter(c=>{ const mi=D.meses.indexOf(selSaidasMes); return mi>=0 && (calcValsCompra(c)[mi]||0)>0; })
     : D.compras;
 
-  // Aplica busca por texto
-  if(_comprasFiltro) {
-    comprasFiltradas = comprasFiltradas.filter(c=>
-      c.nome.toLowerCase().includes(_comprasFiltro) ||
-      (c.cartao||'').toLowerCase().includes(_comprasFiltro) ||
-      (CATS[c.cat]?.label||'').toLowerCase().includes(_comprasFiltro)
-    );
-  }
-
-  // Aplica ordenação
-  if(_comprasOrdem==='valor') comprasFiltradas = [...comprasFiltradas].sort((a,b)=>(b.valor||0)-(a.valor||0));
-  else if(_comprasOrdem==='nome') comprasFiltradas = [...comprasFiltradas].sort((a,b)=>a.nome.localeCompare(b.nome));
-  else comprasFiltradas = [...comprasFiltradas].sort((a,b)=>new Date(b.dataCompra||0)-new Date(a.dataCompra||0));
-
   if(!comprasFiltradas.length){
-    el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">${_comprasFiltro?`Nenhum resultado para "${_comprasFiltro}"`:`Nenhuma parcela em ${selSaidasMes}`}.</div></div>`;
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma parcela em ${selSaidasMes}.</div></div>`;
     return;
   }
 
@@ -1495,7 +1142,6 @@ function removerFixa(fi){if(!confirm(`Remover "${D.fixas[fi].nome}"?`))return;D.
 
 // Estado das parcelas editáveis no modal
 let _parcelasVals = []; // valores individuais de cada parcela
-let _parcelasLoaded = false; // true se pré-carregado por editarCompra (não redistribuir)
 
 function abrirModalCompra(ci=-1) {
   const c=ci>=0?D.compras[ci]:{nome:'',cat:'cartao',cartao:'',valor:0,parcelas:1,dataCompra:new Date().toISOString().slice(0,10),ativo:true};
@@ -1507,13 +1153,10 @@ function abrirModalCompra(ci=-1) {
   document.getElementById('mc-valor').value=c.valor||'';
   document.getElementById('mc-parcelas').value=c.parcelas||1;
   document.getElementById('mc-data').value=c.dataCompra||new Date().toISOString().slice(0,10);
-  // Inicializa valores individuais APENAS se não foram pré-carregados por editarCompra
+  // Inicializa valores individuais das parcelas
   const n=c.parcelas||1;
-  if(!_parcelasLoaded) {
-    const parcVal=c.valor>0?Math.round((c.valor/n)*100)/100:0;
-    _parcelasVals=Array(n).fill(parcVal);
-  }
-  _parcelasLoaded=false; // reset flag após uso
+  const parcVal=c.valor>0?Math.round((c.valor/n)*100)/100:0;
+  _parcelasVals=Array(n).fill(parcVal);
   document.getElementById('btn-salvar-compra').onclick=()=>salvarCompra(ci);
   renderParcelasFields();
   atualizarPreviewCompra();
@@ -1522,11 +1165,12 @@ function abrirModalCompra(ci=-1) {
 function renderParcelasFields() {
   const n=parseInt(document.getElementById('mc-parcelas').value)||1;
   const valorTotal=parseFloat(document.getElementById('mc-valor').value)||0;
-  // Redimensiona _parcelasVals SEM redistribuir (preserva valores customizados)
+  // Redimensiona _parcelasVals
   const parcPadrao=valorTotal>0?Math.round((valorTotal/n)*100)/100:0;
   while(_parcelasVals.length<n) _parcelasVals.push(parcPadrao);
   while(_parcelasVals.length>n) _parcelasVals.pop();
-  // NÃO redistribui automaticamente — o usuário pode ter editado parcelas individuais
+  // Se valor total foi preenchido e parcelas mudaram, redistribui igualmente
+  if(valorTotal>0) _parcelasVals=_parcelasVals.map(()=>Math.round((valorTotal/n)*100)/100);
 
   const container=document.getElementById('mc-parcelas-fields');
   if(!container) return;
@@ -1602,13 +1246,10 @@ function salvarCompra(ci) {
   const valorInput=parseFloat(document.getElementById('mc-valor').value)||0;
   const valor=totalParcelas>0?totalParcelas:valorInput;
   if(!valor){alert('Informe o valor.');return;}
-  // Armazena os valores individuais das parcelas se alguma diferir da média
-  let parcelasCustom = null;
-  if(parcelas>1 && _parcelasVals.length===parcelas) {
-    const media = valor/parcelas;
-    const temDiferente = _parcelasVals.some(v=>Math.abs((v||0)-media)>0.009);
-    if(temDiferente) parcelasCustom=[..._parcelasVals];
-  }
+  // Armazena os valores individuais das parcelas se foram editados
+  const parcelasCustom = parcelas>1&&_parcelasVals.some((v,i)=>Math.abs(v-(valor/parcelas))>0.01)
+    ? [..._parcelasVals]
+    : null;
   const obj={id:ci>=0?D.compras[ci].id:genId('c'),nome,cat,cartao,valor,parcelas,dataCompra,ativo:true};
   if(parcelasCustom) obj.parcelasCustom=parcelasCustom;
   if(ci>=0) D.compras[ci]=obj; else D.compras.push(obj);
@@ -1618,28 +1259,19 @@ function salvarCompra(ci) {
 function editarCompra(ci){
   // Carrega parcelasCustom se existir
   const c=D.compras[ci];
-  if(c&&c.parcelasCustom&&c.parcelasCustom.length===c.parcelas) {
-    _parcelasVals=[...c.parcelasCustom];
-    _parcelasLoaded=true; // sinaliza para abrirModalCompra NÃO sobrescrever
-  } else {
-    const n=c?.parcelas||1;
-    const pv=c?.valor>0?Math.round((c.valor/n)*100)/100:0;
-    _parcelasVals=Array(n).fill(pv);
-    _parcelasLoaded=false;
-  }
+  if(c&&c.parcelasCustom) _parcelasVals=[...c.parcelasCustom];
+  else { const n=c?.parcelas||1; const pv=c?.valor>0?Math.round((c.valor/n)*100)/100:0; _parcelasVals=Array(n).fill(pv); }
   abrirModalCompra(ci);
 }
 function removerCompra(ci){if(!confirm(`Remover "${D.compras[ci].nome}"?`))return;D.compras.splice(ci,1);scheduleAutoSave();renderSaidasVar();}
 
 // Gestão de anos
 function renderAnosList() {
-  // Tenta renderizar no elemento de saídas variáveis primeiro, depois no legado
-  const el=document.getElementById('anos-list-var')||document.getElementById('anos-list');
-  if(!el)return;
+  const el=document.getElementById('anos-list');if(!el)return;
   const yrs=getYears();
-  el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r12);margin-bottom:14px">
-    <span style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0">📅 Anos no planejamento:</span>
-    ${yrs.map(yr=>`<span class="msb" style="cursor:default">${yr} <span style="opacity:.5;font-size:10px">(${getMesesAno(yr).length}m)</span></span>`).join('')}
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+    <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Anos no planejamento:</span>
+    ${yrs.map(yr=>`<span class="msb" style="cursor:default">${yr} (${getMesesAno(yr).length} meses)</span>`).join('')}
     <button class="btn btn-pos" style="height:30px;font-size:12px" onclick="addAno()">+ Adicionar ano</button>
     ${yrs.length>1?`<button class="btn btn-neg" style="height:30px;font-size:12px" onclick="removerUltimoAno()">− Remover ${yrs[yrs.length-1]}</button>`:''}
   </div>`;
@@ -1665,35 +1297,14 @@ function removerUltimoAno() {
   scheduleAutoSave();renderAll();if(window.toast)toast(`✅ Meses de ${yr} removidos.`);
 }
 
-// ── PAGAR CONTAS (ex-Faturas) ─────────────────────────
+// ── FATURAS ───────────────────────────────────────
 function renderFaturas() {
   if(selFaturas===-1) selFaturas=getMesAtualIdx();
-  const totalMeses = D.meses.length;
-  // Monta seletor mostrando TODOS os meses (passados e futuros para adiantar)
   const ms=document.getElementById('faturas-months');
-  if(ms){
-    ms.innerHTML=D.meses.map((m,i)=>{
-      const hoje=getMesAtualIdx();
-      const isPast=i<hoje;
-      const isFut=i>hoje;
-      return `<button class="msb${i===selFaturas?' on':''}" onclick="selFaturas=${i};renderFaturas()"
-        style="${isPast?'border-color:rgba(239,68,68,.3);color:var(--neg)':isFut?'border-color:rgba(139,92,246,.2);color:var(--accent)':''}"
-        title="${isPast?'Mês passado — pagar pendências':isFut?'Mês futuro — adiantar pagamentos':'Mês atual'}">${sM(m)}</button>`;
-    }).join('');
-  }
+  if(ms){const ativosF=getActiveMeses();ms.innerHTML=ativosF.map(m=>{const i=D.meses.indexOf(m);return`<button class="msb${i===selFaturas?' on':''}" onclick="selFaturas=${i};renderFaturas()">${sM(m)}</button>`;}).join('');}
   const mi=selFaturas;
   const mesNome=D.meses[mi]||'';
-  const hoje=getMesAtualIdx();
-  const lbl=document.getElementById('faturas-mes-label');
-  if(lbl){
-    const tipoLabel=mi<hoje?'⏪ Mês passado':mi>hoje?'⏩ Mês futuro':'📅 Mês atual';
-    lbl.innerHTML=`<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      Pagar Contas — <strong>${mesNome}</strong>
-      <span class="badge ${mi<hoje?'badge-neg':mi>hoje?'badge-admin':'badge-pos'}">${tipoLabel}</span>
-      ${mi>0?`<button class="btn btn-ghost" style="height:24px;font-size:11px" onclick="selFaturas=${mi-1};renderFaturas()">← anterior</button>`:''}
-      ${mi<totalMeses-1?`<button class="btn btn-ghost" style="height:24px;font-size:11px" onclick="selFaturas=${mi+1};renderFaturas()">próximo →</button>`:''}
-    </span>`;
-  }
+  const lbl=document.getElementById('faturas-mes-label');if(lbl)lbl.textContent=`Faturas de ${mesNome}`;
   const mes=D.meses[mi];
   if(!mes){return;}
 
@@ -1717,6 +1328,7 @@ function renderFaturas() {
   delete porCartao['__semcartao__'];
 
   // ── MONTA GRUPOS PAGÁVEIS ──
+  // Cada grupo: fixas individuais + fatura por cartão + sem cartão individuais
   const grupos = [];
   fixasDoMes.forEach(f=>{
     grupos.push({id:'fx_'+f.id, label:f.nome, sub:'Conta fixa · '+((CATS[f.cat]||CATS.outros).label), icon:(CATS[f.cat]||CATS.outros).icon, valor:f.valor, tipo:'fixa', itens:[]});
@@ -1732,6 +1344,7 @@ function renderFaturas() {
 
   const pagas = grupos.filter(g=>pag[g.id]);
   const pendentes = grupos.filter(g=>!pag[g.id]);
+  // Usa calcPendenteMes para garantir consistência com Investimentos
   const _cp = calcPendenteMes(mi);
   const totBruto = _cp.bruto;
   const totPago  = _cp.pago;
@@ -1741,24 +1354,13 @@ function renderFaturas() {
   const sumEl=document.getElementById('faturas-summary');
   if(sumEl) sumEl.innerHTML=`
     <div class="mcard mcard-neg"><div class="mlabel">💸 Total do mês</div><div class="mval mval-neg">${fmt(totBruto)}</div></div>
-    <div class="mcard mcard-warn"><div class="mlabel">⏳ Pendente</div><div class="mval mval-warn">${fmt(totPend)}</div><div class="msub">${pendentes.length} conta(s)</div></div>
-    <div class="mcard mcard-pos"><div class="mlabel">✅ Pago</div><div class="mval mval-pos">${fmt(totPago)}</div><div class="msub">${pagas.length} conta(s) · ${pctP}%</div></div>
+    <div class="mcard mcard-warn"><div class="mlabel">⏳ Pendente</div><div class="mval mval-warn">${fmt(totPend)}</div><div class="msub">${pendentes.length} fatura(s)</div></div>
+    <div class="mcard mcard-pos"><div class="mlabel">✅ Pago</div><div class="mval mval-pos">${fmt(totPago)}</div><div class="msub">${pagas.length} fatura(s) · ${pctP}%</div></div>
     <div class="mcard ${pctP===100&&grupos.length>0?'mcard-pos':'mcard-accent'}"><div class="mlabel">📊 Progresso</div><div class="mval ${pctP===100?'mval-pos':'mval-accent'}">${pctP}%</div><div style="height:4px;background:var(--card3);border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:4px;width:${pctP}%;background:${pctP===100?'var(--pos)':'var(--accent)'};border-radius:99px;transition:width .5s"></div></div></div>
   `;
 
   const allDone=document.getElementById('faturas-all-done');
-  if(allDone){
-    if(pctP===100&&grupos.length>0){
-      allDone.style.display='';
-      allDone.innerHTML=`<div style="text-align:center;padding:20px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.3);border-radius:var(--r12);color:var(--pos)">
-        <div style="font-size:28px;margin-bottom:8px">🎉</div>
-        <div style="font-weight:700;font-size:16px">Todas as contas de ${mesNome} foram pagas!</div>
-        <div style="font-size:12px;margin-top:4px;opacity:.8">Essas contas não estão somando em Dívidas</div>
-      </div>`;
-    } else {
-      allDone.style.display='none';
-    }
-  }
+  if(allDone){if(pctP===100&&grupos.length>0){allDone.style.display='';allDone.innerHTML=`<div style="text-align:center;padding:16px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.3);border-radius:var(--r12);color:var(--pos);font-weight:700">🎉 Todas as faturas de ${mesNome} foram pagas!</div>`;}else{allDone.style.display='none';}}
 
   const buildGrupo = (g, pago) => {
     const bordaCor = g.tipo==='cartao'?'rgba(139,92,246,.2)':g.tipo==='fixa'?'rgba(59,130,246,.15)':'rgba(245,158,11,.15)';
@@ -1773,20 +1375,20 @@ function renderFaturas() {
         ${itensHTML}
       </div>
       <div style="text-align:right;flex-shrink:0"><div style="font-size:18px;font-weight:700;color:var(--pos)">${fmt(g.valor)}</div><div style="font-size:10px;color:var(--pos)">✅ Pago</div></div>
-      <button class="btn btn-ghost" style="height:30px;font-size:11px" onclick="faturaDesfazer('${g.id}',${mi})">↩ Desfazer</button>
+      <button class="btn btn-ghost" style="height:30px;font-size:11px" onclick="faturaDesfazer('${g.id}',${mi})">↩</button>
     </div>`;
 
     return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${bordaCor};border-radius:var(--r12);padding:16px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px">
         <span style="font-size:22px">${g.icon}</span>
-        <div style="flex:1;min-width:120px">
+        <div style="flex:1">
           <div style="font-weight:700;font-size:14px">${g.label}</div>
           <div style="font-size:11px;color:var(--text2)">${g.sub}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;margin-right:10px">
           <div style="font-size:20px;font-weight:700;color:var(--neg)">${fmt(g.valor)}</div>
         </div>
-        <button class="btn btn-pos" style="height:38px;padding:0 18px;font-size:13px;flex-shrink:0" onclick="faturaPagar('${g.id}',${mi},${g.valor})">✓ Pagar</button>
+        <button class="btn btn-pos" style="height:38px;padding:0 18px;font-size:13px" onclick="faturaPagar('${g.id}',${mi},${g.valor})">✓ Pagar fatura</button>
       </div>
       ${itensHTML}
     </div>`;
@@ -1794,10 +1396,7 @@ function renderFaturas() {
 
   const listEl=document.getElementById('faturas-list');
   if(listEl){
-    if(!grupos.length){
-      listEl.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma conta em ${mesNome}.<br><small style="color:var(--text3)">Cadastre contas fixas e variáveis na aba Saídas.</small></div></div>`;
-      return;
-    }
+    if(!grupos.length){listEl.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma conta em ${mesNome}</div></div>`;return;}
     listEl.innerHTML=
       (pendentes.length?`<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">⏳ PENDENTES (${pendentes.length})</div>`+pendentes.map(g=>buildGrupo(g,false)).join(''):'')
       +(pagas.length?`<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 10px">✅ PAGAS (${pagas.length})</div>`+pagas.map(g=>buildGrupo(g,true)).join(''):'');
@@ -1826,7 +1425,7 @@ function getMesAtualIdx() {
 
 // ── FORM COLLECTION ───────────────────────────────
 function renderInvestVisao(){
-  const ref=calcInvest(0);
+  const ref=calcInvest(getMesRefIdx());
   const pl=patrimonioLiquido();
   const totInv=D.meses.reduce((s,_,i)=>s+invDisp(i),0);
   const icon=ref.regra==='negativo'?'🔴':ref.regra==='menor_meta'?'🟡':'🟢';
@@ -1839,9 +1438,8 @@ function renderInvestVisao(){
       <div class="msub">base para cálculo</div>
     </div>
     <div class="mcard mcard-neg">
-      <div class="mlabel">💸 Contas pendentes mês 1</div>
+      <div class="mlabel">💸 Contas mês 1</div>
       <div class="mval mval-neg">${fmt(ref.c)}</div>
-      <div class="msub" style="color:var(--text3)">descontando pagamentos feitos</div>
     </div>
     <div class="mcard mcard-warn">
       <div class="mlabel">🎯 Meta conta corrente</div>
@@ -1913,7 +1511,7 @@ function renderInvestVisao(){
   const tot=ativosInv.reduce((s,m)=>s+invDisp(D.meses.indexOf(m)),0);
   const temManual=ativosInv.some(m=>isManual(D.meses.indexOf(m)));
   mt.innerHTML=`<thead class="thead-sticky"><tr>
-    <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas pendentes</th>
+    <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas</th>
     <th class="tr">Sobra bruta</th><th class="tr">Regra</th>
     <th class="tr" style="color:var(--teal)">
       💰 Disponível p/ investir
@@ -2085,46 +1683,29 @@ function renderAtivos(){
     `;
   }
 
-  // Projeções — juros compostos com valor real (deflacionado pelo IPCA)
+  // Projeções
   const proj=document.getElementById('proj-tbl');
   if(proj){
     const ANOS=[1,2,3,5,10,20,30];
-    const ativosV=D.ativos.filter(a=>(a.valor||0)>0);
-    const atTot=ativosV.reduce((s,a)=>s+(a.valor||0),0);
-    const txMedia=atTot>0?ativosV.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/atTot:0;
-    const heads=ANOS.map(a=>`<th class="tr" colspan="2" style="border-left:1px solid var(--border)">${a}a</th>`).join('');
-    const subheads=ANOS.map(()=>`<th class="tr" style="font-size:9px;color:var(--teal)">Nominal</th><th class="tr" style="font-size:9px;color:var(--text2)">Real*</th>`).join('');
-    const rows=[...ativosV,{nome:'<strong>Total</strong>',valor:atTot,_tx:txMedia,_tot:true}].map(a=>{
+    const ativos=D.ativos.filter(a=>(a.valor||0)>0);
+    const atTot=ativos.reduce((s,a)=>s+(a.valor||0),0);
+    const txMedia=atTot>0?ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/atTot:0;
+    const heads=ANOS.map(a=>`<th class="tr">${a}a</th>`).join('');
+    const rows=[...ativos,{nome:'<strong>Total</strong>',valor:atTot,_tx:txMedia,_tot:true}].map(a=>{
       const tx=a._tx!==undefined?a._tx:taxaAnual(a);
       const cols=ANOS.map(n=>{
-        const nominal=projetar(a.valor||0,tx,n);
-        const real=valorReal(nominal,n);
-        const gNom=nominal-(a.valor||0);
-        return `<td class="tr" style="border-left:1px solid var(--border)">
-          <div class="proj-val" style="color:var(--teal)">${RK(nominal)}</div>
-          <div class="proj-gain">+${RK(gNom)}</div>
-        </td>
-        <td class="tr">
-          <div style="font-size:11px;color:var(--text2)">${RK(real)}</div>
-        </td>`;
+        const v=projetar(a.valor||0,tx,n);
+        const g=v-(a.valor||0);
+        return `<td class="tr"><div class="proj-val">${RK(v)}</div><div class="proj-gain">+${RK(g)}</div></td>`;
       }).join('');
-      const sub=a._tot?`taxa média: ${P(tx*100)}/a`:`${a.indice} ${a.pct}% = ${P(tx*100)}/a`;
+      const sub=a._tot?`taxa média: ${P(tx*100)}`:`${a.indice} ${a.pct}% = ${P(tx*100)}/a`;
       return `<tr${a._tot?' style="background:var(--card2);border-top:2px solid var(--border)"':''}>
         <td><strong>${a.nome}</strong><div style="font-size:10px;color:var(--text2)">${sub}</div></td>
         <td class="tr" style="font-weight:600">${RK(a.valor||0)}</td>
         ${cols}
       </tr>`;
     }).join('');
-    const inflNote=`<div style="font-size:10px;color:var(--text2);padding:10px 0">*Valor real descontando IPCA de ${P(D.ipca12||4.39)}/a. O dinheiro de hoje vale mais do que no futuro.</div>`;
-    proj.innerHTML=`<thead class="thead-sticky">
-      <tr><th rowspan="2">Ativo</th><th rowspan="2" class="tr">Atual</th>${heads}</tr>
-      <tr>${subheads}</tr>
-    </thead><tbody>${rows}</tbody>`;
-    // Append inflation note after table
-    const projWrap=proj.parentElement;
-    let note=projWrap.querySelector('.proj-note');
-    if(!note){note=document.createElement('div');note.className='proj-note';projWrap.appendChild(note);}
-    note.innerHTML=inflNote;
+    proj.innerHTML=`<thead class="thead-sticky"><tr><th>Ativo</th><th class="tr">Atual</th>${heads}</tr></thead><tbody>${rows}</tbody>`;
   }
 
   // Gráfico projeção
@@ -2216,13 +1797,13 @@ function renderIndicadores(){
 }// ── BCB API + ARCA INTELLIGENCE ───────────────────
 
 // Séries temporais do Banco Central (SGS/BCData)
-// NOTA: série 4389 retorna CDI Over anualizado (% a.a.) ≈ 14.40 quando SELIC = 14.50
-// O CDI mensal não existe como série direta confiável — calculamos via juros compostos
 const BCB_SERIES = {
-  cdiAnual:  4389,  // CDI Over anualizado (% a.a.) — ≈ 14.40%
-  selicMeta: 432,   // Meta SELIC (% a.a.) — ≈ 14.50%
-  ipcaMes:   433,   // IPCA mensal (% a.m.) — ≈ 0.67%
-  ipca12m:   13522, // IPCA acumulado 12 meses (% a.a.) — ≈ 4.39%
+  cdiMes:   4389,  // CDI acumulado no mês (% a.m.)
+  cdi12m:   4391,  // CDI % a.a. (últimos 12 meses)
+  selicMes: 4390,  // SELIC acumulada no mês
+  selicMeta:432,   // Meta SELIC % a.a.
+  ipcaMes:  433,   // IPCA mensal
+  ipca12m:  13522, // IPCA acumulado 12 meses
 };
 
 async function bcbFetch(serie, n=1) {
@@ -2250,41 +1831,47 @@ async function fetchBCB() {
   if (stat) { stat.style.display = ''; stat.innerHTML = '⏳ Conectando ao Banco Central do Brasil...'; }
 
   try {
-    // Busca as 4 séries em paralelo — sem chamadas duplicadas
-    const [cdiAnual, selicMeta, ipcaMes, ipca12m] = await Promise.all([
-      bcbFetch(BCB_SERIES.cdiAnual,  1),  // CDI anualizado (% a.a.) ≈ 14.40
-      bcbFetch(BCB_SERIES.selicMeta, 1),  // Meta SELIC (% a.a.) ≈ 14.50
-      bcbFetch(BCB_SERIES.ipcaMes,   1),  // IPCA mensal (% a.m.) ≈ 0.67
-      bcbFetch(BCB_SERIES.ipca12m,   1),  // IPCA 12 meses (% a.a.) ≈ 4.39
+    // Busca todas as séries em paralelo
+    const [cdiMes, cdi12m, selicMeta, ipcaMes, ipca12m] = await Promise.all([
+      bcbFetch(BCB_SERIES.cdiMes,  1),
+      bcbFetch(BCB_SERIES.cdi12m,  1),
+      bcbFetch(BCB_SERIES.selicMeta,1),
+      bcbFetch(BCB_SERIES.ipcaMes, 1),
+      bcbFetch(BCB_SERIES.ipca12m, 1),
     ]);
 
-    // ── CDI anual (% a.a.) ────────────────────────────────────────────────
-    // Série 4389 retorna o CDI Over anualizado, ex: 14.40 = 14.40% ao ano
-    D.cdi12  = parseFloat(cdiAnual.valor)  || D.cdi12;
+    // Calcula acumulado 2026 (meses disponíveis)
+    const ano = new Date().getFullYear();
+    const mesesAno = await bcbFetch(BCB_SERIES.ipcaMes, 12);
+    // Acumulado anual = últimos meses do ano corrente
+    const ipcaAcumArr = await Promise.all(
+      Array.from({length: new Date().getMonth()+1}, (_,i) =>
+        bcbFetch(BCB_SERIES.ipcaMes, new Date().getMonth()+1 - i)
+      )
+    );
 
-    // ── CDI mensal — derivado do anual por juros compostos ─────────────────
-    // Formula: ((1 + taxa_anual)^(1/12) - 1) × 100
-    // Ex: ((1.1440)^(1/12) - 1) × 100 = 1.092% ao mês  ✓
-    D.cdifev = parseFloat(((Math.pow(1 + D.cdi12 / 100, 1 / 12) - 1) * 100).toFixed(4));
-
-    // ── SELIC meta ────────────────────────────────────────────────────────
-    D.selic  = parseFloat(selicMeta.valor) || D.selic || 14.75;
-
-    // ── IPCA ──────────────────────────────────────────────────────────────
+    // Atualiza D
+    D.cdi12   = parseFloat(cdi12m.valor)  || D.cdi12;
+    D.cdifev  = parseFloat(cdiMes.valor)  || D.cdifev;
     D.ipca12  = parseFloat(ipca12m.valor) || D.ipca12;
     D.ipcafev = parseFloat(ipcaMes.valor) || D.ipcafev;
+    D.selic   = parseFloat(selicMeta.valor)|| D.selic||14.75;
 
-    // ── Acumulado no ano via juros compostos ───────────────────────────────
-    // Usa meses completos (dados BCB chegam com 1 mês de atraso)
-    // getMonth() retorna 0=Jan…4=Mai → 4 meses completos disponíveis em Maio ✓
-    const mesesCompletos = Math.max(1, new Date().getMonth()); // Jan=0→1, Mai=4→4
-    D.cdi26  = parseFloat(((Math.pow(1 + D.cdi12  / 100, mesesCompletos / 12) - 1) * 100).toFixed(2));
-    D.ipca26 = parseFloat(((Math.pow(1 + D.ipca12 / 100, mesesCompletos / 12) - 1) * 100).toFixed(2));
+    // Acumulado no ano (CDI e IPCA)
+    const cdi12mArr = await Promise.all(
+      Array.from({length: new Date().getMonth()+1}, () =>
+        bcbFetch(BCB_SERIES.cdiMes, 1)
+      )
+    );
+    // Simplificado: usa 12m / 12 * meses_do_ano
+    const mesesDecorridos = new Date().getMonth() + 1;
+    D.cdi26  = parseFloat(((D.cdi12 / 12) * mesesDecorridos).toFixed(2));
+    D.ipca26 = parseFloat(((D.ipca12 / 12) * mesesDecorridos).toFixed(2));
 
     if (!D.invManual) D.invManual = Array(nm()).fill(null);
 
-    const dataRef = cdiAnual.data || ipcaMes.data || '—';
-    if (stat) stat.innerHTML = `✅ Dados atualizados! Ref: <strong>${dataRef}</strong> · CDI a.a.: <strong>${D.cdi12.toFixed(2)}%</strong> · CDI mensal: <strong>${D.cdifev.toFixed(2)}%</strong> · SELIC: <strong>${D.selic}%</strong> · IPCA 12m: <strong>${D.ipca12.toFixed(2)}%</strong>`;
+    const dataRef = cdi12m.data || ipcaMes.data || '—';
+    if (stat) stat.innerHTML = `✅ Dados atualizados com sucesso! Referência: <strong>${dataRef}</strong> · CDI 12m: <strong>${D.cdi12}%</strong> · IPCA 12m: <strong>${D.ipca12}%</strong> · SELIC meta: <strong>${D.selic}%</strong>`;
 
     scheduleAutoSave();
     renderIndicadores();
@@ -2295,7 +1882,7 @@ async function fetchBCB() {
     if (stat) stat.innerHTML = `❌ Erro ao buscar dados: ${e.message}. Verifique sua conexão ou atualize manualmente.`;
     if (stat) stat.style.color = 'var(--neg)';
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar agora'; }
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar indicadores agora'; }
   }
 }
 
