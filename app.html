@@ -457,6 +457,157 @@ select{cursor:pointer;}
   .cc-grid{grid-template-columns:1fr;}
   .g2{grid-template-columns:1fr;}
 }
+<!-- NAV STYLES AND SIDEBAR -->
+<style>
+/* ── SIDEBAR SYSTEM ── */
+:root { --sidebar-w: 240px; }
+
+/* Sidebar overlay */
+#sidebar-overlay {
+  position:fixed;inset:0;background:rgba(0,0,0,.5);
+  backdrop-filter:blur(4px);z-index:299;
+  display:none;animation:fadein .2s ease;
+}
+#sidebar-overlay.show { display:block; }
+
+/* Sidebar */
+#sidebar {
+  position:fixed;top:0;left:-260px;width:var(--sidebar-w);height:100vh;
+  background:var(--card);border-right:1px solid var(--border);
+  z-index:300;display:flex;flex-direction:column;
+  transition:left .3s cubic-bezier(.4,0,.2,1);
+  box-shadow:4px 0 24px rgba(0,0,0,.3);
+  overflow-y:auto;overflow-x:hidden;
+}
+#sidebar.open { left:0; }
+
+.sidebar-header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 16px 12px;border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.sidebar-brand { display:flex;align-items:center;gap:10px; }
+.sidebar-brand-icon {
+  width:32px;height:32px;border-radius:var(--r8);
+  background:linear-gradient(135deg,var(--accent),#60A5FA);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:800;color:#fff;flex-shrink:0;
+}
+.sidebar-brand-name { font-size:15px;font-weight:700;letter-spacing:-.3px; }
+.sidebar-brand-name span { color:var(--accent); }
+.sidebar-close {
+  width:30px;height:30px;border-radius:50%;border:1px solid var(--border2);
+  background:var(--card2);color:var(--text2);cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+  flex-shrink:0;
+}
+.sidebar-close:hover { background:var(--neg-bg);color:var(--neg); }
+
+/* Section groups */
+.sidebar-section { padding:12px 8px 4px; }
+.sidebar-section-label {
+  font-size:10px;font-weight:700;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.1em;
+  padding:0 8px;margin-bottom:4px;
+}
+.snav {
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:var(--r8);border:none;
+  background:none;color:var(--text2);font-family:inherit;font-size:13px;
+  font-weight:500;cursor:pointer;transition:all .18s;
+  width:100%;text-align:left;
+}
+.snav:hover { background:var(--card2);color:var(--text); }
+.snav.on { background:var(--accent-glow);color:var(--accent);font-weight:700; }
+.snav-icon { font-size:16px;flex-shrink:0;width:20px;text-align:center; }
+.snav-badge {
+  margin-left:auto;font-size:10px;font-weight:700;
+  background:var(--accent);color:#fff;border-radius:99px;
+  padding:1px 6px;flex-shrink:0;
+}
+
+/* Sidebar footer */
+.sidebar-footer {
+  margin-top:auto;padding:12px 8px;border-top:1px solid var(--border);flex-shrink:0;
+}
+
+/* TOP NAV (simplified when sidebar open) */
+#nav {
+  height:54px;padding:0 16px;
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:200;backdrop-filter:blur(20px);
+  transition:padding .3s;
+}
+.nav-toggle-btn {
+  width:36px;height:36px;border-radius:var(--r8);border:1px solid var(--border2);
+  background:var(--card2);color:var(--text2);cursor:pointer;font-size:18px;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+  flex-shrink:0;
+}
+.nav-toggle-btn:hover { background:var(--card3);color:var(--accent); }
+.nav-title-area {
+  flex:1;display:flex;align-items:center;gap:12px;
+  font-size:15px;font-weight:700;color:var(--text);
+  overflow:hidden;
+}
+.nav-page-title { color:var(--text);font-size:14px;font-weight:600; }
+.nav-page-section { font-size:11px;color:var(--text2); }
+
+/* Profile dropdown */
+.profile-trigger {
+  display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;
+  border-radius:var(--rfull);background:var(--card2);border:1px solid var(--border);
+  cursor:pointer;transition:all .18s;position:relative;flex-shrink:0;
+}
+.profile-trigger:hover { border-color:var(--border2);background:var(--card3); }
+.profile-avatar {
+  width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),#60A5FA);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.profile-name { font-size:12px;font-weight:600;color:var(--text);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.profile-role-badge { font-size:9px;padding:1px 5px;border-radius:99px;font-weight:700;flex-shrink:0; }
+.profile-dropdown {
+  position:absolute;top:calc(100% + 8px);right:0;min-width:220px;
+  background:var(--card);border:1px solid var(--border2);border-radius:var(--r16);
+  box-shadow:var(--shadow2);z-index:500;overflow:hidden;
+  display:none;animation:fadeup .2s ease;
+}
+.profile-dropdown.show { display:block; }
+.profile-dropdown-header {
+  padding:14px 16px;background:var(--card2);border-bottom:1px solid var(--border);
+}
+.profile-dropdown-name { font-size:14px;font-weight:700;margin-bottom:2px; }
+.profile-dropdown-email { font-size:11px;color:var(--text2); }
+.profile-dropdown-role { margin-top:6px; }
+.pd-item {
+  display:flex;align-items:center;gap:10px;padding:10px 16px;
+  font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;
+  transition:all .15s;border:none;background:none;width:100%;text-align:left;
+  font-family:inherit;
+}
+.pd-item:hover { background:var(--card2);color:var(--text); }
+.pd-item.danger { color:var(--neg); }
+.pd-item.danger:hover { background:var(--neg-bg); }
+.pd-separator { height:1px;background:var(--border);margin:4px 0; }
+.pd-role-switch {
+  padding:8px 16px 4px;
+  font-size:10px;font-weight:700;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.08em;
+}
+
+/* Main content shift */
+#main-wrap { transition:margin-left .3s; }
+
+/* Responsive */
+@media(max-width:768px) {
+  .profile-name { display:none; }
+  .profile-role-badge { display:none; }
+}
+</style>
+
 </style>
 </head>
 <body>
@@ -468,51 +619,128 @@ select{cursor:pointer;}
   <div class="load-sub">Carregando seus dados...</div>
 </div>
 
-<!-- ████ NAV ████ -->
-<nav id="nav">
-  <div class="nav-brand">
-    <div class="nav-brand-icon">₿</div>
-    <span class="nav-brand-name">Finanças<span>PRO</span></span>
-  </div>
-  <div class="nav-tabs">
-    <button class="ntab on" onclick="go('dash',this)"><span class="ni">📊</span>Dashboard</button>
-    <button class="ntab" onclick="go('entradas',this)"><span class="ni">💰</span>Entradas</button>
-    <button class="ntab" onclick="go('carteira',this)"><span class="ni">💼</span>Carteira</button>
-    <button class="ntab" onclick="go('saidas',this)"><span class="ni">💸</span>Saídas</button>
-    <button class="ntab" onclick="go('invest',this)"><span class="ni">📈</span>Investimentos</button>
-    <button class="ntab" onclick="go('faturas',this)"><span class="ni">✅</span>Faturas</button>
-    <button class="ntab" onclick="go('perfil',this)"><span class="ni">👤</span>Perfil</button>
-    <button class="ntab" id="tab-admin" onclick="go('admin',this)" style="display:none"><span class="ni">⚙️</span>Admin</button>
-  </div>
-  <div class="nav-r">
-    <div class="nav-user-chip" id="nav-user-chip">
-      <div class="nav-avatar" id="nav-avatar">?</div>
-      <span id="nav-username" class="nav-username-text">...</span>
+<!-- ████ SIDEBAR OVERLAY ████ -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ████ SIDEBAR ████ -->
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">₿</div>
+      <span class="sidebar-brand-name">Finanças<span>PRO</span></span>
     </div>
-    <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Tema">🌙</button>
-    <button class="nbtn nbtn-danger" id="btn-sair">Sair</button>
-    <button class="nbtn nbtn-pri" id="btn-salvar">Salvar</button>
-    <button class="ham-btn" onclick="toggleMobileMenu()" id="ham-btn" aria-label="Menu">
-      <span></span><span></span><span></span>
+    <button class="sidebar-close" onclick="closeSidebar()" title="Fechar menu">✕</button>
+  </div>
+
+  <!-- 📊 ANÁLISE -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Análise</div>
+    <button class="snav on" id="snav-dash" onclick="goSide('dash')">
+      <span class="snav-icon">📊</span> Dashboard
+    </button>
+    <button class="snav" id="snav-invest" onclick="goSide('invest')">
+      <span class="snav-icon">📈</span> Investimentos
     </button>
   </div>
-</nav>
 
-<!-- MOBILE MENU -->
-<div class="mobile-menu" id="mobile-menu">
-  <button class="mobile-ntab on" onclick="go('dash',document.querySelector('.ntab'));closeMobileMenu()">📊 Dashboard</button>
-  <button class="mobile-ntab" onclick="go('entradas',document.querySelectorAll('.ntab')[1]);closeMobileMenu()">💰 Entradas</button>
-  <button class="mobile-ntab" onclick="go('carteira',document.querySelectorAll('.ntab')[2]);closeMobileMenu()">💼 Carteira</button>
-  <button class="mobile-ntab" onclick="go('saidas',document.querySelectorAll('.ntab')[3]);closeMobileMenu()">💸 Saídas</button>
-  <button class="mobile-ntab" onclick="go('invest',document.querySelectorAll('.ntab')[4]);closeMobileMenu()">📈 Investimentos</button>
-  <button class="mobile-ntab" onclick="go('faturas',document.querySelectorAll('.ntab')[5]);closeMobileMenu()">✅ Faturas</button>
-  <button class="mobile-ntab" onclick="go('perfil',document.querySelectorAll('.ntab')[6]);closeMobileMenu()">👤 Perfil</button>
-  <button class="mobile-ntab" id="mm-admin" onclick="go('admin',document.getElementById('tab-admin'));closeMobileMenu()" style="display:none">⚙️ Admin</button>
-  <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px">
-    <button class="nbtn nbtn-pri" onclick="document.getElementById('btn-salvar').click();closeMobileMenu()" style="flex:1">Salvar</button>
-    <button class="nbtn nbtn-danger" onclick="document.getElementById('btn-sair').click()" style="flex:1">Sair</button>
+  <!-- 💰 FINANÇAS -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Finanças</div>
+    <button class="snav" id="snav-entradas" onclick="goSide('entradas')">
+      <span class="snav-icon">💰</span> Entradas
+    </button>
+    <button class="snav" id="snav-carteira" onclick="goSide('carteira')">
+      <span class="snav-icon">💼</span> Carteira
+    </button>
+    <button class="snav" id="snav-saidas" onclick="goSide('saidas')">
+      <span class="snav-icon">💸</span> Saídas
+    </button>
+    <button class="snav" id="snav-faturas" onclick="goSide('faturas')">
+      <span class="snav-icon">✅</span> Faturas
+    </button>
+  </div>
+
+  <!-- 👤 PESSOAL -->
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Pessoal</div>
+    <button class="snav" id="snav-perfil" onclick="goSide('perfil')">
+      <span class="snav-icon">👤</span> Meu Perfil
+    </button>
+  </div>
+
+  <!-- ⚙️ SISTEMA (só admin) -->
+  <div class="sidebar-section" id="sidebar-admin-section" style="display:none">
+    <div class="sidebar-section-label">Sistema</div>
+    <button class="snav" id="snav-admin" onclick="goSide('admin')">
+      <span class="snav-icon">👥</span> Usuários
+    </button>
+    <button class="snav" id="snav-config" onclick="goSide('config')">
+      <span class="snav-icon">⚙️</span> Configurações
+    </button>
+  </div>
+
+  <div class="sidebar-footer">
+    <button class="snav" onclick="document.getElementById('btn-salvar').click();closeSidebar()"
+      style="color:var(--accent);font-weight:700">
+      <span class="snav-icon">💾</span> Salvar dados
+    </button>
+    <button class="snav" onclick="document.getElementById('btn-sair').click()"
+      style="color:var(--neg)">
+      <span class="snav-icon">🚪</span> Sair
+    </button>
   </div>
 </div>
+
+<!-- ████ NAV ████ -->
+<nav id="nav">
+  <button class="nav-toggle-btn" onclick="openSidebar()" id="nav-toggle" title="Menu">☰</button>
+  <div class="nav-title-area">
+    <div class="nav-brand-icon" style="width:28px;height:28px;border-radius:var(--r8);background:linear-gradient(135deg,var(--accent),#60A5FA);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0">₿</div>
+    <span class="nav-brand-name" style="font-size:14px">Finanças<span>PRO</span></span>
+    <span id="nav-breadcrumb" style="font-size:11px;color:var(--text3)">/ Dashboard</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Tema">🌙</button>
+    <button class="nbtn nbtn-pri" id="btn-salvar" style="height:32px;font-size:12px;padding:0 14px">Salvar</button>
+    <!-- Profile trigger -->
+    <div class="profile-trigger" id="profile-trigger" onclick="toggleProfileDropdown()">
+      <div class="profile-avatar" id="nav-avatar">?</div>
+      <span class="profile-name" id="nav-username">...</span>
+      <span class="profile-role-badge" id="nav-role-badge">User</span>
+      <span style="font-size:10px;color:var(--text3);margin-left:2px">▾</span>
+      <!-- Profile dropdown -->
+      <div class="profile-dropdown" id="profile-dropdown" onclick="event.stopPropagation()">
+        <div class="profile-dropdown-header">
+          <div class="profile-dropdown-name" id="pd-name">...</div>
+          <div class="profile-dropdown-email" id="pd-email">...</div>
+          <div class="profile-dropdown-role" id="pd-role"></div>
+        </div>
+        <!-- Role switch (admin only) -->
+        <div id="pd-role-switch-section" style="display:none">
+          <div class="pd-role-switch">Alternar perfil</div>
+          <button class="pd-item" id="pd-switch-admin" onclick="switchRole('superadmin')">
+            ⚙️ Administrador
+          </button>
+          <button class="pd-item" id="pd-switch-user" onclick="switchRole('user')">
+            👤 Usuário
+          </button>
+          <div class="pd-separator"></div>
+        </div>
+        <button class="pd-item" onclick="goSide('perfil');closeProfileDropdown()">
+          👤 Meu Perfil
+        </button>
+        <button class="pd-item" onclick="document.getElementById('btn-salvar').click();closeProfileDropdown()">
+          💾 Salvar dados
+        </button>
+        <div class="pd-separator"></div>
+        <button class="pd-item danger" id="btn-sair-pd">
+          🚪 Sair da conta
+        </button>
+      </div>
+    </div>
+    <button id="btn-sair" style="display:none"></button>
+  </div>
+</nav>
 
 
 <!-- ████ DASHBOARD ████ -->
@@ -561,6 +789,7 @@ select{cursor:pointer;}
     <div class="msel" id="dash-months"></div>
     <div id="dash-sec-label" class="sec-label mb">Resumo de Mai/26</div>
     <div class="gcards" id="mes-cards"></div>
+    <div id="mes-progresso"></div>
     <div class="divider"><span class="divider-text">Gastos por categoria</span></div>
     <div class="gcards" id="mes-cat-cards"></div>
     <div class="divider"><span class="divider-text">Cartões</span></div>
@@ -820,54 +1049,57 @@ select{cursor:pointer;}
   </div>
 </div>
 
-<!-- ████ ADMIN ████ -->
+<!-- ████ ADMIN — GESTÃO DE USUÁRIOS ████ -->
 <div class="page" id="page-admin">
-  <div style="margin-bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
     <div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">Painel de Administração</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:4px">Gerencie todos os usuários do sistema</div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">👥 Gestão de Usuários</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Administre todos os usuários do sistema</div>
     </div>
-    <div id="admin-quick-stats" style="display:flex;gap:10px"></div>
-  </div>
-
-  <div class="g2 mb">
-    <div class="ebox pos-border">
-      <h3>➕ Criar novo usuário</h3>
-      <p>Cada usuário terá seu próprio espaço financeiro totalmente separado.</p>
-      <div class="alert-inline alert-err" id="adm-err"></div>
-      <div class="alert-inline alert-ok" id="adm-ok"></div>
-      <div class="field"><label class="flabel">Nome de exibição</label><input type="text" id="adm-name" placeholder="Ex: Maria Silva"></div>
-      <div class="field"><label class="flabel">E-mail</label><input type="email" id="adm-email" placeholder="maria@email.com"></div>
-      <div class="field"><label class="flabel">Senha inicial</label><input type="password" id="adm-pass" placeholder="Mínimo 6 caracteres"></div>
-      <div class="field"><label class="flabel">Perfil</label>
-        <select id="adm-role">
-          <option value="user">👤 Usuário comum</option>
-          <option value="superadmin">⚙️ Super Admin</option>
-        </select>
-      </div>
-      <button class="btn btn-pri" id="btn-criar-user" style="width:100%;height:40px">Criar usuário</button>
-    </div>
-    <div class="ebox">
-      <h3>📊 Estatísticas</h3>
-      <p>Visão geral dos usuários cadastrados.</p>
-      <div id="adm-stats"></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div id="admin-quick-stats" style="display:flex;gap:10px"></div>
+      <button class="btn btn-pri" onclick="abrirModalCriarUser()" style="height:38px">+ Novo usuário</button>
     </div>
   </div>
 
+  <!-- Tabela de usuários -->
   <div class="panel">
     <div class="panel-head">
-      <span class="panel-title">👥 Usuários cadastrados</span>
+      <span class="panel-title">📋 Usuários cadastrados</span>
       <button class="btn btn-ghost" onclick="reloadAdmin(this)" style="height:30px;font-size:12px">↺ Atualizar</button>
     </div>
     <div class="scroll">
       <table>
-        <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Criado em</th><th>Ações</th></tr></thead>
-        <tbody id="adm-tbody"><tr><td colspan="5"><div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Carregando usuários...</div></div></td></tr></tbody>
+        <thead><tr><th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Criado em</th><th>Último acesso</th><th>Ações</th></tr></thead>
+        <tbody id="adm-tbody"><tr><td colspan="6"><div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Carregando...</div></div></td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <!-- Modal Reset -->
+  <!-- Modal Criar/Editar Usuário -->
+  <div class="modal-overlay" id="modal-user">
+    <div class="modal-box" style="max-width:480px">
+      <div class="modal-title" id="modal-user-title">➕ Novo Usuário</div>
+      <div class="modal-sub" id="modal-user-sub">Preencha os dados do novo usuário</div>
+      <div class="alert-inline alert-err" id="modal-user-err"></div>
+      <div class="alert-inline alert-ok" id="modal-user-ok"></div>
+      <div class="field"><label class="flabel">Nome de exibição</label><input type="text" id="mu-name" placeholder="Ex: João Silva"></div>
+      <div class="field"><label class="flabel">E-mail</label><input type="email" id="mu-email" placeholder="joao@email.com"></div>
+      <div id="mu-pass-section" class="field"><label class="flabel">Senha inicial</label><input type="password" id="mu-pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="field"><label class="flabel">Perfil de acesso</label>
+        <select id="mu-role">
+          <option value="user">👤 Usuário — acesso ao próprio painel financeiro</option>
+          <option value="superadmin">⚙️ Administrador — acesso total ao sistema</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="fecharModalUser()">Cancelar</button>
+        <button class="btn btn-pri" id="btn-salvar-user">Criar usuário</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Reset Senha -->
   <div class="modal-overlay" id="modal-reset">
     <div class="modal-box">
       <div class="modal-title">🔐 Redefinir senha</div>
@@ -881,6 +1113,89 @@ select{cursor:pointer;}
     </div>
   </div>
 </div>
+
+<!-- ████ CONFIGURAÇÕES DO SISTEMA ████ -->
+<div class="page" id="page-config">
+  <div style="margin-bottom:24px">
+    <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">⚙️ Configurações do Sistema</div>
+    <div style="font-size:13px;color:var(--text2);margin-top:4px">Parâmetros globais e configurações avançadas</div>
+  </div>
+
+  <div class="g2 mb">
+    <!-- Gestão de Meses -->
+    <div class="ebox accent-border">
+      <h3>📅 Gestão de Meses do Planejamento</h3>
+      <p>Controle os meses disponíveis no sistema. Adicione anos inteiros ou remova períodos não utilizados.</p>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Anos no planejamento</div>
+      <div id="config-anos-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+      <div class="act">
+        <button class="btn btn-pos" onclick="addAno()">+ Adicionar ano</button>
+        <button class="btn btn-neg" id="btn-remove-ano" onclick="removerUltimoAno()">− Remover último ano</button>
+      </div>
+    </div>
+
+    <!-- Ciclo mensal -->
+    <div class="ebox warn-border">
+      <h3>🔄 Ciclo Mensal</h3>
+      <p>Configure o dia de corte para troca automática do mês de referência. Cada usuário pode ter seu próprio ciclo.</p>
+      <div class="field">
+        <label class="flabel">Dia de corte do ciclo (1–28)</label>
+        <input type="number" id="config-diacorte" min="1" max="28" step="1"
+          onchange="D.diaCorte=parseInt(this.value)||20;scheduleAutoSave();renderCarteira()"
+          style="max-width:100px">
+        <div style="font-size:11px;color:var(--text2);margin-top:5px;line-height:1.5">
+          A partir deste dia o sistema considera o mês seguinte como mês de referência.
+          Hoje é dia <strong id="config-hoje"></strong>.
+        </div>
+      </div>
+      <div style="padding:10px 14px;background:var(--card2);border-radius:var(--r8);font-size:12px;color:var(--text2)">
+        🔄 Mês de referência atual: <strong id="config-mes-ref" style="color:var(--accent)">—</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2 mb">
+    <!-- Meta CC e Investimento -->
+    <div class="ebox teal-border">
+      <h3>🎯 Parâmetros Financeiros</h3>
+      <p>Configure os limites e metas base do sistema financeiro.</p>
+      <div class="field">
+        <label class="flabel">Meta conta corrente (R$)</label>
+        <input type="number" id="config-metaCC" step="100"
+          onchange="D.metaCC=parseFloat(this.value)||2000;scheduleAutoSave();renderAll()">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Valor mínimo que você mantém em CC para cálculo do disponível para investir.</div>
+      </div>
+      <div class="field">
+        <label class="flabel">Saldo conta corrente atual (R$)</label>
+        <input type="number" id="config-saldo" step="100"
+          onchange="D.saldo=parseFloat(this.value)||0;scheduleAutoSave()">
+      </div>
+    </div>
+
+    <!-- Metas ARCA -->
+    <div class="ebox" style="border-color:rgba(139,92,246,.2)">
+      <h3>🏛️ Metas ARCA Padrão</h3>
+      <p>Percentuais alvo para cada bucket de investimento. Só aplicados após reserva de emergência completa.</p>
+      <div class="field"><label class="flabel">A — Ações Brasileiras (%)</label><input type="number" id="config-arca-a" step="1" min="0" max="100" onchange="D.arcaMeta.a=parseFloat(this.value)||0;scheduleAutoSave()"></div>
+      <div class="field"><label class="flabel">R — Real Estate / FIIs (%)</label><input type="number" id="config-arca-r" step="1" min="0" max="100" onchange="D.arcaMeta.r=parseFloat(this.value)||0;scheduleAutoSave()"></div>
+      <div class="field"><label class="flabel">C — Caixa (%)</label><input type="number" id="config-arca-c" step="1" min="0" max="100" onchange="D.arcaMeta.c=parseFloat(this.value)||0;scheduleAutoSave()"></div>
+      <div class="field"><label class="flabel">A — Ativos Internacionais (%)</label><input type="number" id="config-arca-a2" step="1" min="0" max="100" onchange="D.arcaMeta.a2=parseFloat(this.value)||0;scheduleAutoSave()"></div>
+      <div style="font-size:11px;color:var(--text2);padding:8px;background:var(--card2);border-radius:var(--r8)" id="config-arca-sum"></div>
+    </div>
+  </div>
+
+  <!-- Zona de perigo -->
+  <div class="ebox neg-border">
+    <h3>⚠️ Zona de Perigo</h3>
+    <p>Ações irreversíveis. Use com cuidado.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-neg" onclick="if(confirm('Apagar todos os dados financeiros?')){db.collection(\'userData\').doc(_user.uid).delete().catch(()=>{});D=migrateData(null);selDash=0;renderAll();toast(\'Dados apagados.\');}">
+        🗑️ Apagar dados financeiros
+      </button>
+    </div>
+  </div>
+</div>
+
 
 <!-- TOAST -->
 <div id="toast"></div>
@@ -1013,85 +1328,47 @@ window._renderAdmin=function(){
   if(_role!=='superadmin')return;
   db.collection('users').get().then(snap=>{
     const users=[];snap.forEach(d=>users.push({uid:d.id,...d.data()}));
+    users.sort((a,b)=>(a.displayName||a.email||'').localeCompare(b.displayName||b.email||''));
 
     // Quick stats
     const qs=document.getElementById('admin-quick-stats');
     if(qs)qs.innerHTML=`
-      <div class="mcard mcard-accent" style="padding:12px 16px;min-width:100px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--accent)">${users.length}</div>
-        <div style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Total</div>
+      <div class="mcard mcard-accent" style="padding:10px 14px;min-width:80px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:var(--accent)">${users.length}</div>
+        <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Total</div>
       </div>
-      <div class="mcard" style="padding:12px 16px;min-width:100px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--info)">${users.filter(u=>u.role==='superadmin').length}</div>
-        <div style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Admins</div>
+      <div class="mcard" style="padding:10px 14px;min-width:80px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:var(--info)">${users.filter(u=>u.role==='superadmin').length}</div>
+        <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Admins</div>
       </div>
-      <div class="mcard" style="padding:12px 16px;min-width:100px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--pos)">${users.filter(u=>u.role!=='superadmin').length}</div>
-        <div style="font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Usuários</div>
-      </div>
-    `;
-
-    const st=document.getElementById('adm-stats');
-    if(st)st.innerHTML=`
-      <div class="pstat"><span class="pstat-label">Total de usuários</span><strong>${users.length}</strong></div>
-      <div class="pstat"><span class="pstat-label">Super Admins</span><span class="badge badge-admin">${users.filter(u=>u.role==='superadmin').length}</span></div>
-      <div class="pstat"><span class="pstat-label">Usuários comuns</span><span class="badge badge-user">${users.filter(u=>u.role!=='superadmin').length}</span></div>
-    `;
+      <div class="mcard" style="padding:10px 14px;min-width:80px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:var(--pos)">${users.filter(u=>u.role!=='superadmin').length}</div>
+        <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Usuários</div>
+      </div>`;
 
     const tb=document.getElementById('adm-tbody');
     if(tb)tb.innerHTML=users.length?users.map(u=>{
       const dt=u.createdAt?new Date(u.createdAt).toLocaleDateString('pt-BR'):'—';
       const isSelf=u.uid===_user.uid;
+      const initial=(u.displayName||u.email||'?').charAt(0).toUpperCase();
+      const isAdmin=u.role==='superadmin';
       return `<tr>
-        <td><div style="display:flex;align-items:center;gap:8px">
-          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#60A5FA);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${(u.displayName||u.email||'?').charAt(0).toUpperCase()}</div>
-          <strong>${u.displayName||'—'}</strong>
+        <td><div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,${isAdmin?'var(--accent)':'var(--pos)'},${isAdmin?'#60A5FA':'#059669'});display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${initial}</div>
+          <div><div style="font-weight:600;font-size:13px">${u.displayName||'—'}${isSelf?' <span style="font-size:10px;color:var(--accent)">(você)</span>':''}</div></div>
         </div></td>
-        <td style="color:var(--text2)">${u.email||'—'}</td>
-        <td><span class="badge ${u.role==='superadmin'?'badge-admin':'badge-user'}">${u.role==='superadmin'?'⚙️ Admin':'👤 Usuário'}</span></td>
+        <td style="color:var(--text2);font-size:12px">${u.email||'—'}</td>
+        <td><span class="badge ${isAdmin?'badge-admin':'badge-user'}">${isAdmin?'⚙️ Admin':'👤 Usuário'}</span></td>
         <td style="color:var(--text2);font-size:12px">${dt}</td>
+        <td style="color:var(--text3);font-size:11px">—</td>
         <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-info" style="height:28px;font-size:11px" onclick="openReset('${u.uid}','${u.email||u.uid}')">🔐 Redefinir senha</button>
-          ${!isSelf?`<button class="btn btn-neg" style="height:28px;font-size:11px" onclick="delUser('${u.uid}','${u.displayName||u.email}')">🗑️ Remover</button>`:'<span style="font-size:11px;color:var(--text2);padding:4px 8px">você</span>'}
+          <button class="btn btn-accent" style="height:28px;font-size:11px" onclick="abrirModalEditarUser('${u.uid}','${(u.displayName||'').replace(/'/g,"\\'")}','${u.email||''}','${u.role||'user'}')">✏️ Editar</button>
+          <button class="btn btn-info" style="height:28px;font-size:11px" onclick="openReset('${u.uid}','${u.email||u.uid}')">🔐 Senha</button>
+          ${!isSelf?`<button class="btn btn-neg" style="height:28px;font-size:11px" onclick="delUser('${u.uid}','${(u.displayName||u.email||'').replace(/'/g,"\\'")}')">🗑️</button>`:''}
         </div></td>
       </tr>`;
-    }).join(''):`<tr><td colspan="5"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Nenhum usuário encontrado</div></div></td></tr>`;
+    }).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Nenhum usuário encontrado</div></div></td></tr>`;
   }).catch(e=>console.error(e));
-};
-
-document.getElementById('btn-criar-user').onclick=function(){
-  const name=document.getElementById('adm-name').value.trim();
-  const email=document.getElementById('adm-email').value.trim();
-  const pass=document.getElementById('adm-pass').value;
-  const role=document.getElementById('adm-role').value;
-  if(!name||!email||!pass){showAlert('adm-err','Preencha todos os campos.');return;}
-  if(pass.length<6){showAlert('adm-err','Senha mínima de 6 caracteres.');return;}
-  this.disabled=true;this.textContent='Criando...';
-  const self=this;
-  // App secundário isolado — não afeta a sessão do admin logado
-  const secName='__fp_sec_'+Date.now();
-  const sec=firebase.initializeApp(firebase.app().options, secName);
-  sec.auth().createUserWithEmailAndPassword(email,pass).then(cred=>{
-    const uid=cred.user.uid;
-    // Cria perfil do usuário
-    return db.collection('users').doc(uid).set({
-      email,displayName:name,role,uid,createdAt:new Date().toISOString()
-    }).then(()=>{
-      // Cria userData vazio para o novo usuário
-      return db.collection('userData').doc(uid).set({
-        data: JSON.stringify(JSON.parse(JSON.stringify(BLANK||{salario:0,outras:0,saldo:0,cdi12:14.80,cdifev:1.21,cdi26:3.41,ipca12:4.14,ipcafev:0.88,ipca26:1.92,arcaMeta:{a:25,r:25,c:25,a2:25},metaCC:2000,meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26','Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27','Set/27','Out/27','Nov/27','Dez/27'],invManual:Array(20).fill(null),cartoes:[],dividas:[],ativos:[],pagamentos:{}}))),
-        updatedAt:new Date().toISOString(),v:3,createdAt:new Date().toISOString()
-      });
-    }).then(()=>sec.auth().signOut());
-  }).then(()=>{
-    ['adm-name','adm-email','adm-pass'].forEach(id=>document.getElementById(id).value='');
-    showAlert('adm-ok','✓ Usuário criado com sucesso!',true);
-    window._renderAdmin();
-    toast('Usuário criado com sucesso!');
-  }).catch(e=>{
-    const m={'auth/email-already-in-use':'Este e-mail já está em uso.','auth/invalid-email':'E-mail inválido.'};
-    showAlert('adm-err',m[e.code]||e.message);
-  }).finally(()=>{self.disabled=false;self.textContent='Criar usuário';});
 };
 
 function openReset(uid,email){
@@ -1161,7 +1438,6 @@ function delUser(uid,name){
 /* ── Auth State ── */
 auth.onAuthStateChanged(function(user){
   if(!user){
-    // Usa replace para não criar histórico de navegação (evita loop com botão voltar)
     window.location.replace('index.html');
     return;
   }
@@ -1170,23 +1446,41 @@ auth.onAuthStateChanged(function(user){
   db.collection('users').doc(user.uid).get().then(snap=>{
     _userDoc=snap.exists?snap.data():{displayName:user.email,email:user.email,role:'user'};
     _role=_userDoc.role||'user';
+    _currentRole=_role; // sync global role
 
-    // Update nav
-    const av=document.getElementById('nav-avatar');
-    const un=document.getElementById('nav-username');
     const initial=(_userDoc.displayName||user.email).charAt(0).toUpperCase();
-    if(av)av.textContent=initial;
-    if(un)un.textContent=_userDoc.displayName||user.email;
+    const isAdmin=_role==='superadmin';
 
-    if(_role==='superadmin'){
-      const t=document.getElementById('tab-admin');
-      if(t)t.style.display='';
-    }
+    // Update avatar + name
+    const av=document.getElementById('nav-avatar');if(av)av.textContent=initial;
+    const un=document.getElementById('nav-username');if(un)un.textContent=_userDoc.displayName||user.email;
+
+    // Update profile dropdown
+    const pdName=document.getElementById('pd-name');if(pdName)pdName.textContent=_userDoc.displayName||'—';
+    const pdEmail=document.getElementById('pd-email');if(pdEmail)pdEmail.textContent=user.email;
+    const pdRole=document.getElementById('pd-role');
+    if(pdRole)pdRole.innerHTML=`<span class="profile-role-badge" style="background:${isAdmin?'var(--accent)':'var(--card3)'};color:${isAdmin?'#fff':'var(--text2)'};font-size:10px;padding:2px 8px;border-radius:99px;font-weight:700">${isAdmin?'⚙️ Administrador':'👤 Usuário'}</span>`;
+
+    // Role badge in nav
+    const badge=document.getElementById('nav-role-badge');
+    if(badge){badge.textContent=isAdmin?'Admin':'User';badge.style.background=isAdmin?'var(--accent)':'var(--card3)';badge.style.color=isAdmin?'#fff':'var(--text2)';}
+
+    // Show role switch section (admins only)
+    const rss=document.getElementById('pd-role-switch-section');if(rss)rss.style.display=isAdmin?'':'none';
+
+    // Show admin sidebar section
+    const adminSec=document.getElementById('sidebar-admin-section');if(adminSec)adminSec.style.display=isAdmin?'':'none';
+
+    // Wire btn-sair
+    document.getElementById('btn-sair').onclick=function(){this.textContent='Saindo...';this.disabled=true;auth.signOut().finally(()=>window.location.href='index.html');};
+    const bsPd=document.getElementById('btn-sair-pd');if(bsPd)bsPd.onclick=()=>document.getElementById('btn-sair').click();
+
     return db.collection('userData').doc(user.uid).get();
   }).then(snap=>{
-    D=migrateData(snap&&snap.exists&&snap.data().data?JSON.parse(snap.data().data):null);
+    D=migrateData(snap&&snap.exists&&snap.data()?.data?JSON.parse(snap.data().data):null);
+    // Restore mesRefIdx from saved data
+    if(D.mesRefIdx!==undefined) mesRefIdx=D.mesRefIdx;
 
-    // Hide loading
     const lo=document.getElementById('load');
     if(lo){lo.classList.add('out');setTimeout(()=>lo.style.display='none',500);}
 
