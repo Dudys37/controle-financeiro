@@ -607,14 +607,25 @@ select{cursor:pointer;}
   <div class="etop" style="gap:14px;margin-bottom:14px">
     <div class="ebox accent-border">
       <h3>🏦 Saldo &amp; Conta</h3>
-      <p>Configure seu saldo atual e a meta de conta corrente. As entradas são gerenciadas na aba <strong>💰 Entradas</strong>.</p>
+      <p>Configure seu saldo atual, a meta de conta corrente e o dia de corte do ciclo mensal.</p>
       <div class="field"><label class="flabel">Saldo conta corrente (R$)</label>
         <input type="number" id="ef-saldo" step="100" onchange="D.saldo=parseFloat(this.value)||0;scheduleAutoSave()">
       </div>
       <div class="field" style="padding-top:12px;border-top:1px solid var(--border)">
         <label class="flabel" style="color:var(--teal)">🎯 Meta conta corrente (R$)</label>
-        <input type="number" id="ef-metaCC" step="100" onchange="D.metaCC=parseFloat(this.value)||2000;scheduleAutoSave();renderAll()">
+        <input type="number" id="ef-metaCC" step="100" onchange="collectFormFields();scheduleAutoSave();renderAll()">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Valor mínimo que você sempre mantém em CC.</div>
+      </div>
+      <div class="field" style="padding-top:12px;border-top:1px solid var(--border)">
+        <label class="flabel" style="color:var(--accent)">📅 Dia de troca de ciclo (1-31)</label>
+        <input type="number" id="ef-diacorte" min="1" max="31" step="1" onchange="collectFormFields();scheduleAutoSave();renderCarteira()" placeholder="20">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">A partir deste dia o sistema avança automaticamente para o próximo mês.</div>
         <div style="font-size:11px;color:var(--text2);margin-top:5px;line-height:1.5">Valor mínimo que você sempre mantém em CC. O sistema calcula automaticamente quanto sobra para investir.</div>
+      </div>
+      <div class="field" style="padding-top:12px;border-top:1px solid var(--border)">
+        <label class="flabel" style="color:var(--warn)">📅 Dia de corte do ciclo (1-28)</label>
+        <input type="number" id="ef-diacorte" min="1" max="28" step="1" onchange="D.diaCorte=parseInt(this.value)||20;scheduleAutoSave();renderCarteira();renderAll()">
+        <div style="font-size:11px;color:var(--text2);margin-top:5px;line-height:1.5">A partir deste dia o sistema passa a considerar o mês seguinte como mês de referência.</div>
       </div>
     </div>
     <div class="ebox">
