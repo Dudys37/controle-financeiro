@@ -337,8 +337,16 @@ function calcPendenteMes(mi) {
   const pag = D.pagamentos && D.pagamentos[mes] || {};
   let bruto=0, pago=0;
 
-  // Fixas
-  D.fixas.filter(f=>f.ativo&&(f.valor||0)>0).forEach(f=>{
+  // Fixas — respeita período (mesInicio/mesFim) igual ao renderFaturas
+  const {m:mesM, y:mesY} = parseMes(mes);
+  const anosM = mesY*12+mesM;
+  D.fixas.filter(f=>{
+    if(!f.ativo||(f.valor||0)<=0) return false;
+    if(!f.mesInicio&&!f.mesFim) return true; // permanente
+    const desde = f.mesInicio ? parseMes(f.mesInicio) : null;
+    const ate   = f.mesFim    ? parseMes(f.mesFim)    : null;
+    return anosM>=(desde?desde.y*12+desde.m:-Infinity) && anosM<=(ate?ate.y*12+ate.m:Infinity);
+  }).forEach(f=>{
     const v=f.valor||0;
     const id='fx_'+f.id;
     bruto+=v;
