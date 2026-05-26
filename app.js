@@ -1131,19 +1131,39 @@ function renderCartoesTo(el, i) {
     const lim = cartao?.limite||0;
     const itens = cartoes.filter(c=>c.cartao===nomeCartao);
     const totalMes = itens.reduce((s,c)=>s+(calcValsCompra(c)[i]||0),0);
-    const totalAberto = D.compras.filter(c=>c.ativo&&c.cartao===nomeCartao).reduce((s,c)=>s+calcValsCompra(c).reduce((a,v)=>a+v,0),0);
+
+    // Total aberto = soma de TODAS as parcelas futuras e pendentes (não pagas)
+    // Descontamos as faturas que já foram pagas em cada mês
+    let totalAberto = 0;
+    D.compras.filter(c=>c.ativo&&c.cartao===nomeCartao).forEach(c=>{
+      calcValsCompra(c).forEach((v,mi)=>{
+        if(!v) return;
+        // Só conta se não estiver pago
+        if(!isParcelaPaga({cartao:nomeCartao}, mi)) totalAberto+=v;
+      });
+    });
+
     const pctUsado = lim>0?Math.min(100,Math.round((totalAberto/lim)*100)):null;
     const barCor = pctUsado===null?'#6B7280':pctUsado>=80?'#EF4444':pctUsado>=50?'#F59E0B':'#10B981';
     const cardCls = pctUsado!==null&&pctUsado>=80?'alert-card':pctUsado!==null&&pctUsado>=50?'warn-card':'';
+
+    // Fatura deste mês — quanto ainda está pendente
+    const fatMesId = 'cc_'+nomeCartao.replace(/\s/g,'_')+'_'+i;
+    const mesPag = D.pagamentos?.[D.meses[i]]||{};
+    const mesPago = !!mesPag[fatMesId];
+
     return `<div class="cc-card ${cardCls}">
       <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${cor};border-radius:var(--r16) var(--r16) 0 0"></div>
-      <div class="cc-name" style="margin-top:8px"><span style="font-size:18px">💳</span> ${nomeCartao}</div>
+      <div class="cc-name" style="margin-top:8px"><span style="font-size:18px">💳</span> ${nomeCartao} ${mesPago?'<span style="font-size:11px;color:var(--pos)">✅ pago</span>':''}</div>
       <div class="cc-amounts">
-        <div class="cc-amounts-left"><div class="lbl">Fatura ${D.meses[i]||''}</div><div class="val">${fmt(totalMes)}</div></div>
-        ${lim>0?`<div class="cc-amounts-right"><div class="lbl">Livre</div><div class="val">${fmt(Math.max(0,lim-totalAberto))}</div></div>`:''}
+        <div class="cc-amounts-left">
+          <div class="lbl">Fatura ${D.meses[i]||''}</div>
+          <div class="val" style="${mesPago?'text-decoration:line-through;color:var(--text2)':''}">${fmt(totalMes)}</div>
+        </div>
+        ${lim>0?`<div class="cc-amounts-right"><div class="lbl">Limite livre</div><div class="val" style="color:var(--pos)">${fmt(Math.max(0,lim-totalAberto))}</div></div>`:''}
       </div>
       ${lim>0?`<div class="cc-bar"><div class="cc-bar-fill" style="width:${pctUsado}%;background:${barCor}"></div></div>
-      <div class="cc-meta"><span>Total aberto: <strong>${fmt(totalAberto)}</strong></span><span>Limite: <strong>${fmt(lim)}</strong> · <strong>${pctUsado}%</strong> usado</span></div>`:''}
+      <div class="cc-meta"><span>Em aberto: <strong>${fmt(totalAberto)}</strong></span><span>Limite: <strong>${fmt(lim)}</strong> · <strong style="color:${barCor}">${pctUsado}%</strong></span></div>`:''}
       <div class="cc-parcelas">${itens.map(c=>`<span class="cc-chip-sml">${c.nome}: ${fmtK(calcValsCompra(c)[i])}</span>`).join('')}</div>
     </div>`;
   }).join('');
@@ -1153,7 +1173,6 @@ function renderCartoesTo(el, i) {
 function renderCarteira() {
   const el=document.getElementById('ef-saldo');if(el)el.value=D.saldo||0;
   const mc=document.getElementById('ef-metaCC');if(mc)mc.value=D.metaCC||2000;
-  const dc2=document.getElementById('ef-diacorte');if(dc2)dc2.value=D.diaCorte||20;
   const dc=document.getElementById('ef-diacorte');if(dc)dc.value=D.diaCorte||20;
 
   // Mês de referência
@@ -1738,8 +1757,15 @@ function renderFaturas() {
 
   const pag=D.pagamentos&&D.pagamentos[mes]||{};
 
-  // ── CONTAS FIXAS (uma linha por conta, não agrupadas) ──
-  const fixasDoMes = D.fixas.filter(f=>f.ativo && (f.valor||0)>0);
+  // ── CONTAS FIXAS — só mostra as que estão ativas neste mês ──
+  const fixasDoMes = D.fixas.filter(f=>{
+    if(!f.ativo||(f.valor||0)<=0) return false;
+    if(!f.mesInicio&&!f.mesFim) return true; // permanente
+    const {m,y}=parseMes(mes);const anosM=y*12+m;
+    const desde=f.mesInicio?parseMes(f.mesInicio):null;
+    const ate=f.mesFim?parseMes(f.mesFim):null;
+    return anosM>=(desde?desde.y*12+desde.m:-Infinity)&&anosM<=(ate?ate.y*12+ate.m:Infinity);
+  });
 
   // ── FATURAS DE CARTÃO: agrupa por cartão ──
   const porCartao = {};
@@ -2067,9 +2093,9 @@ function renderInvestVisao(){
     const mesesDoAno=ativosInv.filter(m=>m.includes('/'+yr.slice(2)));
     if(!mesesDoAno.length) return;
     let totE=0,totC=0,totSobra=0,totInv=0;
+    let temMesNoAno=false;
     mesesDoAno.forEach(m=>{
       const i=D.meses.indexOf(m);
-      if(isSkipped(i)) return; // pula linhas removidas
       if(isExcluido(i)) return; // mês removido pelo usuário
       const r=calcInvest(i);
       const manual=isManual(i);
@@ -2077,8 +2103,15 @@ function renderInvestVisao(){
       const valCalc=invDispCalc(i);
       const icon=r.regra==='negativo'?'🔴':r.regra==='menor_meta'?'🟡':'🟢';
       totE+=r.e; totC+=r.c; totSobra+=r.sobra; totInv+=valFinal;
+      temMesNoAno=true;
       rows.push(`<tr style="${manual?'background:rgba(245,158,11,.06)':''}">
-        <td style="font-weight:500;display:flex;align-items:center;gap:8px">${m}<button onclick="excluirMesInvest(${i})" title="Remover este mês da tabela" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 4px;line-height:1;opacity:.6" onmouseover="this.style.color='var(--neg)';this.style.opacity=1" onmouseout="this.style.color='var(--text3)';this.style.opacity=.6">✕</button></td>
+        <td style="font-weight:500">
+          <span>${m}</span>
+          <button onclick="excluirMesInvest(${i})" title="Remover este mês da tabela"
+            style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 0 0 6px;opacity:.5"
+            onmouseover="this.style.color='var(--neg)';this.style.opacity=1"
+            onmouseout="this.style.color='var(--text3)';this.style.opacity=.5">✕</button>
+        </td>
         <td class="tr tpos">${fmt(r.e)}</td>
         <td class="tr tneg">${fmt(r.c)}</td>
         <td class="tr" style="color:var(--text2)">${fmt(r.sobra)}</td>
@@ -2089,45 +2122,53 @@ function renderInvestVisao(){
             <input type="number" min="0" step="0.01"
               value="${valFinal||''}"
               placeholder="${fmt(valCalc)}"
-              title="${manual?'Valor manual — clique em ↩ para restaurar automático':'Calculado automaticamente — edite para sobrescrever'}"
               style="width:120px;text-align:right;font-weight:700;border-color:${manual?'var(--warn)':'var(--border2)'};color:${manual?'var(--warn)':'var(--teal)'};background:${manual?'var(--warn-bg)':'var(--card2)'}"
               onchange="setManual(${i},this.value);renderInvestVisao()">
           </div>
         </td>
-        <td><button class="btn-rm" title="Remover este mês da tabela" onclick="skipMes(${i})" style="font-size:10px;padding:4px 7px;opacity:.5" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=.5">🗑️</button></td>
       </tr>`);
     });
-    // Linha de subtotal do ano
-    rows.push(`<tr style="background:linear-gradient(90deg,${yr==='2026'?'rgba(59,130,246,.08)':'rgba(139,92,246,.08)'},transparent);font-weight:700;border-top:2px solid ${yr==='2026'?'rgba(59,130,246,.2)':'rgba(139,92,246,.2)'}">
-      <td style="color:${yr==='2026'?'var(--info)':'var(--accent)'};font-size:12px">Σ ${yr}</td>
-      <td class="tr tpos" style="font-size:12px">${fmt(totE)}</td>
-      <td class="tr tneg" style="font-size:12px">${fmt(totC)}</td>
-      <td class="tr" style="color:var(--text2);font-size:12px">${fmt(totSobra)}</td>
-      <td></td>
-      <td class="tr tteal" style="font-size:13px">${fmt(totInv)}</td>
-    </tr>`);
+    // Subtotal do ano (só mostra se tem pelo menos um mês visível)
+    if(temMesNoAno) {
+      const yrCor=yr==='2026'?'rgba(59,130,246,.08)':'rgba(139,92,246,.08)';
+      const yrBord=yr==='2026'?'rgba(59,130,246,.2)':'rgba(139,92,246,.2)';
+      const yrTxt=yr==='2026'?'var(--info)':'var(--accent)';
+      rows.push(`<tr style="background:linear-gradient(90deg,${yrCor},transparent);font-weight:700;border-top:2px solid ${yrBord}">
+        <td style="color:${yrTxt};font-size:12px">Σ ${yr}</td>
+        <td class="tr tpos" style="font-size:12px">${fmt(totE)}</td>
+        <td class="tr tneg" style="font-size:12px">${fmt(totC)}</td>
+        <td class="tr" style="color:var(--text2);font-size:12px">${fmt(totSobra)}</td>
+        <td></td>
+        <td class="tr tteal" style="font-size:13px">${fmt(totInv)}</td>
+      </tr>`);
+    }
   });
-  const tot=ativosInv.reduce((s,m)=>s+invDisp(D.meses.indexOf(m)),0);
+
+  // Meses excluídos — botão para restaurar
+  const excluidos=ativosInv.filter(m=>isExcluido(D.meses.indexOf(m)));
+  const exclHTML=excluidos.length?`<tr><td colspan="6" style="padding:10px 0">
+    <span style="font-size:11px;color:var(--text2);margin-right:6px">Meses removidos:</span>
+    ${excluidos.map(m=>`<button onclick="restaurarMesInvest(${D.meses.indexOf(m)})"
+      style="margin-right:4px;background:var(--card2);border:1px solid var(--border);border-radius:4px;font-size:10px;padding:2px 8px;cursor:pointer;color:var(--text2)">↩ ${sM(m)}</button>`).join('')}
+  </td></tr>`:'';
+
+  const tot=ativosInv.filter(m=>!isExcluido(D.meses.indexOf(m))).reduce((s,m)=>s+invDisp(D.meses.indexOf(m)),0);
   const temManual=ativosInv.some(m=>isManual(D.meses.indexOf(m)));
-  // Meses removidos (skip)
-  const skippedMeses = ativosInv.filter(m=>isSkipped(D.meses.indexOf(m)));
-  const skippedHTML = skippedMeses.length ? `<div style="margin-top:10px;font-size:11px;color:var(--text2)">
-    <strong>Meses removidos:</strong> ${skippedMeses.map(m=>`<button onclick="unskipMes(${D.meses.indexOf(m)})" style="margin-left:4px;background:var(--card2);border:1px solid var(--border);border-radius:4px;font-size:10px;padding:2px 7px;cursor:pointer;color:var(--text2)">↩ ${sM(m)}</button>`).join('')}
-  </div>` : '';
 
   mt.innerHTML=`<thead class="thead-sticky"><tr>
     <th>Mês</th><th class="tr">Entradas</th><th class="tr">Contas</th>
     <th class="tr">Sobra bruta</th><th class="tr">Regra</th>
     <th class="tr" style="color:var(--teal)">
       💰 Disponível p/ investir
-      ${temManual?`<button onclick="resetTodosManual()" title="Restaurar todos os valores automáticos" style="margin-left:6px;background:var(--warn-bg);color:var(--warn);border:1px solid rgba(245,158,11,.3);border-radius:4px;font-size:10px;padding:1px 6px;cursor:pointer;font-family:inherit">↩ resetar tudo</button>`:''}
+      ${temManual?`<button onclick="resetTodosManual()" style="margin-left:6px;background:var(--warn-bg);color:var(--warn);border:1px solid rgba(245,158,11,.3);border-radius:4px;font-size:10px;padding:1px 6px;cursor:pointer;font-family:inherit">↩ resetar tudo</button>`:''}
     </th>
-    <th></th>
   </tr></thead><tbody>${rows.join('')}
   <tr style="background:var(--card2);font-weight:700;border-top:3px solid var(--border2)">
     <td>TOTAL</td><td></td><td></td><td></td><td></td>
     <td class="tr tteal" style="font-size:15px">${fmt(tot)}</td>
-  </tr></tbody>`;
+  </tr>
+  ${exclHTML}
+  </tbody>`;
 }
 
 function renderArca(){
