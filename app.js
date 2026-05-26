@@ -1348,6 +1348,7 @@ function removerFixa(fi){if(!confirm(`Remover "${D.fixas[fi].nome}"?`))return;D.
 
 // Estado das parcelas editáveis no modal
 let _parcelasVals = []; // valores individuais de cada parcela
+let _parcelasCustom = false; // flag: true = valores foram carregados do custom, não redistribuir
 
 function abrirModalCompra(ci=-1) {
   const c=ci>=0?D.compras[ci]:{nome:'',cat:'cartao',cartao:'',valor:0,parcelas:1,dataCompra:new Date().toISOString().slice(0,10),ativo:true};
@@ -1356,68 +1357,111 @@ function abrirModalCompra(ci=-1) {
   document.getElementById('mc-cat').value=c.cat||'cartao';
   document.getElementById('mc-cartao').innerHTML='<option value="">— Sem cartão (débito/pix) —</option>'+D.cartoes.map(ct=>`<option value="${ct.nome}"${c.cartao===ct.nome?' selected':''}>${ct.nome}</option>`).join('');
   document.getElementById('mc-cartao').value=c.cartao||'';
-  document.getElementById('mc-valor').value=c.valor||'';
-  document.getElementById('mc-parcelas').value=c.parcelas||1;
-  document.getElementById('mc-data').value=c.dataCompra||new Date().toISOString().slice(0,10);
-  // Inicializa valores individuais das parcelas
+
   const n=c.parcelas||1;
-  const parcVal=c.valor>0?Math.round((c.valor/n)*100)/100:0;
-  _parcelasVals=Array(n).fill(parcVal);
+
+  // Se _parcelasCustom está true, os valores já foram carregados por editarCompra — não sobrescrever
+  if(!_parcelasCustom) {
+    const parcVal=c.valor>0?Math.round((c.valor/n)*100)/100:0;
+    _parcelasVals=Array(n).fill(parcVal);
+  }
+
+  // Valor total = soma dos valores das parcelas (para mostrar o valor real)
+  const totalReal=Math.round(_parcelasVals.reduce((s,v)=>s+(Math.round((v||0)*100)/100),0)*100)/100;
+  document.getElementById('mc-valor').value=totalReal>0?totalReal.toFixed(2):(c.valor||'');
+  document.getElementById('mc-parcelas').value=n;
+  document.getElementById('mc-data').value=c.dataCompra||new Date().toISOString().slice(0,10);
   document.getElementById('btn-salvar-compra').onclick=()=>salvarCompra(ci);
-  renderParcelasFields();
+  renderParcelasFields(true); // true = não redistribuir
   atualizarPreviewCompra();
 }
 
-function renderParcelasFields() {
+function renderParcelasFields(keepValues=false) {
   const n=parseInt(document.getElementById('mc-parcelas').value)||1;
   const valorTotal=parseFloat(document.getElementById('mc-valor').value)||0;
-  // Redimensiona _parcelasVals
   const parcPadrao=valorTotal>0?Math.round((valorTotal/n)*100)/100:0;
+
+  // Redimensiona sem sobrescrever se keepValues=true
   while(_parcelasVals.length<n) _parcelasVals.push(parcPadrao);
   while(_parcelasVals.length>n) _parcelasVals.pop();
-  // Se valor total foi preenchido e parcelas mudaram, redistribui igualmente
-  if(valorTotal>0) _parcelasVals=_parcelasVals.map(()=>Math.round((valorTotal/n)*100)/100);
+
+  // Só redistribui igualmente se NÃO estiver preservando valores customizados
+  if(!keepValues && !_parcelasCustom && valorTotal>0) {
+    _parcelasVals=Array(n).fill(parcPadrao);
+    if(valorTotal>0){
+      const diff=Math.round((valorTotal-_parcelasVals.reduce((s,v)=>s+v,0))*100);
+      if(diff!==0) _parcelasVals[0]=Math.round((_parcelasVals[0]+diff/100)*100)/100;
+    }
+  }
 
   const container=document.getElementById('mc-parcelas-fields');
   if(!container) return;
   if(n<=1) { container.innerHTML=''; return; }
+
+  const hasCustom=_parcelasVals.some((v,i)=>Math.abs(v-(valorTotal/n))>0.02);
   container.innerHTML=`
-    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">
-      Valores por parcela <span style="color:var(--text3);font-weight:400">(edite individualmente se necessário)</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">
+        Valores por parcela
+      </div>
+      ${hasCustom?`<button type="button" onclick="redistribuirIgual()" style="font-size:10px;color:var(--text3);background:var(--card3);border:1px solid var(--border);border-radius:var(--r8);padding:2px 8px;cursor:pointer">↺ Redistribuir igual</button>`:'<span style="font-size:10px;color:var(--text3)">edite individualmente se necessário</span>'}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px">
       ${_parcelasVals.map((v,i)=>`
         <div>
           <div style="font-size:10px;color:var(--text3);margin-bottom:3px;text-align:center">${i+1}ª parcela</div>
-          <input type="number" min="0" step="0.01" value="${v||''}" placeholder="R$ 0,00"
+          <input type="number" min="0" step="0.01" value="${v?(Math.round(v*100)/100).toFixed(2):''}" placeholder="R$ 0,00"
             style="text-align:right;padding:7px 8px;font-size:13px;font-weight:600"
-            onchange="_parcelasVals[${i}]=parseFloat(this.value)||0;recalcTotalFromParcelas()">
+            onchange="_parcelasVals[${i}]=parseFloat(this.value)||0;_parcelasCustom=true;recalcTotalFromParcelas()">
         </div>`).join('')}
     </div>`;
 }
 
+function redistribuirIgual() {
+  const valor=parseFloat(document.getElementById('mc-valor').value)||0;
+  const n=_parcelasVals.length;
+  if(!valor||!n) return;
+  const parc=Math.round((valor/n)*100)/100;
+  _parcelasVals=Array(n).fill(parc);
+  const diff=Math.round((valor-_parcelasVals.reduce((s,v)=>s+v,0))*100);
+  if(diff!==0) _parcelasVals[0]=Math.round((_parcelasVals[0]+diff/100)*100)/100;
+  _parcelasCustom=false;
+  renderParcelasFields(true);
+}
+
+
 function recalcTotalFromParcelas() {
-  const total=_parcelasVals.reduce((s,v)=>s+(v||0),0);
+  const total=_parcelasVals.reduce((s,v)=>s+(Math.round((v||0)*100)/100),0);
   const el=document.getElementById('mc-valor');
-  if(el) el.value=Math.round(total*100)/100;
+  if(el) el.value=(Math.round(total*100)/100).toFixed(2);
   atualizarPreviewCompra();
 }
 
 function onValorChange() {
+  _parcelasCustom=false; // user typed a new total → redistribute equally
   const valor=parseFloat(document.getElementById('mc-valor').value)||0;
   const n=parseInt(document.getElementById('mc-parcelas').value)||1;
   const parcPadrao=valor>0?Math.round((valor/n)*100)/100:0;
   _parcelasVals=Array(n).fill(parcPadrao);
-  renderParcelasFields();
+  if(valor>0){
+    const diff=Math.round((valor-_parcelasVals.reduce((s,v)=>s+v,0))*100);
+    if(diff!==0) _parcelasVals[0]=Math.round((_parcelasVals[0]+diff/100)*100)/100;
+  }
+  renderParcelasFields(true);
   atualizarPreviewCompra();
 }
 
 function onParcelasChange() {
+  _parcelasCustom=false; // parcelas changed → redistribute equally
   const n=parseInt(document.getElementById('mc-parcelas').value)||1;
   const valor=parseFloat(document.getElementById('mc-valor').value)||0;
   const parcPadrao=valor>0?Math.round((valor/n)*100)/100:0;
   _parcelasVals=Array(n).fill(parcPadrao);
-  renderParcelasFields();
+  if(valor>0){
+    const diff=Math.round((valor-_parcelasVals.reduce((s,v)=>s+v,0))*100);
+    if(diff!==0) _parcelasVals[0]=Math.round((_parcelasVals[0]+diff/100)*100)/100;
+  }
+  renderParcelasFields(true);
   atualizarPreviewCompra();
 }
 
@@ -1448,8 +1492,8 @@ function salvarCompra(ci) {
   const dataCompra=document.getElementById('mc-data').value;
   if(!nome){alert('Informe o nome.');return;}
   // Usa soma das parcelas individuais como valor total
-  const totalParcelas=_parcelasVals.reduce((s,v)=>s+(v||0),0);
-  const valorInput=parseFloat(document.getElementById('mc-valor').value)||0;
+  const totalParcelas=Math.round(_parcelasVals.reduce((s,v)=>s+(Math.round((v||0)*100)/100),0)*100)/100;
+  const valorInput=Math.round((parseFloat(document.getElementById('mc-valor').value)||0)*100)/100;
   const valor=totalParcelas>0?totalParcelas:valorInput;
   if(!valor){alert('Informe o valor.');return;}
   // Armazena os valores individuais das parcelas se foram editados
@@ -1460,13 +1504,20 @@ function salvarCompra(ci) {
   if(parcelasCustom) obj.parcelasCustom=parcelasCustom;
   if(ci>=0) D.compras[ci]=obj; else D.compras.push(obj);
   document.getElementById('modal-compra-overlay').style.display='none';
+  _parcelasCustom=false; // reset flag
   scheduleAutoSave(); renderSaidasVar(); renderAll();
 }
 function editarCompra(ci){
-  // Carrega parcelasCustom se existir
   const c=D.compras[ci];
-  if(c&&c.parcelasCustom) _parcelasVals=[...c.parcelasCustom];
-  else { const n=c?.parcelas||1; const pv=c?.valor>0?Math.round((c.valor/n)*100)/100:0; _parcelasVals=Array(n).fill(pv); }
+  if(c&&c.parcelasCustom&&c.parcelasCustom.length===(c.parcelas||1)){
+    _parcelasVals=[...c.parcelasCustom];
+    _parcelasCustom=true; // protect from redistribution
+  } else {
+    const n=c?.parcelas||1;
+    const pv=c?.valor>0?Math.round((c.valor/n)*100)/100:0;
+    _parcelasVals=Array(n).fill(pv);
+    _parcelasCustom=false;
+  }
   abrirModalCompra(ci);
 }
 function removerCompra(ci){if(!confirm(`Remover "${D.compras[ci].nome}"?`))return;D.compras.splice(ci,1);scheduleAutoSave();renderSaidasVar();}
