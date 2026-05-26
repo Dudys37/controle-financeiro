@@ -454,6 +454,24 @@ function isExcluido(i) {
 }
 
 // ── PAGAMENTOS ────────────────────────────────────
+
+// Verifica se o mês mi de uma compra já foi pago em Faturas
+// Usa a mesma lógica de ID que renderFaturas usa ao agrupar
+function isParcelaPaga(compra, mi) {
+  if(!D.pagamentos) return false;
+  const mes = D.meses[mi];
+  if(!mes) return false;
+  const pag = D.pagamentos[mes] || {};
+  if(compra.cartao) {
+    // Fatura de cartão — ID do grupo
+    const id = 'cc_' + compra.cartao.replace(/\s/g,'_') + '_' + mi;
+    return !!pag[id];
+  } else {
+    // Sem cartão — item individual (sc_idx_mi)
+    // Procura qualquer chave sc_*_mi que bata com esse item
+    return Object.keys(pag).some(k => k.endsWith('_'+mi) && k.startsWith('sc_'));
+  }
+}
 function isPago(id, mi) {
   if(!D.pagamentos) return false;
   const mes=D.meses[mi];
@@ -1320,7 +1338,13 @@ function renderSaidasVar() {
           <button class="btn-rm" onclick="removerCompra(${ci})">✕</button>
         </div>
       </div>
-      ${c.parcelas>1?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:10px">${valsC.map((v,i)=>v>0?`<span class="cc-chip-sml" style="${D.meses[i]===selSaidasMes?'background:var(--accent-glow);color:var(--accent);font-weight:700':''}">${sM(D.meses[i])}: ${fmtK(v)}</span>`:'').filter(Boolean).join('')}</div>`:''}
+      ${c.parcelas>1?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:10px">${valsC.map((v,i)=>{
+        if(!v) return '';
+        const pago=isParcelaPaga(c,i);
+        if(pago) return ''; // oculta meses já pagos
+        return `<span class="cc-chip-sml" style="${D.meses[i]===selSaidasMes?'background:var(--accent-glow);color:var(--accent);font-weight:700':''}">${sM(D.meses[i])}: ${fmtK(v)}</span>`;
+      }).filter(Boolean).join('')}${valsC.some((_,i)=>valsC[i]>0&&isParcelaPaga(c,i))?`<span class="cc-chip-sml" style="background:var(--pos-bg);color:var(--pos)">✅ ${valsC.filter((_,i)=>valsC[i]>0&&isParcelaPaga(c,i)).length} ${valsC.filter((_,i)=>valsC[i]>0&&isParcelaPaga(c,i)).length===1?'mês pago':'meses pagos'}</span>`:''}
+      </div>`:''}
     </div>`;
   }).join('');
 }
@@ -1349,8 +1373,10 @@ function removerFixa(fi){if(!confirm(`Remover "${D.fixas[fi].nome}"?`))return;D.
 // Estado das parcelas editáveis no modal
 let _parcelasVals = []; // valores individuais de cada parcela
 let _parcelasCustom = false; // flag: true = valores foram carregados do custom, não redistribuir
+let _editandoCI = null; // índice da compra sendo editada (null = nova)
 
 function abrirModalCompra(ci=-1) {
+  _editandoCI = ci >= 0 ? ci : null; // rastreia qual compra está sendo editada
   const c=ci>=0?D.compras[ci]:{nome:'',cat:'cartao',cartao:'',valor:0,parcelas:1,dataCompra:new Date().toISOString().slice(0,10),ativo:true};
   document.getElementById('modal-compra-overlay').style.display='flex';
   document.getElementById('mc-nome').value=c.nome;
@@ -1381,11 +1407,9 @@ function renderParcelasFields(keepValues=false) {
   const valorTotal=parseFloat(document.getElementById('mc-valor').value)||0;
   const parcPadrao=valorTotal>0?Math.round((valorTotal/n)*100)/100:0;
 
-  // Redimensiona sem sobrescrever se keepValues=true
   while(_parcelasVals.length<n) _parcelasVals.push(parcPadrao);
   while(_parcelasVals.length>n) _parcelasVals.pop();
 
-  // Só redistribui igualmente se NÃO estiver preservando valores customizados
   if(!keepValues && !_parcelasCustom && valorTotal>0) {
     _parcelasVals=Array(n).fill(parcPadrao);
     if(valorTotal>0){
@@ -1398,22 +1422,53 @@ function renderParcelasFields(keepValues=false) {
   if(!container) return;
   if(n<=1) { container.innerHTML=''; return; }
 
+  // Descobre qual compra está sendo editada para checar pagamentos
+  const ciAtual = _editandoCI != null ? _editandoCI : -1;
+  const compraAtual = ciAtual >= 0 ? D.compras[ciAtual] : null;
+  const cartaoNome = document.getElementById('mc-cartao')?.value || '';
+
+  // Conta meses pagos
+  let mesesPagos = 0;
+  const dataCompra = document.getElementById('mc-data')?.value;
+  const tmpC = { valor: valorTotal, parcelas: n, dataCompra, cartao: cartaoNome, ativo: true };
+  const valsPreview = calcValsCompra(tmpC);
+
   const hasCustom=_parcelasVals.some((v,i)=>Math.abs(v-(valorTotal/n))>0.02);
+
+  // Campos das parcelas — oculta as que já foram pagas
+  const camposParcelas = _parcelasVals.map((v,i) => {
+    // Descobre o mês real desta parcela
+    const mesIdx = valsPreview.findIndex((pv,idx) => pv > 0 && idx >= (i > 0 ? valsPreview.findIndex(x=>x>0) : 0));
+    // Pega todos os índices com valor
+    const idxsComValor = valsPreview.reduce((arr, pv, idx) => pv > 0 ? [...arr, idx] : arr, []);
+    const miReal = idxsComValor[i] !== undefined ? idxsComValor[i] : -1;
+
+    // Verifica se está pago
+    const tmpParaCheck = { cartao: cartaoNome };
+    const pago = miReal >= 0 && isParcelaPaga(tmpParaCheck, miReal);
+    if(pago) { mesesPagos++; return ''; }
+
+    const mesLabel = miReal >= 0 ? ` <span style="font-size:9px;color:var(--text3)">(${sM(D.meses[miReal]||'')})</span>` : '';
+    return `<div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:3px;text-align:center">${i+1}ª${mesLabel}</div>
+      <input type="number" min="0" step="0.01" value="${v?(Math.round(v*100)/100).toFixed(2):''}" placeholder="R$ 0,00"
+        style="text-align:right;padding:7px 8px;font-size:13px;font-weight:600"
+        onchange="_parcelasVals[${i}]=parseFloat(this.value)||0;_parcelasCustom=true;recalcTotalFromParcelas()">
+    </div>`;
+  }).join('');
+
   container.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">
-        Valores por parcela
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">
+          Valores por parcela
+        </div>
+        ${mesesPagos>0?`<div style="font-size:10px;color:var(--pos);margin-top:2px">✅ ${mesesPagos} ${mesesPagos===1?'parcela paga':'parcelas pagas'} oculta${mesesPagos===1?'':'s'}</div>`:''}
       </div>
       ${hasCustom?`<button type="button" onclick="redistribuirIgual()" style="font-size:10px;color:var(--text3);background:var(--card3);border:1px solid var(--border);border-radius:var(--r8);padding:2px 8px;cursor:pointer">↺ Redistribuir igual</button>`:'<span style="font-size:10px;color:var(--text3)">edite individualmente se necessário</span>'}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px">
-      ${_parcelasVals.map((v,i)=>`
-        <div>
-          <div style="font-size:10px;color:var(--text3);margin-bottom:3px;text-align:center">${i+1}ª parcela</div>
-          <input type="number" min="0" step="0.01" value="${v?(Math.round(v*100)/100).toFixed(2):''}" placeholder="R$ 0,00"
-            style="text-align:right;padding:7px 8px;font-size:13px;font-weight:600"
-            onchange="_parcelasVals[${i}]=parseFloat(this.value)||0;_parcelasCustom=true;recalcTotalFromParcelas()">
-        </div>`).join('')}
+      ${camposParcelas}
     </div>`;
 }
 
@@ -1505,6 +1560,7 @@ function salvarCompra(ci) {
   if(ci>=0) D.compras[ci]=obj; else D.compras.push(obj);
   document.getElementById('modal-compra-overlay').style.display='none';
   _parcelasCustom=false; // reset flag
+  _editandoCI=null; // reset editing tracker
   scheduleAutoSave(); renderSaidasVar(); renderAll();
 }
 function editarCompra(ci){
