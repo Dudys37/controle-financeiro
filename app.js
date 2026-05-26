@@ -299,7 +299,21 @@ function calcValsCompra(compra) {
 
 // Total de saídas no mês mi (fixas + compras variáveis)
 function totalFixasMes(mi) {
-  return (D.fixas||[]).reduce((s,f)=>f.ativo?s+(f.valor||0):s, 0);
+  const mes = D.meses[mi];
+  if(!mes) return 0;
+  const {m, y} = parseMes(mes);
+  return (D.fixas||[]).reduce((s,f) => {
+    if(!f.ativo) return s;
+    // Sem período definido = sempre ativa
+    if(!f.mesInicio && !f.mesFim) return s+(f.valor||0);
+    // Verifica se o mês está dentro do período
+    const desde = f.mesInicio ? parseMes(f.mesInicio) : null;
+    const ate   = f.mesFim   ? parseMes(f.mesFim)    : null;
+    const anosM  = y*12+m;
+    const anosI  = desde ? desde.y*12+desde.m : -Infinity;
+    const anosF  = ate   ? ate.y*12+ate.m     :  Infinity;
+    return (anosM >= anosI && anosM <= anosF) ? s+(f.valor||0) : s;
+  }, 0);
 }
 function totalComprasMes(mi) {
   return (D.compras||[]).reduce((s,c)=>s+(calcValsCompra(c)[mi]||0), 0);
@@ -1243,17 +1257,60 @@ function renderSaidas() {
 function renderSaidasFixas() {
   const el=document.getElementById('lista-fixas');if(!el)return;
   if(!D.fixas.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">📌</div><div class="empty-text">Nenhuma conta fixa. Clique em + para adicionar.</div></div>`; return; }
+
+  const hoje = getMesRefIdx();
+
   el.innerHTML=D.fixas.map((f,fi)=>{
     const info=CATS[f.cat]||CATS.outros;
-    return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r12);margin-bottom:8px;${!f.ativo?'opacity:.5':''}">
+    const temPeriodo = !!(f.mesInicio||f.mesFim);
+
+    // Calcula total real respeitando o período
+    const totalReal = D.meses.reduce((s,_,i)=>s+totalFixasMes(i)*0+((()=>{
+      const {m,y}=parseMes(D.meses[i]);
+      const anosM=y*12+m;
+      const desde=f.mesInicio?parseMes(f.mesInicio):null;
+      const ate=f.mesFim?parseMes(f.mesFim):null;
+      const anosI=desde?desde.y*12+desde.m:-Infinity;
+      const anosF=ate?ate.y*12+ate.m:Infinity;
+      return (f.ativo&&anosM>=anosI&&anosM<=anosF)?f.valor:0;
+    })()),0);
+
+    // Período legível
+    const periodoStr = temPeriodo
+      ? `${f.mesInicio||'início'} → ${f.mesFim||'sem fim'}`
+      : 'todo mês, sempre';
+
+    // Verifica se está ativa no mês de referência
+    const ativaAgora = (()=>{
+      if(!temPeriodo) return f.ativo;
+      const mesRef = D.meses[hoje];if(!mesRef)return f.ativo;
+      const {m,y}=parseMes(mesRef);const anosM=y*12+m;
+      const desde=f.mesInicio?parseMes(f.mesInicio):null;
+      const ate=f.mesFim?parseMes(f.mesFim):null;
+      return f.ativo&&anosM>=(desde?desde.y*12+desde.m:-Infinity)&&anosM<=(ate?ate.y*12+ate.m:Infinity);
+    })();
+
+    const mesesAtivos = temPeriodo ? D.meses.filter(m=>{
+      const {m:mm,y}=parseMes(m);const anosM=y*12+mm;
+      const desde=f.mesInicio?parseMes(f.mesInicio):null;
+      const ate=f.mesFim?parseMes(f.mesFim):null;
+      return anosM>=(desde?desde.y*12+desde.m:-Infinity)&&anosM<=(ate?ate.y*12+ate.m:Infinity);
+    }).length : nm();
+
+    return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid ${temPeriodo?'rgba(245,158,11,.2)':'var(--border)'};border-radius:var(--r12);margin-bottom:8px;${!ativaAgora?'opacity:.55':''}">
       <span style="font-size:22px">${info.icon}</span>
       <div style="flex:1">
-        <div style="font-weight:700;font-size:14px">${f.nome} <span class="badge badge-fixo">Fixo</span></div>
-        <div style="font-size:11px;color:var(--text2)">${info.label} · todo mês</div>
+        <div style="font-weight:700;font-size:14px">
+          ${f.nome}
+          <span class="badge badge-fixo">Fixo</span>
+          ${temPeriodo?`<span class="badge" style="background:rgba(245,158,11,.15);color:var(--warn)">📅 Com período</span>`:''}
+          ${!ativaAgora&&temPeriodo?`<span class="badge" style="background:var(--card3);color:var(--text3)">Inativa</span>`:''}
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${info.label} · ${periodoStr}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:20px;font-weight:700;color:var(--neg)">${fmt(f.valor)}</div>
-        <div style="font-size:10px;color:var(--text2)">${fmtK(f.valor*nm())} no período</div>
+        <div style="font-size:20px;font-weight:700;color:${ativaAgora?'var(--neg)':'var(--text3)'}">${fmt(f.valor)}</div>
+        <div style="font-size:10px;color:var(--text2)">${fmtK(totalReal)} total · ${mesesAtivos} meses</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="editarFixa(${fi})">✏️</button>
@@ -1261,9 +1318,13 @@ function renderSaidasFixas() {
       </div>
     </div>`;
   }).join('');
-  // Totais
-  const totFixed=D.fixas.filter(f=>f.ativo).reduce((s,f)=>s+(f.valor||0),0);
-  document.getElementById('fixas-total').textContent=`Total fixo/mês: ${fmt(totFixed)}`;
+
+  // Totais do mês de referência
+  const totRef = totalFixasMes(hoje);
+  const totSempre = D.fixas.filter(f=>f.ativo&&!f.mesInicio&&!f.mesFim).reduce((s,f)=>s+(f.valor||0),0);
+  document.getElementById('fixas-total').innerHTML=
+    `Total fixo mês atual: <strong style="color:var(--neg)">${fmt(totRef)}</strong>`+
+    (D.fixas.some(f=>f.mesInicio||f.mesFim)?` · <span style="color:var(--text3);font-size:11px">${fmt(totSempre)}/mês permanentes</span>`:'');
 }
 let selSaidasMes = ''; // filtro de mês na aba Saídas Variáveis
 
@@ -1282,8 +1343,20 @@ function renderSaidasVar() {
 
   const filtroEl=document.getElementById('var-filtro-meses');
   if(filtroEl) {
+    // Filtra meses onde TODAS as compras com valor naquele mês já foram pagas
+    const mesesPendentes = mesesList.filter(m => {
+      const mi = D.meses.indexOf(m);
+      if(mi < 0) return false;
+      // Tem pelo menos uma compra não paga nesse mês
+      return D.compras.filter(c=>c.ativo).some(c=>{
+        const v = calcValsCompra(c)[mi]||0;
+        return v > 0 && !isParcelaPaga(c, mi);
+      });
+    });
+    // Se o mês selecionado ficou sem pendentes, volta para "Todas"
+    if(selSaidasMes && !mesesPendentes.includes(selSaidasMes)) selSaidasMes='';
     filtroEl.innerHTML=`<button class="msb${selSaidasMes===''?' on':''}" onclick="selSaidasMes='';renderSaidasVar()">Todas</button>`
-      +mesesList.map(m=>`<button class="msb${selSaidasMes===m?' on':''}" onclick="selSaidasMes='${m}';renderSaidasVar()">${sM(m)}</button>`).join('');
+      +mesesPendentes.map(m=>`<button class="msb${selSaidasMes===m?' on':''}" onclick="selSaidasMes='${m}';renderSaidasVar()">${sM(m)}</button>`).join('');
   }
 
   if(!D.compras.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">🔄</div><div class="empty-text">Nenhuma compra/parcela. Clique em + para adicionar.</div></div>`; return; }
@@ -1350,19 +1423,42 @@ function renderSaidasVar() {
 }
 
 function abrirModalFixa(fi=-1) {
-  const f=fi>=0?D.fixas[fi]:{nome:'',cat:'outros',valor:0,ativo:true};
+  const f=fi>=0?D.fixas[fi]:{nome:'',cat:'outros',valor:0,ativo:true,mesInicio:'',mesFim:''};
   document.getElementById('modal-fixa-overlay').style.display='flex';
   document.getElementById('mf-nome').value=f.nome;
   document.getElementById('mf-cat').value=f.cat||'outros';
   document.getElementById('mf-valor').value=f.valor||'';
+  // Período
+  const temPeriodo = !!(f.mesInicio || f.mesFim);
+  const mfTipo = document.getElementById('mf-tipo');
+  if(mfTipo) mfTipo.value = temPeriodo ? 'periodo' : 'sempre';
+  toggleFixaPeriodo();
+  const mfIni = document.getElementById('mf-inicio');
+  const mfFim = document.getElementById('mf-fim');
+  // Popula selects com D.meses
+  const opts = D.meses.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(mfIni) { mfIni.innerHTML='<option value="">— início —</option>'+opts; mfIni.value=f.mesInicio||''; }
+  if(mfFim) { mfFim.innerHTML='<option value="">— fim —</option>'+opts; mfFim.value=f.mesFim||''; }
   document.getElementById('btn-salvar-fixa').onclick=()=>salvarFixa(fi);
 }
+
+function toggleFixaPeriodo() {
+  const tipo = document.getElementById('mf-tipo')?.value;
+  const periodoFields = document.getElementById('mf-periodo-fields');
+  if(periodoFields) periodoFields.style.display = tipo==='periodo' ? '' : 'none';
+}
+
 function salvarFixa(fi) {
   const nome=document.getElementById('mf-nome').value.trim();
   const cat=document.getElementById('mf-cat').value;
   const valor=parseFloat(document.getElementById('mf-valor').value)||0;
+  const tipo=document.getElementById('mf-tipo').value;
   if(!nome){alert('Informe o nome.');return;}
   const obj={id:fi>=0?D.fixas[fi].id:genId('f'),nome,cat,valor,ativo:true};
+  if(tipo==='periodo'){
+    obj.mesInicio = document.getElementById('mf-inicio').value || '';
+    obj.mesFim    = document.getElementById('mf-fim').value    || '';
+  }
   if(fi>=0) D.fixas[fi]=obj; else D.fixas.push(obj);
   document.getElementById('modal-fixa-overlay').style.display='none';
   scheduleAutoSave(); renderSaidasFixas(); renderAll();
@@ -1422,54 +1518,73 @@ function renderParcelasFields(keepValues=false) {
   if(!container) return;
   if(n<=1) { container.innerHTML=''; return; }
 
-  // Descobre qual compra está sendo editada para checar pagamentos
-  const ciAtual = _editandoCI != null ? _editandoCI : -1;
-  const compraAtual = ciAtual >= 0 ? D.compras[ciAtual] : null;
   const cartaoNome = document.getElementById('mc-cartao')?.value || '';
-
-  // Conta meses pagos
-  let mesesPagos = 0;
   const dataCompra = document.getElementById('mc-data')?.value;
   const tmpC = { valor: valorTotal, parcelas: n, dataCompra, cartao: cartaoNome, ativo: true };
   const valsPreview = calcValsCompra(tmpC);
+  const idxsComValor = valsPreview.reduce((arr, pv, idx) => pv > 0 ? [...arr, idx] : arr, []);
 
-  const hasCustom=_parcelasVals.some((v,i)=>Math.abs(v-(valorTotal/n))>0.02);
-
-  // Campos das parcelas — oculta as que já foram pagas
-  const camposParcelas = _parcelasVals.map((v,i) => {
-    // Descobre o mês real desta parcela
-    const mesIdx = valsPreview.findIndex((pv,idx) => pv > 0 && idx >= (i > 0 ? valsPreview.findIndex(x=>x>0) : 0));
-    // Pega todos os índices com valor
-    const idxsComValor = valsPreview.reduce((arr, pv, idx) => pv > 0 ? [...arr, idx] : arr, []);
+  // Classifica cada parcela como paga ou pendente
+  const parcelasInfo = _parcelasVals.map((v, i) => {
     const miReal = idxsComValor[i] !== undefined ? idxsComValor[i] : -1;
+    const pago = miReal >= 0 && isParcelaPaga({ cartao: cartaoNome }, miReal);
+    return { v, i, miReal, pago, mesNome: miReal >= 0 ? (D.meses[miReal]||'') : '' };
+  });
 
-    // Verifica se está pago
-    const tmpParaCheck = { cartao: cartaoNome };
-    const pago = miReal >= 0 && isParcelaPaga(tmpParaCheck, miReal);
-    if(pago) { mesesPagos++; return ''; }
+  const pendentes = parcelasInfo.filter(p => !p.pago);
+  const pagas     = parcelasInfo.filter(p => p.pago);
+  const hasCustom = pendentes.some(p => Math.abs(p.v-(valorTotal/n)) > 0.02);
 
-    const mesLabel = miReal >= 0 ? ` <span style="font-size:9px;color:var(--text3)">(${sM(D.meses[miReal]||'')})</span>` : '';
-    return `<div>
-      <div style="font-size:10px;color:var(--text3);margin-bottom:3px;text-align:center">${i+1}ª${mesLabel}</div>
+  // Campos das parcelas pendentes (editáveis)
+  const camposPendentes = pendentes.map(({v, i, mesNome}) => `
+    <div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:3px;text-align:center">
+        ${i+1}ª${mesNome?` <span style="color:var(--accent)">(${sM(mesNome)})</span>`:''}
+      </div>
       <input type="number" min="0" step="0.01" value="${v?(Math.round(v*100)/100).toFixed(2):''}" placeholder="R$ 0,00"
         style="text-align:right;padding:7px 8px;font-size:13px;font-weight:600"
         onchange="_parcelasVals[${i}]=parseFloat(this.value)||0;_parcelasCustom=true;recalcTotalFromParcelas()">
-    </div>`;
-  }).join('');
+    </div>`).join('');
+
+  // Seção colapsável de parcelas pagas (somente leitura)
+  const secaoPagas = pagas.length > 0 ? `
+    <div style="margin-top:10px">
+      <button type="button"
+        onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.chev').textContent=this.nextElementSibling.style.display==='none'?'▸':'▾'"
+        style="display:flex;align-items:center;gap:6px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.2);border-radius:var(--r8);padding:7px 12px;width:100%;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;color:var(--pos)">
+        <span class="chev">▸</span>
+        ✅ ${pagas.length} ${pagas.length===1?'parcela paga':'parcelas pagas'} — clique para visualizar
+      </button>
+      <div style="display:none;padding:10px 12px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.15);border-radius:0 0 var(--r8) var(--r8);margin-top:-1px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-bottom:10px">
+          ${pagas.map(({v,i,mesNome})=>`
+            <div>
+              <div style="font-size:10px;color:var(--pos);margin-bottom:3px;text-align:center">
+                ${i+1}ª${mesNome?` (${sM(mesNome)})`:''} ✅
+              </div>
+              <div style="text-align:right;padding:7px 8px;font-size:13px;font-weight:600;background:var(--card2);border:1px solid var(--border);border-radius:var(--r8);color:var(--text2)">
+                ${fmt(Math.round(v*100)/100)}
+              </div>
+            </div>`).join('')}
+        </div>
+        <div style="font-size:11px;color:var(--text2);padding:8px 10px;background:var(--warn-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r8);line-height:1.6">
+          ⚠️ Para editar uma parcela paga, primeiro vá em <strong>Faturas</strong>, encontre a fatura do cartão naquele mês e clique em <strong>↩ Desfazer</strong> o pagamento. Depois volte aqui para editar.
+        </div>
+      </div>
+    </div>` : '';
 
   container.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">
-          Valores por parcela
-        </div>
-        ${mesesPagos>0?`<div style="font-size:10px;color:var(--pos);margin-top:2px">✅ ${mesesPagos} ${mesesPagos===1?'parcela paga':'parcelas pagas'} oculta${mesesPagos===1?'':'s'}</div>`:''}
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">
+        Parcelas pendentes
       </div>
       ${hasCustom?`<button type="button" onclick="redistribuirIgual()" style="font-size:10px;color:var(--text3);background:var(--card3);border:1px solid var(--border);border-radius:var(--r8);padding:2px 8px;cursor:pointer">↺ Redistribuir igual</button>`:'<span style="font-size:10px;color:var(--text3)">edite individualmente se necessário</span>'}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px">
-      ${camposParcelas}
-    </div>`;
+    ${pendentes.length > 0
+      ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px">${camposPendentes}</div>`
+      : `<div style="padding:10px;text-align:center;font-size:12px;color:var(--pos);background:var(--pos-bg);border-radius:var(--r8)">✅ Todas as parcelas foram pagas!</div>`
+    }
+    ${secaoPagas}`;
 }
 
 function redistribuirIgual() {
