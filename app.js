@@ -236,14 +236,17 @@ function totalEMes(mi) {
     }
     if(e.tipo==='unico') {
       if(!e.mes) return s;
-      // e.mes pode ser "Jan" (mês) ou "Mai/26" (mês+ano legado)
+      // Suporta "Jun" (novo) e "Jun/26" (legado)
+      const mesAbrevU = e.mes.includes('/') ? e.mes.split('/')[0] : e.mes;
+      const mesNumU = MMAP[mesAbrevU] || 0;
+      // Para único: aparece apenas no mês do ano correto se tiver ano, ou em qualquer mês com esse número
       if(e.mes.includes('/')) {
+        // Legado com ano — restringe ao ano específico
         const em = parseMes(e.mes);
         return em.m===m && em.y===y ? s+(e.valor||0) : s;
       }
-      // Novo formato: só mês — considera apenas o mês (sem restrição de ano)
-      const mesNum = MMAP[e.mes] || 0;
-      return mesNum===m ? s+(e.valor||0) : s;
+      // Novo formato: só mês — aparece em todos os anos (mesmo comportamento do anual)
+      return mesNumU===m ? s+(e.valor||0) : s;
     }
     return s;
   }, 0);
@@ -1042,7 +1045,14 @@ function renderEntradas() {
     if(!selEntradas) return true;
     if(e.tipo==='mensal') return true;
     if(e.tipo==='anual'){ const mn=MMAP[e.mes]||0; const {m}=parseMes(selEntradas); return mn===m; }
-    return e.mes===selEntradas;
+    if(e.tipo==='unico'){
+      // e.mes pode ser "Jun" (novo) ou "Jun/26" (legado)
+      const mesAbrev=e.mes&&e.mes.includes('/')?e.mes.split('/')[0]:e.mes;
+      const mn=MMAP[mesAbrev]||0;
+      const {m}=parseMes(selEntradas);
+      return mn===m;
+    }
+    return false;
   });
 
   // Resumo
@@ -1065,10 +1075,15 @@ function renderEntradas() {
   lista.innerHTML=D.entradas.map((e,ei)=>{
     const info=CATS_ENTRADA[e.cat]||CATS_ENTRADA.outros;
     const tipoBadge=e.tipo==='mensal'?'<span class="badge badge-pos">Mensal</span>':e.tipo==='anual'?'<span class="badge badge-warn">Anual</span>':'<span class="badge badge-user">Único</span>';
-    const visivel=!selEntradas||(e.tipo==='mensal')||(e.tipo==='anual'&&(()=>{const mn=MMAP[e.mes]||0;const{m}=parseMes(selEntradas);return mn===m;})())||(e.mes===selEntradas);
+    const visivel=!selEntradas||(e.tipo==='mensal')
+      ||(e.tipo==='anual'&&(()=>{const mn=MMAP[e.mes]||0;const{m}=parseMes(selEntradas);return mn===m;})())
+      ||(e.tipo==='unico'&&(()=>{
+          const mesAbrev=e.mes&&e.mes.includes('/')?e.mes.split('/')[0]:e.mes;
+          const mn=MMAP[mesAbrev]||0;const{m}=parseMes(selEntradas);return mn===m;
+        })());
     if(!visivel) return '';
     const MNAMES={'Jan':'Janeiro','Fev':'Fevereiro','Mar':'Março','Abr':'Abril','Mai':'Maio','Jun':'Junho','Jul':'Julho','Ago':'Agosto','Set':'Setembro','Out':'Outubro','Nov':'Novembro','Dez':'Dezembro'};
-    const mesInfo=e.tipo!=='mensal'&&e.mes?(e.tipo==='anual'?` · todo ${MNAMES[e.mes]||e.mes}`:` · ${e.mes}`):'';
+    const mesInfo=e.tipo!=='mensal'&&e.mes?(e.tipo==='anual'?` · todo ${MNAMES[e.mes]||e.mes}`:` · ${MNAMES[e.mes]||e.mes}`):'';;
     return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r12);margin-bottom:8px;${!e.ativo?'opacity:.5':''}transition:all .15s" onmouseenter="this.style.borderColor='var(--border2)'" onmouseleave="this.style.borderColor='var(--border)'">
       <span style="font-size:22px">${info.icon}</span>
       <div style="flex:1;min-width:0">
