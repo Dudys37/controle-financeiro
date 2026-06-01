@@ -1509,44 +1509,78 @@ tr:hover td { background: var(--card2); }
 
 <!-- ████ PERFIL ████ -->
 <div class="page" id="page-perfil">
-  <div style="max-width:540px;margin:0 auto">
-    <!-- Profile Hero -->
-    <div class="hero-banner" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1">
-        <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:2px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;flex-shrink:0" id="perfil-avatar">?</div>
-        <div>
-          <div style="font-size:20px;font-weight:700;color:#fff;letter-spacing:-.3px" id="perfil-nome">Carregando...</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px" id="perfil-email">...</div>
-        </div>
-        <div style="margin-left:auto" id="perfil-role-badge"></div>
+  <div style="font-family:var(--font-head);font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:24px">👤 Meu Perfil</div>
+
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start">
+
+    <!-- COLUNA ESQUERDA: Avatar + Info + Badge -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <!-- Avatar card -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r20);padding:24px;text-align:center">
+        <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--violet));display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:28px;font-weight:800;color:#fff;margin:0 auto 14px;box-shadow:var(--glow-brand)" id="perfil-avatar">?</div>
+        <div style="font-size:17px;font-weight:700;margin-bottom:4px" id="perfil-nome">—</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px" id="perfil-email">—</div>
+        <div id="perfil-role-badge"></div>
       </div>
-      <div class="hero-pills" id="perfil-pills"></div>
+
+      <!-- Score cards -->
+      <div id="perfil-pills" style="display:flex;flex-direction:column;gap:8px"></div>
+
+      <!-- Stats rápidos -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r16);overflow:hidden">
+        <div style="padding:12px 16px;background:var(--card2);border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">📊 Resumo</div>
+        <div id="perfil-stats" style="padding:4px 0"></div>
+      </div>
     </div>
 
-    <div class="ebox mb">
-      <h3>👤 Informações da conta</h3>
-      <p>Dados do seu perfil no sistema.</p>
-      <div id="perfil-stats"></div>
-    </div>
+    <!-- COLUNA DIREITA: Configurações e ações -->
+    <div style="display:flex;flex-direction:column;gap:14px">
 
-    <div class="ebox info-border mb">
-      <h3>🔐 Alterar senha</h3>
-      <p>Para sua segurança, confirme a senha atual antes de alterar.</p>
-      <div class="alert-inline alert-err" id="cp-err"></div>
-      <div class="alert-inline alert-ok" id="cp-ok"></div>
-      <div class="field"><label class="flabel">Senha atual</label><input type="password" id="cp-cur" placeholder="••••••••"></div>
-      <div class="field"><label class="flabel">Nova senha</label><input type="password" id="cp-new" placeholder="Mínimo 6 caracteres"></div>
-      <div class="field"><label class="flabel">Confirmar nova senha</label><input type="password" id="cp-conf" placeholder="Repita a nova senha"></div>
-      <button class="btn btn-pri" id="btn-chpass" style="width:100%;height:40px">Alterar senha</button>
-    </div>
+      <!-- Segurança -->
+      <div class="ebox info-border">
+        <h3>🔐 Segurança da conta</h3>
+        <p>Para sua segurança, informe sua senha atual antes de definir uma nova.</p>
+        <div class="alert-inline alert-err" id="cp-err"></div>
+        <div class="alert-inline alert-ok" id="cp-ok"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field" style="margin-bottom:0"><label class="flabel">Senha atual</label><input type="password" id="cp-cur" placeholder="••••••••"></div>
+          <div class="field" style="margin-bottom:0"><label class="flabel">Nova senha</label><input type="password" id="cp-new" placeholder="Mín. 6 caracteres"></div>
+        </div>
+        <div class="field" style="margin-top:10px"><label class="flabel">Confirmar nova senha</label><input type="password" id="cp-conf" placeholder="Repita a nova senha"></div>
+        <button class="btn btn-pri" id="btn-chpass" style="height:38px;margin-top:4px">💾 Alterar senha</button>
+      </div>
 
-    <div class="ebox neg-border">
-      <h3>⚠️ Zona de perigo</h3>
-      <p>Apaga permanentemente todos os seus dados financeiros. Seu acesso ao sistema será mantido.</p>
-      <button class="btn btn-neg" id="btn-resetar" style="width:100%;height:40px">🗑️ Apagar todos os dados financeiros</button>
+      <!-- Preferências -->
+      <div class="ebox accent-border">
+        <h3>🎨 Preferências</h3>
+        <p>Personalize sua experiência no sistema.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:600">Tema da interface</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">Alternar entre claro e escuro</div>
+          </div>
+          <button class="btn btn-ghost" onclick="toggleTheme()" style="height:34px" id="perfil-theme-btn">🌙 Escuro</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+          <div>
+            <div style="font-size:13px;font-weight:600">Mês de referência</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px" id="perfil-mes-ref-label">—</div>
+          </div>
+          <button class="btn btn-ghost" onclick="goSide('carteira')" style="height:34px">⚙️ Configurar</button>
+        </div>
+      </div>
+
+      <!-- Zona de perigo -->
+      <div class="ebox neg-border">
+        <h3>⚠️ Zona de perigo</h3>
+        <p>Apaga permanentemente todos os seus dados financeiros. Seu acesso ao sistema será mantido e você poderá começar do zero.</p>
+        <button class="btn btn-neg" id="btn-resetar" style="height:38px">🗑️ Apagar todos os dados financeiros</button>
+      </div>
     </div>
   </div>
 </div>
+
 
 <!-- ████ ADMIN — GESTÃO DE USUÁRIOS ████ -->
 <div class="page" id="page-admin">
@@ -1767,33 +1801,50 @@ window._renderPerfil=function(){
   const criado=_userDoc&&_userDoc.createdAt?new Date(_userDoc.createdAt).toLocaleDateString('pt-BR'):'—';
   const score=scoreFinanceiro();
   const pl=patrimonioLiquido();
-  const scoreCor=score>=70?'#10B981':score>=40?'#F59E0B':'#EF4444';
+  const reserva=statusReserva();
+  const scoreCor=score>=70?'var(--brand)':score>=40?'var(--warn)':'var(--neg)';
   const initial=nome.charAt(0).toUpperCase();
 
+  // Avatar + name + email
   const av=document.getElementById('perfil-avatar');if(av)av.textContent=initial;
   const nm=document.getElementById('perfil-nome');if(nm)nm.textContent=nome;
   const em=document.getElementById('perfil-email');if(em)em.textContent=email;
   const rb=document.getElementById('perfil-role-badge');
-  if(rb)rb.innerHTML=`<span class="badge ${role==='superadmin'?'badge-admin':'badge-user'}">${role==='superadmin'?'⚙️ Super Admin':'👤 Usuário'}</span>`;
+  if(rb)rb.innerHTML=`<span class="badge ${role==='superadmin'?'badge-admin':'badge-user'}" style="font-size:12px;padding:4px 12px">${role==='superadmin'?'⚙️ Administrador':'👤 Usuário'}</span>`;
 
+  // Score cards (coluna esquerda)
   const pp=document.getElementById('perfil-pills');
-  if(pp)pp.innerHTML=`
-    <div class="hero-pill ${score>=70?'green':score>=40?'':''}" style="background:rgba(255,255,255,.1)">🎯 Score: <strong>${score}/100</strong></div>
-    <div class="hero-pill" style="background:rgba(255,255,255,.1)">💎 Patrimônio: <strong>${fmt(pl.liquido)}</strong></div>
-    <div class="hero-pill" style="background:rgba(255,255,255,.1)">📅 Membro desde: <strong>${criado}</strong></div>
-  `;
+  if(pp)pp.innerHTML=[
+    {icon:'💎',label:'Patrimônio',val:fmt(pl.liquido),sub:'líquido',cor:pl.liquido>=0?'var(--brand)':'var(--neg)'},
+    {icon:'❤️',label:'Saúde financeira',val:`${score}/100`,sub:score>=70?'Ótimo':score>=40?'Regular':'Atenção',cor:scoreCor},
+    {icon:'🛡️',label:'Reserva emergência',val:`${reserva.pct}%`,sub:`${fmt(reserva.caixa)} / ${fmt(reserva.meta)}`,cor:reserva.pct>=100?'var(--brand)':reserva.pct>=50?'var(--warn)':'var(--neg)'},
+    {icon:'📅',label:'Membro desde',val:criado,sub:'',cor:'var(--text2)'},
+  ].map(s=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:12px 14px;display:flex;align-items:center;gap:12px">
+    <span style="font-size:20px">${s.icon}</span>
+    <div style="flex:1">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:2px">${s.label}</div>
+      <div style="font-size:15px;font-weight:700;color:${s.cor}">${s.val}</div>
+      ${s.sub?`<div style="font-size:10px;color:var(--text3)">${s.sub}</div>`:''}
+    </div>
+  </div>`).join('');
 
+  // Stats (coluna esquerda, dentro do painel resumo)
   const ps=document.getElementById('perfil-stats');
-  if(ps)ps.innerHTML=`
-    <div class="pstat"><span class="pstat-label">Nome completo</span><strong>${nome}</strong></div>
-    <div class="pstat"><span class="pstat-label">E-mail</span><strong>${email}</strong></div>
-    <div class="pstat"><span class="pstat-label">Perfil</span><span class="badge ${role==='superadmin'?'badge-admin':'badge-user'}">${role==='superadmin'?'⚙️ Super Admin':'👤 Usuário'}</span></div>
-    <div class="pstat"><span class="pstat-label">Score financeiro</span><strong style="color:${scoreCor}">${score}/100 ${score>=70?'🟢':score>=40?'🟡':'🔴'}</strong></div>
-    <div class="pstat"><span class="pstat-label">Patrimônio líquido</span><strong style="color:${pl.liquido>=0?'var(--teal)':'var(--neg)'}">${fmt(pl.liquido)}</strong></div>
-    <div class="pstat"><span class="pstat-label">Total em ativos</span><strong style="color:var(--pos)">${fmt(pl.ativos)}</strong></div>
-    <div class="pstat"><span class="pstat-label">Conta criada em</span><strong>${criado}</strong></div>
-    <div class="pstat"><span class="pstat-label">UID do sistema</span><span style="font-size:10px;font-family:monospace;color:var(--text2)">${_user.uid}</span></div>
-  `;
+  if(ps)ps.innerHTML=[
+    {l:'UID',v:`<span style="font-size:10px;font-family:var(--font-mono);color:var(--text2)">${_user.uid.slice(0,16)}...</span>`},
+    {l:'E-mail',v:email},
+    {l:'Entradas',v:`${D.entradas.filter(e=>e.ativo).length} fontes ativas`},
+    {l:'Meses planejados',v:`${getActiveMeses().length} meses`},
+    {l:'Ativos na carteira',v:`${D.ativos.length} itens`},
+  ].map(s=>`<div class="pstat"><span class="pstat-label">${s.l}</span><strong>${s.v}</strong></div>`).join('');
+
+  // Theme button text
+  const tb=document.getElementById('perfil-theme-btn');
+  if(tb)tb.textContent=isDark?'🌙 Escuro':'☀️ Claro';
+
+  // Mes ref label
+  const mrl=document.getElementById('perfil-mes-ref-label');
+  if(mrl)mrl.textContent=`Mês de referência: ${D.meses[getMesRefIdx()]||'—'}`;
 
   // Botão alterar senha
   document.getElementById('btn-chpass').onclick=function(){
