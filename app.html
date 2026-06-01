@@ -1983,8 +1983,10 @@ auth.onAuthStateChanged(function(user){
     const lo=document.getElementById('load');
     if(lo){lo.classList.add('out');setTimeout(()=>lo.style.display='none',500);}
 
+    selDash = getMesRefIdx(); // ← default to correct current month
+    if(typeof applyChartDefaults==='function') applyChartDefaults();
     renderAll();
-    setTimeout(()=>{Object.keys(CH).forEach(dc);renderAll();},600);
+    setTimeout(()=>{Object.keys(CH).forEach(dc);selDash=getMesRefIdx();if(typeof applyChartDefaults==='function')applyChartDefaults();renderAll();},600);
   }).catch(e=>{
     console.error(e);
     D=migrateData(null);

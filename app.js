@@ -173,6 +173,20 @@ const ARCA = {
     A2:'ETFs globais, BDRs — diversificação internacional',
   },
 };
+
+// ── CHART.JS GLOBAL DEFAULTS ─────────────────────────
+function applyChartDefaults() {
+  if(typeof Chart === 'undefined') return;
+  Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--text2').trim() || '#8B90A7';
+  Chart.defaults.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,.06)';
+  Chart.defaults.font.family = 'DM Sans';
+  Chart.defaults.font.size = 11;
+  Chart.defaults.plugins.legend.labels.color = Chart.defaults.color;
+  Chart.defaults.plugins.tooltip.titleColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#F1F2F6';
+  Chart.defaults.plugins.tooltip.bodyColor = Chart.defaults.color;
+  Chart.defaults.scale.ticks.color = Chart.defaults.color;
+  Chart.defaults.scale.grid.color = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,.06)';
+}
 const CHART_COLORS=['var(--neg)','var(--warn)','var(--info)','var(--violet)','var(--warn)','var(--teal)','#84CC16','#EC4899','var(--brand)'];
 
 // ── MIGRAÇÃO ──────────────────────────────────────
@@ -691,12 +705,12 @@ function switchRole(role) {
   _currentRole = role;
   closeProfileDropdown();
   const adminSection=document.getElementById('sidebar-admin-section');
-  const mmAdmin=document.getElementById('snav-admin');
-  const mmConfig=document.getElementById('snav-config');
   const isAdmin = role==='superadmin';
   if(adminSection) adminSection.style.display = isAdmin?'':'none';
-  if(mmAdmin) mmAdmin.style.display = isAdmin?'':'none';
-  if(mmConfig) mmConfig.style.display = isAdmin?'':'none';
+  ['snav-admin','snav-config','snav-cats','snav-params'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=isAdmin?'':'none';
+  });
   // Update badge
   const badge=document.getElementById('nav-role-badge');
   if(badge){
@@ -1020,8 +1034,8 @@ function renderDashboard() {
         options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
           animation:{duration:600,easing:'easeOutQuart'},
           plugins:{
-            legend:{position:'right',labels:{color:tc(),font:{size:10,family:'DM Sans'},
-              boxWidth:8,padding:10,usePointStyle:true}},
+            legend:{position:'right',labels:{color:tc(),font:{size:10,family:'DM Sans',weight:'500'},
+              boxWidth:8,padding:10,usePointStyle:true,generateLabels:(chart)=>Chart.defaults.plugins.legend.labels.generateLabels(chart)}},
             tooltip:{backgroundColor:document.documentElement.getAttribute('data-theme')!=='light'?'#1A1D27':'#fff',
               titleColor:tc(),bodyColor:tc(),borderColor:'rgba(255,255,255,.11)',
               borderWidth:1,padding:10,cornerRadius:8,
@@ -3266,8 +3280,9 @@ function getCatsEntrada() {
 
 // ── METAS FINANCEIRAS ────────────────────────────────────────────
 function renderMetas() {
-  const page = document.getElementById('page-metas');
-  if (!page) return;
+  const sumEl2 = document.getElementById('metas-summary');
+  const lista2 = document.getElementById('metas-lista');
+  if (!sumEl2 && !lista2) return;
   if (!D.metas) D.metas = [];
 
   const totalAtivos = D.ativos.reduce((s,a) => s+(a.valor||0), 0);
