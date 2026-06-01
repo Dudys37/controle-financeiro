@@ -1,3 +1,19 @@
+
+// ── ANIMATED NUMBERS ─────────────────────────────
+function animateValue(el, from, to, duration=600) {
+  if(!el) return;
+  const start = performance.now();
+  const update = (time) => {
+    const progress = Math.min((time - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3); // ease out cubic
+    const current = from + (to - from) * ease;
+    el.textContent = fmt(current);
+    if(progress < 1) requestAnimationFrame(update);
+    else el.textContent = fmt(to);
+  };
+  requestAnimationFrame(update);
+}
+
 /* ═══════════════════════════════════════════════════
    FinançasPRO — app.js v5.0
    Entradas por mês, saídas com parcelas, faturas
@@ -1186,6 +1202,7 @@ function salvarEntrada(ei) {
   const obj={id:ei>=0?D.entradas[ei].id:genId('e'),nome,valor,tipo,dia,cat,mes:(tipo!=='mensal'?mes:''),ativo:true};
   if(ei>=0) D.entradas[ei]=obj; else D.entradas.push(obj);
   fecharModalEntrada(); scheduleAutoSave(); renderEntradas(); renderAll();
+  toast('Entrada salva!', true, '💰');
 }
 function fecharModalEntrada(){document.getElementById('modal-entrada-overlay').style.display='none';}
 function toggleEntrada(ei){D.entradas[ei].ativo=!D.entradas[ei].ativo;scheduleAutoSave();renderEntradas();}
@@ -1556,6 +1573,7 @@ function salvarFixa(fi) {
   if(fi>=0) D.fixas[fi]=obj; else D.fixas.push(obj);
   document.getElementById('modal-fixa-overlay').style.display='none';
   scheduleAutoSave(); renderSaidasFixas(); renderAll();
+  toast('Conta fixa salva!', true, '📌');
 }
 function editarFixa(fi){abrirModalFixa(fi);}
 function removerFixa(fi){if(!confirm(`Remover "${D.fixas[fi].nome}"?`))return;D.fixas.splice(fi,1);scheduleAutoSave();renderSaidasFixas();}
@@ -1768,9 +1786,10 @@ function salvarCompra(ci) {
   if(parcelasCustom) obj.parcelasCustom=parcelasCustom;
   if(ci>=0) D.compras[ci]=obj; else D.compras.push(obj);
   document.getElementById('modal-compra-overlay').style.display='none';
-  _parcelasCustom=false; // reset flag
-  _editandoCI=null; // reset editing tracker
+  _parcelasCustom=false;
+  _editandoCI=null;
   scheduleAutoSave(); renderSaidasVar(); renderAll();
+  toast('Compra salva!', true, '🛒');
 }
 function editarCompra(ci){
   const c=D.compras[ci];
@@ -1936,6 +1955,15 @@ function faturaPagar(id,mi,valor) {
   const mes=D.meses[mi];if(!D.pagamentos[mes])D.pagamentos[mes]={};
   D.pagamentos[mes][id]=valor;
   scheduleAutoSave(); renderFaturas();
+  // Feedback visual
+  toast(`✅ Fatura paga: ${fmt(valor)}`, true, '💳');
+}
+function faturaDesfazer(id,mi) {
+  if(!D.pagamentos) return;
+  const mes=D.meses[mi];
+  if(D.pagamentos[mes]) delete D.pagamentos[mes][id];
+  scheduleAutoSave(); renderFaturas();
+  toast('↩ Pagamento desfeito', true, '🔄');
 }
 function faturaDesfazer(id,mi) {
   if(!D.pagamentos) return;
@@ -2590,35 +2618,40 @@ const BCB_SERIES = {
 };
 
 async function bcbFetch(serie, n=1) {
-  const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados/ultimos/${n}?formato=json`;
+  const baseUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados/ultimos/${n}?formato=json`;
+  const enc = encodeURIComponent(baseUrl);
 
-  // Tenta direto primeiro (funciona em alguns ambientes)
-  const proxies = [
-    url, // direto
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://thingproxy.freeboard.io/fetch/${url}`,
+  // Múltiplos proxies CORS — tenta em sequência até um funcionar
+  const endpoints = [
+    // corsproxy.io — muito confiável, não encoda a URL
+    `https://corsproxy.io/?${baseUrl}`,
+    // allorigins modo raw — retorna o corpo direto
+    `https://api.allorigins.win/raw?url=${enc}`,
+    // cors.sh — alternativa popular
+    `https://cors.sh/${baseUrl}`,
+    // Direto — pode funcionar dependendo da rede/browser
+    baseUrl,
   ];
 
-  for(const endpoint of proxies) {
+  for(const url of endpoints) {
     try {
-      const r = await fetch(endpoint, {signal: AbortSignal.timeout(8000)});
+      const ctrl = new AbortController();
+      const tid = setTimeout(()=>ctrl.abort(), 7000);
+      const headers = url.includes('cors.sh') ? {'x-cors-api-key':'temp_...'} : {};
+      const r = await fetch(url, {signal: ctrl.signal, headers});
+      clearTimeout(tid);
       if(!r.ok) continue;
       const text = await r.text();
-      // Remove wrapping se vier do allorigins
-      let parsed;
-      try { parsed = JSON.parse(text); } catch {
-        // allorigins raw às vezes retorna com encoding diferente
-        parsed = JSON.parse(text.trim());
+      let data;
+      try { data = JSON.parse(text); } catch { continue; }
+      // allorigins wraps in {contents}
+      if(data && !Array.isArray(data) && data.contents) {
+        try { data = JSON.parse(data.contents); } catch { continue; }
       }
-      // Garante que é um array
-      const arr = Array.isArray(parsed) ? parsed : (parsed.contents ? JSON.parse(parsed.contents) : null);
-      if(arr && arr.length > 0) return arr[arr.length-1];
-    } catch(e) {
-      continue; // Tenta próximo proxy
-    }
+      if(Array.isArray(data) && data.length > 0) return data[data.length-1];
+    } catch { continue; }
   }
-  throw new Error('Não foi possível acessar a API do Banco Central. Verifique sua conexão.');
+  throw new Error('API do BCB inacessível — use os campos manuais abaixo.');
 }
 
 async function fetchBCB() {
@@ -3014,3 +3047,18 @@ function applyARCARec(a, r, c, a2) {
 
 // ── INIT ──────────────────────────────────────────
 applyTheme();
+// Preenche indicadores com valores aproximados do mercado atual
+// Útil quando a API do BCB estiver inacessível
+function preencherManual() {
+  // Valores baseados em maio/2026 (SELIC 14.75%, CDI ~14.65%, IPCA 4.39%)
+  D.selic   = 14.75;
+  D.cdi12   = 14.65;  // CDI anual ≈ SELIC - 0.10%
+  D.cdifev  = 1.14;   // CDI mensal ≈ ((1 + 0.1465)^(1/12) - 1) × 100
+  D.cdi26   = 5.73;   // CDI acum. Jan-Mai/26 ≈ 5 meses compostos
+  D.ipca12  = 4.39;   // IPCA 12 meses
+  D.ipcafev = 0.67;   // IPCA de abril/26
+  D.ipca26  = 2.15;   // IPCA acum. Jan-Mai/26
+  scheduleAutoSave();
+  renderIndicadores();
+  toast('Valores padrão de mercado aplicados!', true, '🎯');
+}
