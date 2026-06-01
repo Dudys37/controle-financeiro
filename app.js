@@ -2591,18 +2591,34 @@ const BCB_SERIES = {
 
 async function bcbFetch(serie, n=1) {
   const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados/ultimos/${n}?formato=json`;
-  try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('status '+r.status);
-    const d = await r.json();
-    return d[d.length-1];
-  } catch(e) {
-    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-    const r2 = await fetch(proxy);
-    const d2 = await r2.json();
-    const parsed = JSON.parse(d2.contents);
-    return parsed[parsed.length-1];
+
+  // Tenta direto primeiro (funciona em alguns ambientes)
+  const proxies = [
+    url, // direto
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://thingproxy.freeboard.io/fetch/${url}`,
+  ];
+
+  for(const endpoint of proxies) {
+    try {
+      const r = await fetch(endpoint, {signal: AbortSignal.timeout(8000)});
+      if(!r.ok) continue;
+      const text = await r.text();
+      // Remove wrapping se vier do allorigins
+      let parsed;
+      try { parsed = JSON.parse(text); } catch {
+        // allorigins raw às vezes retorna com encoding diferente
+        parsed = JSON.parse(text.trim());
+      }
+      // Garante que é um array
+      const arr = Array.isArray(parsed) ? parsed : (parsed.contents ? JSON.parse(parsed.contents) : null);
+      if(arr && arr.length > 0) return arr[arr.length-1];
+    } catch(e) {
+      continue; // Tenta próximo proxy
+    }
   }
+  throw new Error('Não foi possível acessar a API do Banco Central. Verifique sua conexão.');
 }
 
 async function fetchBCB() {
@@ -2655,7 +2671,7 @@ async function fetchBCB() {
 
   } catch(e) {
     console.error('BCB fetch error:', e);
-    if (stat) { stat.innerHTML = `❌ Erro ao buscar dados: ${e.message}. Verifique sua conexão ou atualize manualmente.`; stat.style.color='var(--neg)'; }
+    if (stat) { stat.innerHTML = `❌ ${e.message}<br><small style='color:var(--text3)'>Insira os valores manualmente nos campos abaixo.</small>`; stat.style.color='var(--neg)'; }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar indicadores agora'; }
   }
@@ -2716,7 +2732,7 @@ async function fetchBCB() {
 
   } catch(e) {
     console.error('BCB fetch error:', e);
-    if (stat) stat.innerHTML = `❌ Erro ao buscar dados: ${e.message}. Verifique sua conexão ou atualize manualmente.`;
+    if (stat) { stat.innerHTML = `❌ ${e.message}<br><small style='color:var(--text3)'>Insira os valores manualmente nos campos abaixo.</small>`; stat.style.color='var(--neg)'; }
     if (stat) stat.style.color = 'var(--neg)';
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar indicadores agora'; }
