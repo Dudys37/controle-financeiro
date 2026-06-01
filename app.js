@@ -1048,7 +1048,13 @@ function renderDashboard() {
       <th class="tr">Sobra</th><th class="tr" style="color:var(--teal)">Investir</th>
     </tr></thead><tbody>${proxMeses.map(m=>{
       const idx=D.meses.indexOf(m);
-      const e=totalEMes(idx),d=totalDivBruto(idx),s=sobraM(idx),inv=invDisp(idx);
+      const e=totalEMes(idx),d=totalDivBruto(idx);
+      // Sobra real = entradas - total de saídas (independente de pagamentos)
+      const s=e-d;
+      // P/ Investir: se todas as faturas estão pagas, mostra como já investido
+      const cp=calcPendenteMes(idx);
+      const mesInvestido=cp.bruto>0&&cp.pendente===0;
+      const inv=invDisp(idx);
       const isAtu=idx===mi;
       return `<tr style="${isAtu?'background:var(--brand-glow2)':''}">
         <td style="font-weight:${isAtu?700:500};white-space:nowrap">
@@ -1057,7 +1063,7 @@ function renderDashboard() {
         <td class="tr tpos">${fmtK(e)}</td>
         <td class="tr tneg">${fmtK(d)}</td>
         <td class="tr ${s>=0?'tpos':'tneg'}">${fmtK(s)}</td>
-        <td class="tr tteal">${fmtK(inv)}</td>
+        <td class="tr">${mesInvestido?'<span style="color:var(--brand);font-size:11px;font-weight:700">✅ Investido</span>':`<span class="tteal">${fmtK(inv)}</span>`}</td>
       </tr>`;
     }).join('')}</tbody>`;
   }
@@ -1161,10 +1167,11 @@ function renderTopGastosMes(mi) {
     return;
   }
   const totalM=gastos.reduce((s,g)=>s+g.valor,0);
+  let rows='';
   gastos.sort((a,b)=>b.valor-a.valor).slice(0,7).forEach(g=>{
     const info=CATS[g.cat]||CATS.outros;
     const pctVal=totalM>0?Math.round((g.valor/totalM)*100):0;
-    el.innerHTML+= `<div style="display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border)">
+    rows += `<div style="display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border)">
       <span style="font-size:16px">${info.icon}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.nome}</div>
@@ -1176,8 +1183,9 @@ function renderTopGastosMes(mi) {
       </div>
     </div>`;
   });
-  if(gastos.length>7) el.innerHTML+=`<div style="padding:8px 16px;font-size:11px;color:var(--text3)">+${gastos.length-7} outros itens</div>`;
-  el.innerHTML+=`<div style="padding:10px 16px;display:flex;justify-content:space-between;background:var(--card2)"><span style="font-size:12px;font-weight:700;color:var(--text2)">Total</span><span style="font-size:14px;font-weight:700;color:var(--neg);font-family:var(--font-mono)">${fmt(totalM)}</span></div>`;
+  if(gastos.length>7) rows+=`<div style="padding:8px 16px;font-size:11px;color:var(--text3)">+${gastos.length-7} outros itens</div>`;
+  rows+=`<div style="padding:10px 16px;display:flex;justify-content:space-between;background:var(--card2)"><span style="font-size:12px;font-weight:700;color:var(--text2)">Total</span><span style="font-size:14px;font-weight:700;color:var(--neg);font-family:var(--font-mono)">${fmt(totalM)}</span></div>`;
+  el.innerHTML = rows;
 }
 
 // renderGeral e renderMes → agora são renderDashboard

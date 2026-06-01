@@ -1131,35 +1131,35 @@ tr:hover td { background: var(--card2); }
 <div id="sidebar">
   <div class="sidebar-header">
     <div class="sidebar-brand">
-      <div class="sidebar-logo">₿</div>
-      <span class="sidebar-wordmark">Finanças<span>PRO</span></span>
+      <div class="sidebar-brand-icon">₿</div>
+      <span class="sidebar-brand-name">Finanças<span>PRO</span></span>
     </div>
     <button class="sidebar-close" onclick="closeSidebar()">✕</button>
   </div>
-  <div class="sidebar-content">
+  
     <div class="sidebar-section">
-      <div class="sidebar-label">Análise</div>
+      <div class="sidebar-section-label">Análise</div>
       <button class="snav on" id="snav-dash" onclick="goSide('dash')"><span class="snav-icon">📊</span> Dashboard</button>
       <button class="snav" id="snav-invest" onclick="goSide('invest')"><span class="snav-icon">📈</span> Investimentos</button>
       <button class="snav" id="snav-relatorio" onclick="goSide('relatorio')"><span class="snav-icon">📋</span> Relatório Mensal</button>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Finanças</div>
+      <div class="sidebar-section-label">Finanças</div>
       <button class="snav" id="snav-entradas" onclick="goSide('entradas')"><span class="snav-icon">💰</span> Entradas</button>
       <button class="snav" id="snav-carteira" onclick="goSide('carteira')"><span class="snav-icon">💼</span> Carteira</button>
       <button class="snav" id="snav-saidas" onclick="goSide('saidas')"><span class="snav-icon">💸</span> Saídas</button>
       <button class="snav" id="snav-faturas" onclick="goSide('faturas')"><span class="snav-icon">✅</span> Faturas</button>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Planejamento</div>
+      <div class="sidebar-section-label">Planejamento</div>
       <button class="snav" id="snav-metas" onclick="goSide('metas')"><span class="snav-icon">🎯</span> Metas Financeiras</button>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Pessoal</div>
+      <div class="sidebar-section-label">Pessoal</div>
       <button class="snav" id="snav-perfil" onclick="goSide('perfil')"><span class="snav-icon">👤</span> Meu Perfil</button>
     </div>
     <div class="sidebar-section" id="sidebar-admin-section" style="display:none">
-      <div class="sidebar-label">Sistema</div>
+      <div class="sidebar-section-label">Sistema</div>
       <button class="snav" id="snav-admin" onclick="goSide('admin')"><span class="snav-icon">👥</span> Usuários</button>
       <button class="snav" id="snav-config" onclick="goSide('config')"><span class="snav-icon">⚙️</span> Configurações</button>
       <button class="snav" id="snav-cats" onclick="goSide('cats')"><span class="snav-icon">🏷️</span> Categorias</button>
@@ -1174,26 +1174,27 @@ tr:hover td { background: var(--card2); }
       <span class="snav-icon">🚪</span> Sair
     </button>
   </div>
-</div>
 
 <div id="main-content">
 <!-- ████ NAV ████ -->
 <nav id="nav">
-  <button class="nav-toggle" onclick="openSidebar()" id="nav-toggle" aria-label="Menu">☰</button>
-  <div class="nav-logo-area">
-    <div class="nav-logo-icon">₿</div>
-    <span class="nav-wordmark">Finanças<span>PRO</span></span>
-    <span class="nav-crumb" id="nav-breadcrumb">/ Dashboard</span>
+  <!-- Mobile menu toggle — hidden on desktop via CSS -->
+  <button class="nav-toggle-btn" onclick="openSidebar()" id="nav-toggle" aria-label="Menu">☰</button>
+  <!-- Breadcrumb area -->
+  <div class="nav-title-area">
+    <span id="nav-breadcrumb">/ Dashboard</span>
   </div>
-  <div class="nav-right">
+  <!-- Right actions -->
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
     <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Alternar tema">🌙</button>
-    <button class="nav-save nav-save-idle" id="btn-salvar">💾 Salvar</button>
-    <!-- Profile -->
+    <button class="nav-save-btn" id="btn-salvar">💾 Salvar</button>
+    <!-- Profile chip -->
     <div class="profile-chip" id="profile-trigger" onclick="toggleProfileDropdown()">
       <div class="profile-av" id="nav-avatar">?</div>
       <span class="profile-name" id="nav-username">...</span>
       <span class="profile-badge" id="nav-role-badge">User</span>
       <span style="font-size:10px;color:var(--text3);margin-left:2px">▾</span>
+      <!-- Profile dropdown -->
       <div class="profile-dd" id="profile-dropdown" onclick="event.stopPropagation()">
         <div class="profile-dd-head">
           <div class="profile-dd-name" id="pd-name">...</div>
@@ -1204,18 +1205,15 @@ tr:hover td { background: var(--card2); }
           <div style="padding:8px 16px 2px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Alternar perfil</div>
           <button class="pd-item" id="pd-switch-admin" onclick="switchRole('superadmin')">⚙️ Administrador</button>
           <button class="pd-item" id="pd-switch-user" onclick="switchRole('user')">👤 Usuário</button>
-          <div class="pd-sep"></div>
+          <div class="pd-separator"></div>
         </div>
         <button class="pd-item" onclick="goSide('perfil');closeProfileDropdown()">👤 Meu Perfil</button>
         <button class="pd-item" onclick="document.getElementById('btn-salvar').click();closeProfileDropdown()">💾 Salvar dados</button>
-        <div class="pd-sep"></div>
-        <button class="pd-item pd-danger" id="btn-sair-pd">🚪 Sair</button>
+        <div class="pd-separator"></div>
+        <button class="pd-item danger" id="btn-sair-pd">🚪 Sair</button>
       </div>
     </div>
     <button id="btn-sair" style="display:none"></button>
-    <button class="ham-btn" onclick="toggleMobileMenu()" id="ham-btn" aria-label="Menu mobile">
-      <span></span><span></span><span></span>
-    </button>
   </div>
 </nav>
 
