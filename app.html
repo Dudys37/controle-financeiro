@@ -1221,68 +1221,94 @@ tr:hover td { background: var(--card2); }
 
 <!-- ████ DASHBOARD ████ -->
 <div class="page on" id="page-dash">
-  <div class="stab-bar">
-    <button class="stab on" onclick="switchSub('dash','geral',this)">🏠 Visão Geral</button>
-    <button class="stab" onclick="switchSub('dash','mes',this)">📅 Por Mês</button>
+  <!-- Header da página com filtro de mês inline -->
+  <div id="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:20px">
+    <div>
+      <div style="font-family:var(--font-head);font-size:22px;font-weight:800;letter-spacing:-.5px;line-height:1.2">Dashboard</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-top:3px" id="dash-subtitle">Visão completa das suas finanças</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <!-- Filtro rápido de mês -->
+      <div style="position:relative">
+        <select id="dash-mes-select" onchange="selDash=parseInt(this.value);renderDashboard()"
+          style="padding:8px 36px 8px 14px;border-radius:var(--rfull);background:var(--card2);border:1px solid var(--border2);color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer;appearance:none;min-width:120px">
+        </select>
+        <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:11px;color:var(--text3)">▾</span>
+      </div>
+      <button class="btn btn-ghost" onclick="selDash=getMesRefIdx();renderDashboard()" style="height:36px;font-size:12px;padding:0 14px">Hoje</button>
+    </div>
   </div>
 
-  <!-- SUB: GERAL -->
-  <div class="sub on" id="sub-geral">
-    <!-- Alertas de configuração -->
-    <div id="dash-alerts"></div>
+  <!-- Alertas -->
+  <div id="dash-alerts"></div>
 
-    <!-- Hero banner: patrimônio e score -->
-    <div class="hero-banner mb" id="dash-hero"></div>
+  <!-- HERO BANNER -->
+  <div id="dash-hero" class="hero-banner mb"></div>
 
-    <!-- 4 cards principais do mês atual -->
-    <div class="gcards mb" id="dash-mcards"></div>
+  <!-- KPI CARDS — linha principal -->
+  <div class="gcards mb" id="dash-mcards"></div>
 
+  <!-- LINHA 2: Saúde + Progresso faturas + Reserva -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px" id="dash-mid-row">
     <!-- Saúde financeira -->
-    <div class="divider"><span class="divider-text">Saúde financeira</span></div>
-    <div class="gcards mb" id="dash-saude"></div>
+    <div id="dash-saude-card"></div>
+    <!-- Progresso das faturas do mês -->
+    <div id="dash-faturas-card"></div>
+  </div>
 
-    <!-- Próximos meses: visão simples -->
-    <div class="divider"><span class="divider-text">Próximos meses</span></div>
-    <div class="panel mb">
+  <!-- LINHA 3: Gráfico de fluxo + Gráfico de categorias -->
+  <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:20px" id="dash-charts-row">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">📊 Fluxo — próximos meses</span>
+        <span style="font-size:11px;color:var(--text2)" id="dash-chart-period"></span>
+      </div>
+      <div style="padding:4px 12px 12px">
+        <div class="chart-wrap" style="height:200px;background:none;border:none;padding:0">
+          <canvas id="cDashFluxo"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">🍩 Gastos por categoria</span></div>
+      <div style="padding:4px 12px 12px">
+        <div class="chart-wrap" style="height:200px;background:none;border:none;padding:0">
+          <canvas id="cDashCats"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINHA 4: Maiores gastos + Próximos meses tabela -->
+  <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:14px;margin-bottom:20px" id="dash-bottom-row">
+    <!-- Top gastos -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">💸 Maiores gastos</span>
+        <span id="dash-mes-ref-label" style="font-size:11px;color:var(--text2)"></span>
+      </div>
+      <div id="dash-top-gastos" style="padding:0 4px"></div>
+    </div>
+    <!-- Calendário próximos meses -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">📅 Visão por período</span>
+        <span style="font-size:11px;color:var(--text2)">próximos meses</span>
+      </div>
       <div class="scroll"><table class="tbl-wide" id="dash-proximos"></table></div>
     </div>
-
-    <!-- Maiores gastos do mês -->
-    <div class="divider"><span class="divider-text">Gastos deste mês</span></div>
-    <div class="panel mb">
-      <div class="panel-head">
-        <span class="panel-title">💸 Todas as contas do mês atual</span>
-      </div>
-      <div id="dash-top-gastos"></div>
-    </div>
-
-    <!-- Patrimônio futuro (se houver investimentos) -->
-    <div id="dash-patrimonio-futuro"></div>
   </div>
 
-  <!-- SUB: POR MÊS -->
-  <div class="sub" id="sub-mes">
-    <div class="msel" id="dash-months"></div>
-    <div id="dash-sec-label" class="sec-label mb">Resumo de Mai/26</div>
-    <div class="gcards" id="mes-cards"></div>
-    <div id="mes-progresso"></div>
-    <div class="divider"><span class="divider-text">Gastos por categoria</span></div>
-    <div class="gcards" id="mes-cat-cards"></div>
-    <div class="divider"><span class="divider-text">Cartões</span></div>
-    <div class="cc-grid" id="mes-cartoes"></div>
-    <div class="divider"><span class="divider-text">Gráficos</span></div>
-    <div class="g2 mb">
-      <div class="panel">
-        <div class="panel-head"><span class="panel-title">📊 Dívidas vs Disponível p/ Investir</span></div>
-        <div class="chart-wrap" style="height:200px"><canvas id="cMesBar"></canvas></div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><span class="panel-title">🍩 Composição do mês</span></div>
-        <div class="chart-wrap" style="height:200px"><canvas id="cMesDough"></canvas></div>
-      </div>
-    </div>
+  <!-- LINHA 5: Cartões de crédito (se houver) -->
+  <div id="dash-cartoes-section" style="margin-bottom:20px"></div>
+
+  <!-- LINHA 6: Projeção de patrimônio + Metas -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px" id="dash-future-row">
+    <div id="dash-patrimonio-futuro"></div>
+    <div id="dash-metas-card"></div>
   </div>
 </div>
+
 
 <!-- ████ ENTRADAS ████ -->
 <div class="page" id="page-entradas">

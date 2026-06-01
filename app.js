@@ -779,11 +779,411 @@ function calcPatrimonioFuturo() {
 
 // ── DASHBOARD ─────────────────────────────────────
 function renderDashboard() {
-  const sub=getActiveSub('dash')||'geral';
-  if(sub==='geral') renderGeral(); else renderMes();
+  const mi = selDash >= 0 && selDash < nm() ? selDash : getMesRefIdx();
+  selDash = mi;
+  const mesNome = D.meses[mi]||'';
+  const isRefMes = mi === getMesRefIdx();
+
+  // Popula select de mês
+  const sel = document.getElementById('dash-mes-select');
+  if(sel) {
+    const ativosD = getActiveMeses();
+    sel.innerHTML = ativosD.map(m=>{
+      const idx = D.meses.indexOf(m);
+      return `<option value="${idx}" ${idx===mi?'selected':''}>${m}${idx===getMesRefIdx()?' ⬤':''}</option>`;
+    }).join('');
+  }
+
+  const subtitle = document.getElementById('dash-subtitle');
+  if(subtitle) subtitle.textContent = isRefMes ? `Mês de referência: ${mesNome}` : `Visualizando: ${mesNome}`;
+
+  // ── Dados financeiros do mês selecionado ──
+  const entrada  = totalEMes(mi);
+  const cp       = calcPendenteMes(mi);
+  const investir = invDisp(mi);
+  const r        = calcInvest(mi);
+  const pl       = patrimonioLiquido();
+  const score    = scoreFinanceiro();
+  const caixa    = caixaAtual();
+  const metaE    = metaEmergencia();
+  const reserva  = statusReserva();
+  const pctEmerg = reserva.pct;
+  const scoreCor = score>=70?'var(--brand)':score>=40?'var(--warn)':'var(--neg)';
+  const tudoPago = cp.bruto>0 && cp.pendente===0;
+  const fixasMes = totalFixasMes(mi);
+  const varMes   = totalComprasMes(mi);
+  const sobra    = entrada - cp.bruto;
+  const pctComp  = entrada>0?Math.round((cp.bruto/entrada)*100):0;
+
+  // ── Alertas ──
+  const alerts = getEmptyStateAlerts();
+  const alertEl = document.getElementById('dash-alerts');
+  if(alertEl) alertEl.innerHTML = alerts.length ? `
+    <div style="background:var(--warn-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r12);padding:12px 16px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px">
+      <span style="font-size:16px;flex-shrink:0">⚠️</span>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:5px">Configure seu perfil financeiro</div>
+        ${alerts.map(a=>`<div style="font-size:12px;color:var(--text2);padding:2px 0;display:flex;align-items:center;gap:7px">${a.icon} ${a.msg}</div>`).join('')}
+      </div>
+    </div>` : '';
+
+  // ── HERO BANNER ──
+  const hero = document.getElementById('dash-hero');
+  if(hero) {
+    const plCor = pl.liquido>=0?'var(--brand)':'var(--neg)';
+    hero.innerHTML = `
+      <div class="hero-top">
+        <div style="flex:1">
+          <div class="hero-label">Patrimônio líquido</div>
+          <div class="hero-amount" style="color:${plCor}">${fmt(pl.liquido)}</div>
+          <div class="hero-sub">${fmt(pl.ativos)} em ativos · ${mesNome}${isRefMes?' (mês atual)':''}</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-shrink:0">
+          <div class="hero-score">
+            <div class="hero-score-val" style="color:${scoreCor}">${score}</div>
+            <div class="hero-score-label">💚 Saúde</div>
+            <div class="score-bar" style="margin-top:6px"><div class="score-bar-fill" style="width:${score}%;background:${scoreCor}"></div></div>
+          </div>
+          <div class="hero-score" style="${pctEmerg>=100?'border-color:rgba(0,212,170,.3)':''}">
+            <div class="hero-score-val" style="color:${pctEmerg>=100?'var(--brand)':pctEmerg>=50?'var(--warn)':'var(--neg)'}">${pctEmerg}%</div>
+            <div class="hero-score-label">🛡️ Reserva</div>
+            <div class="score-bar" style="margin-top:6px"><div class="score-bar-fill" style="width:${pctEmerg}%;background:${pctEmerg>=100?'var(--brand)':pctEmerg>=50?'var(--warn)':'var(--neg)'}"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-pills">
+        <span class="hero-pill" style="color:var(--pos)">💰 ${fmt(entrada)}/mês</span>
+        <span class="hero-pill" style="color:var(--neg)">💸 ${fmt(cp.bruto)} saídas</span>
+        <span class="hero-pill" style="color:${sobra>=0?'var(--pos)':'var(--neg)'}">${sobra>=0?'✅':'⚠️'} Sobra ${fmt(sobra)}</span>
+        <span class="hero-pill" style="color:var(--teal)">🚀 Investir ${fmt(investir)}</span>
+        ${reserva.pct<100?`<span class="hero-pill" style="color:var(--warn);border-color:rgba(245,158,11,.2)">🛡️ Reserva ${fmt(reserva.falta)} p/ completar</span>`:''}
+      </div>`;
+  }
+
+  // ── KPI CARDS ──
+  const mc = document.getElementById('dash-mcards');
+  if(mc) mc.innerHTML = `
+    <div class="mcard mcard-pos">
+      <div class="mlabel">💰 Entradas</div>
+      <div class="mval mval-pos">${fmt(entrada)}</div>
+      <div class="msub">${D.entradas.filter(e=>e.ativo).length} fonte(s) · ${mesNome}</div>
+    </div>
+    <div class="mcard mcard-neg">
+      <div class="mlabel">💸 Saídas totais</div>
+      <div class="mval mval-neg">${fmt(cp.bruto)}</div>
+      <div class="msub">${pctComp}% da renda</div>
+    </div>
+    <div class="mcard mcard-neg" style="border-top-color:rgba(245,158,11,1)">
+      <div class="mlabel">⏳ Pendente</div>
+      <div class="mval" style="color:${cp.pendente>0?'var(--warn)':'var(--pos)'}">${fmt(cp.pendente)}</div>
+      <div class="msub">${cp.pago>0?`✅ ${fmt(cp.pago)} pago`:'Nada pago ainda'}</div>
+    </div>
+    ${tudoPago
+      ? `<div class="mcard" style="border-top-color:var(--pos);background:var(--pos-bg)">
+           <div class="mlabel" style="color:var(--pos)">🎉 Tudo pago!</div>
+           <div class="mval mval-pos" style="font-size:16px">Parabéns</div>
+           <div class="msub">Faturas de ${mesNome} quitadas</div>
+         </div>`
+      : `<div class="mcard mcard-teal">
+           <div class="mlabel">🚀 P/ investir</div>
+           <div class="mval mval-teal">${fmt(investir)}</div>
+           <div class="msub">${r.regra==='negativo'?'Sem sobra':r.regra==='menor_meta'?'50% da sobra':'Sobra − Meta CC'}</div>
+         </div>`}`;
+
+  // ── SAÚDE FINANCEIRA CARD (lado esquerdo da linha 2) ──
+  const saudeCard = document.getElementById('dash-saude-card');
+  if(saudeCard) {
+    const scoreLabel = score>=70?'Ótimo 🌟':score>=40?'Regular':'Atenção ⚠️';
+    const pctFixas = entrada>0?Math.round((fixasMes/entrada)*100):0;
+    const pctVar   = entrada>0?Math.round((varMes/entrada)*100):0;
+    const metrics = [
+      { label:'Saúde financeira',   val:`${score}/100`,  sub:scoreLabel,    pct:score,    cor:scoreCor },
+      { label:'Comprometimento',    val:`${pctComp}%`,   sub:`${fmt(cp.bruto)} de ${fmt(entrada)}`, pct:pctComp, cor:pctComp<=50?'var(--pos)':pctComp<=70?'var(--warn)':'var(--neg)' },
+      { label:'Gastos fixos',       val:`${pctFixas}%`,  sub:`${fmt(fixasMes)}/mês fixo`, pct:pctFixas, cor:pctFixas<=40?'var(--pos)':pctFixas<=60?'var(--warn)':'var(--neg)' },
+      { label:'Reserva emergência', val:`${pctEmerg}%`,  sub:`${fmt(caixa)} / ${fmt(metaE)}`, pct:pctEmerg, cor:pctEmerg>=100?'var(--brand)':pctEmerg>=50?'var(--warn)':'var(--neg)' },
+    ];
+    saudeCard.innerHTML = `<div class="panel" style="height:100%">
+      <div class="panel-head"><span class="panel-title">❤️ Saúde financeira</span></div>
+      <div style="padding:12px 16px;display:flex;flex-direction:column;gap:12px">
+        ${metrics.map(m=>`<div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:12px;color:var(--text2)">${m.label}</span>
+            <span style="font-size:13px;font-weight:700;font-family:var(--font-mono);color:${m.cor}">${m.val}</span>
+          </div>
+          <div style="height:4px;background:var(--card3);border-radius:99px;overflow:hidden">
+            <div style="height:4px;width:${Math.min(100,m.pct)}%;background:${m.cor};border-radius:99px;transition:width .7s var(--ease)"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${m.sub}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── PROGRESSO FATURAS CARD (lado direito da linha 2) ──
+  const faturasCard = document.getElementById('dash-faturas-card');
+  if(faturasCard) {
+    const pctPago = cp.bruto>0?Math.round((cp.pago/cp.bruto)*100):0;
+    const pctPagoCor = pctPago===100?'var(--brand)':pctPago>50?'var(--pos)':'var(--warn)';
+    // Faturas pendentes e pagas do mês
+    const pag = D.pagamentos?.[mesNome]||{};
+    const nPend = Object.keys(pag).length;
+    faturasCard.innerHTML = `<div class="panel" style="height:100%">
+      <div class="panel-head">
+        <span class="panel-title">✅ Faturas de ${mesNome}</span>
+        <button class="btn btn-ghost" style="height:26px;font-size:11px" onclick="goSide('faturas')">Ver todas →</button>
+      </div>
+      <div style="padding:16px">
+        <!-- Grande indicador de progresso -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+          <div style="position:relative;width:72px;height:72px;flex-shrink:0">
+            <svg width="72" height="72" viewBox="0 0 72 72" style="transform:rotate(-90deg)">
+              <circle cx="36" cy="36" r="30" fill="none" stroke="var(--card3)" stroke-width="7"/>
+              <circle cx="36" cy="36" r="30" fill="none" stroke="${pctPagoCor}" stroke-width="7"
+                stroke-dasharray="${2*Math.PI*30}" stroke-dashoffset="${2*Math.PI*30*(1-pctPago/100)}"
+                stroke-linecap="round" style="transition:stroke-dashoffset .8s var(--ease)"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:14px;font-weight:800;color:${pctPagoCor}">${pctPago}%</div>
+          </div>
+          <div>
+            <div style="font-size:22px;font-weight:800;font-family:var(--font-head);color:${pctPago===100?'var(--brand)':'var(--text)'}">${tudoPago?'🎉 Tudo pago!':fmt(cp.pendente)+' pendente'}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">Pago: ${fmt(cp.pago)} · Total: ${fmt(cp.bruto)}</div>
+          </div>
+        </div>
+        <div style="height:6px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:10px">
+          <div style="height:6px;width:${pctPago}%;background:${pctPagoCor};border-radius:99px;transition:width .7s var(--ease)"></div>
+        </div>
+        ${!tudoPago?`<button class="btn btn-pri" style="width:100%;height:36px;justify-content:center" onclick="goSide('faturas')">Pagar faturas de ${mesNome} →</button>`
+          :`<div style="text-align:center;font-size:12.5px;color:var(--brand);font-weight:600;padding:6px 0">Mês quitado ✅</div>`}
+      </div>
+    </div>`;
+  }
+
+  // ── GRÁFICO FLUXO ──
+  dc('cDashFluxo'); dc('cDashCats');
+  const periodoEl = document.getElementById('dash-chart-period');
+  const ativosChart = getActiveMeses().slice(0,12);
+  if(periodoEl) periodoEl.textContent = `${ativosChart[0]||''} → ${ativosChart[ativosChart.length-1]||''}`;
+  const cFluxo = document.getElementById('cDashFluxo');
+  if(cFluxo) {
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    CH['cDashFluxo'] = new Chart(cFluxo, {
+      type:'bar',
+      data:{
+        labels: ativosChart.map(sM),
+        datasets:[
+          { label:'Entradas', data:ativosChart.map(m=>totalEMes(D.meses.indexOf(m))),
+            backgroundColor: 'rgba(0,212,170,.25)', borderColor:'#00D4AA', borderWidth:2,
+            borderRadius:4, type:'bar' },
+          { label:'Saídas', data:ativosChart.map(m=>totalDivBruto(D.meses.indexOf(m))),
+            backgroundColor: 'rgba(239,68,68,.25)', borderColor:'#EF4444', borderWidth:2,
+            borderRadius:4, type:'bar' },
+          { label:'P/ Investir', data:ativosChart.map(m=>invDisp(D.meses.indexOf(m))),
+            backgroundColor:'transparent', borderColor:'#7C6FCD', borderWidth:2,
+            type:'line', tension:.4, pointRadius:3, pointBackgroundColor:'#7C6FCD' },
+        ]
+      },
+      options:{...chartOpts(), plugins:{...chartOpts().plugins,
+        annotation:{annotations:{
+          box1:{type:'box',xMin:ativosChart.indexOf(mesNome)-.4,xMax:ativosChart.indexOf(mesNome)+.4,
+            backgroundColor:isDark?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)',borderColor:'transparent'}
+        }}
+      }}
+    });
+  }
+
+  // ── GRÁFICO CATEGORIAS ──
+  const cCats = document.getElementById('cDashCats');
+  if(cCats) {
+    const cats = {};
+    D.fixas.filter(f=>{
+      if(!f.ativo||(f.valor||0)<=0) return false;
+      if(!f.mesInicio&&!f.mesFim) return true;
+      const {m:mm,y}=parseMes(mesNome);const anosM=y*12+mm;
+      const desde=f.mesInicio?parseMes(f.mesInicio):null;
+      const ate=f.mesFim?parseMes(f.mesFim):null;
+      return anosM>=(desde?desde.y*12+desde.m:-Infinity)&&anosM<=(ate?ate.y*12+ate.m:Infinity);
+    }).forEach(f=>{ cats[f.cat]=(cats[f.cat]||0)+f.valor; });
+    D.compras.filter(c=>c.ativo).forEach(c=>{
+      const v=calcValsCompra(c)[mi]||0;
+      if(v) cats[c.cat]=(cats[c.cat]||0)+v;
+    });
+    const catEntries = Object.entries(cats).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a);
+    if(catEntries.length) {
+      CH['cDashCats'] = new Chart(cCats, {
+        type:'doughnut',
+        data:{
+          labels: catEntries.map(([k])=>(CATS[k]?.icon||'📦')+' '+(CATS[k]?.label||k)),
+          datasets:[{ data:catEntries.map(([,v])=>v),
+            backgroundColor:catEntries.map(([k],i)=>CATS[k]?.cor||`hsl(${i*47},70%,60%)`),
+            borderWidth:0, hoverOffset:6 }]
+        },
+        options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+          animation:{duration:600,easing:'easeOutQuart'},
+          plugins:{
+            legend:{position:'right',labels:{color:tc(),font:{size:10,family:'DM Sans'},
+              boxWidth:8,padding:10,usePointStyle:true}},
+            tooltip:{backgroundColor:document.documentElement.getAttribute('data-theme')!=='light'?'#1A1D27':'#fff',
+              titleColor:tc(),bodyColor:tc(),borderColor:'rgba(255,255,255,.11)',
+              borderWidth:1,padding:10,cornerRadius:8,
+              callbacks:{label:c=>'  '+fmt(c.raw)+' ('+Math.round(c.raw/catEntries.reduce((s,[,v])=>s+v,0)*100)+'%)'}}
+          }
+        }
+      });
+    } else {
+      cCats.parentElement.innerHTML = `<div class="empty" style="padding:30px"><div class="empty-icon">🍩</div><div class="empty-text">Sem gastos em ${mesNome}</div></div>`;
+    }
+  }
+
+  // ── MAIORES GASTOS ──
+  const mesLabel = document.getElementById('dash-mes-ref-label');
+  if(mesLabel) mesLabel.textContent = mesNome;
+  renderTopGastosMes(mi);
+
+  // ── PRÓXIMOS MESES TABELA ──
+  const proxEl = document.getElementById('dash-proximos');
+  if(proxEl) {
+    const proxMeses = getActiveMeses().slice(0,8);
+    proxEl.innerHTML = `<thead><tr>
+      <th>Mês</th><th class="tr">Entradas</th><th class="tr">Saídas</th>
+      <th class="tr">Sobra</th><th class="tr" style="color:var(--teal)">Investir</th>
+    </tr></thead><tbody>${proxMeses.map(m=>{
+      const idx=D.meses.indexOf(m);
+      const e=totalEMes(idx),d=totalDivBruto(idx),s=sobraM(idx),inv=invDisp(idx);
+      const isAtu=idx===mi;
+      return `<tr style="${isAtu?'background:var(--brand-glow2)':''}">
+        <td style="font-weight:${isAtu?700:500};white-space:nowrap">
+          ${m}${isAtu?` <span class="badge" style="background:var(--brand);color:#0A0B0E;font-size:9px">hoje</span>`:''}
+        </td>
+        <td class="tr tpos">${fmtK(e)}</td>
+        <td class="tr tneg">${fmtK(d)}</td>
+        <td class="tr ${s>=0?'tpos':'tneg'}">${fmtK(s)}</td>
+        <td class="tr tteal">${fmtK(inv)}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+  }
+
+  // ── CARTÕES DE CRÉDITO ──
+  const cartoesSection = document.getElementById('dash-cartoes-section');
+  if(cartoesSection) {
+    const temCartoes = D.cartoes.length>0;
+    if(temCartoes) {
+      cartoesSection.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em">💳 Cartões de crédito</div>
+          <button class="btn btn-ghost" style="height:26px;font-size:11px" onclick="goSide('carteira')">Gerenciar →</button>
+        </div>
+        <div class="cc-grid" id="dash-cartoes-grid"></div>`;
+      renderCartoesTo(document.getElementById('dash-cartoes-grid'), mi);
+    } else {
+      cartoesSection.innerHTML = '';
+    }
+  }
+
+  // ── PROJEÇÃO FUTURA ──
+  const pf = calcPatrimonioFuturo();
+  const pfEl = document.getElementById('dash-patrimonio-futuro');
+  if(pfEl && pf && pf.length) {
+    pfEl.innerHTML = `<div class="panel">
+      <div class="panel-head"><span class="panel-title">📈 Projeção de patrimônio</span><span style="font-size:10px;color:var(--text3)">c/ juros compostos</span></div>
+      <div style="padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
+        ${pf.map((p,i)=>`<div style="text-align:center;padding:10px 8px;background:var(--card2);border-radius:var(--r10);${i===pf.length-1?'border:1px solid var(--brand-glow);background:var(--brand-glow2)':''}">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;margin-bottom:4px">${p.yr}</div>
+          <div style="font-family:var(--font-head);font-size:16px;font-weight:800;color:${i===pf.length-1?'var(--brand)':'var(--teal)'}">${fmtK(p.saldo)}</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:2px">+${fmtK(p.aporte)}</div>
+        </div>`).join('')}
+      </div>
+      <div style="padding:0 16px 10px;font-size:10px;color:var(--text3)">⚠️ Estimativa. Não constitui recomendação de investimento.</div>
+    </div>`;
+  } else if(pfEl) pfEl.innerHTML = '';
+
+  // ── METAS CARD ──
+  const metasCard = document.getElementById('dash-metas-card');
+  if(metasCard) {
+    const metas = D.metas||[];
+    if(metas.length) {
+      const emAndamento = metas.filter(m=>(m.atual||0)<(m.valor||1));
+      const concluidas  = metas.filter(m=>(m.atual||0)>=(m.valor||1));
+      metasCard.innerHTML = `<div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">🎯 Metas financeiras</span>
+          <button class="btn btn-ghost" style="height:26px;font-size:11px" onclick="goSide('metas')">Ver todas →</button>
+        </div>
+        <div style="padding:10px 16px;display:flex;flex-direction:column;gap:8px">
+          ${emAndamento.slice(0,3).map(m=>{
+            const pctM=Math.min(100,Math.round(((m.atual||0)/(m.valor||1))*100));
+            return `<div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12.5px;font-weight:600">${m.nome}</span>
+                <span style="font-size:11px;font-family:var(--font-mono);color:var(--text2)">${pctM}%</span>
+              </div>
+              <div style="height:4px;background:var(--card3);border-radius:99px;overflow:hidden">
+                <div style="height:4px;width:${pctM}%;background:var(--brand);border-radius:99px"></div>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-top:2px">${fmt(m.atual||0)} / ${fmt(m.valor||0)}</div>
+            </div>`;
+          }).join('')}
+          ${concluidas.length?`<div style="font-size:11px;color:var(--pos);padding:4px 0">✅ ${concluidas.length} meta(s) concluída(s)</div>`:''}
+        </div>
+      </div>`;
+    } else {
+      metasCard.innerHTML = `<div class="panel">
+        <div class="panel-head"><span class="panel-title">🎯 Metas financeiras</span></div>
+        <div class="empty" style="padding:20px">
+          <div class="empty-icon" style="font-size:24px">🎯</div>
+          <div class="empty-text">Defina seus objetivos financeiros</div>
+          <button class="btn btn-pri" style="margin-top:10px;height:34px" onclick="goSide('metas')">+ Criar meta</button>
+        </div>
+      </div>`;
+    }
+  }
 }
 
-function renderGeral() {
+// Renderiza lista de gastos para o dashboard
+function renderTopGastosMes(mi) {
+  const el = document.getElementById('dash-top-gastos');
+  if(!el) return;
+  const mesNome = D.meses[mi]||'';
+  const gastos = [];
+  D.fixas.filter(f=>{
+    if(!f.ativo||(f.valor||0)<=0) return false;
+    if(!f.mesInicio&&!f.mesFim) return true;
+    const {m:mm,y}=parseMes(mesNome);const anosM=y*12+mm;
+    const desde=f.mesInicio?parseMes(f.mesInicio):null;
+    const ate=f.mesFim?parseMes(f.mesFim):null;
+    return anosM>=(desde?desde.y*12+desde.m:-Infinity)&&anosM<=(ate?ate.y*12+ate.m:Infinity);
+  }).forEach(f=>{ gastos.push({nome:f.nome,valor:f.valor,cat:f.cat,tipo:'Fixo'}); });
+  D.compras.filter(c=>c.ativo).forEach(c=>{
+    const v=calcValsCompra(c)[mi]||0;
+    if(v>0) gastos.push({nome:c.nome,valor:v,cat:c.cat,tipo:'Var',cartao:c.cartao});
+  });
+  if(!gastos.length){
+    el.innerHTML=`<div class="empty" style="padding:20px"><div class="empty-icon" style="font-size:22px">📭</div><div class="empty-text">Nenhum gasto em ${mesNome}</div></div>`;
+    return;
+  }
+  const totalM=gastos.reduce((s,g)=>s+g.valor,0);
+  gastos.sort((a,b)=>b.valor-a.valor).slice(0,7).forEach(g=>{
+    const info=CATS[g.cat]||CATS.outros;
+    const pctVal=totalM>0?Math.round((g.valor/totalM)*100):0;
+    el.innerHTML+= `<div style="display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border)">
+      <span style="font-size:16px">${info.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.nome}</div>
+        <div style="font-size:10px;color:var(--text3)">${info.label}${g.cartao?' · '+g.cartao:''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:13px;font-weight:700;color:var(--neg);font-family:var(--font-mono)">${fmt(g.valor)}</div>
+        <div style="height:2px;width:${Math.max(6,pctVal)}px;background:${info.cor||'var(--neg)'};border-radius:99px;margin-left:auto;margin-top:3px;transition:width .5s"></div>
+      </div>
+    </div>`;
+  });
+  if(gastos.length>7) el.innerHTML+=`<div style="padding:8px 16px;font-size:11px;color:var(--text3)">+${gastos.length-7} outros itens</div>`;
+  el.innerHTML+=`<div style="padding:10px 16px;display:flex;justify-content:space-between;background:var(--card2)"><span style="font-size:12px;font-weight:700;color:var(--text2)">Total</span><span style="font-size:14px;font-weight:700;color:var(--neg);font-family:var(--font-mono)">${fmt(totalM)}</span></div>`;
+}
+
+// renderGeral e renderMes → agora são renderDashboard
+function renderGeral() { renderDashboard(); }
+function renderMes()   { renderDashboard(); }
+
   // ── Dados do mês atual ──
   const mi = getMesRefIdx();
 
@@ -864,246 +1264,6 @@ function renderGeral() {
     })()}`;
 
   // ── SAÚDE FINANCEIRA ──
-  const saude = document.getElementById('dash-saude');
-  if(saude){
-    const fixasMes  = totalFixasMes(mi);
-    const varMes    = totalComprasMes(mi);
-    const pctFixas  = entrada>0?Math.round((fixasMes/entrada)*100):0;
-    const pctVar    = entrada>0?Math.round((varMes/entrada)*100):0;
-
-    const indicadores = [
-      { label:'Reserva de emergência', valor:`${pctEmerg}%`, sub:`${fmt(caixa)} de ${fmt(metaE)}`, cor: pctEmerg>=100?'var(--brand)':pctEmerg>=50?'var(--warn)':'var(--neg)', pct: pctEmerg, icon:'🛡️' },
-      { label:'Comprometimento fixo',  valor:`${pctFixas}%`, sub:`${fmt(fixasMes)} de ${fmt(entrada)}`, cor: pctFixas<=30?'var(--brand)':pctFixas<=50?'var(--warn)':'var(--neg)', pct: pctFixas, icon:'📌' },
-      { label:'Score financeiro',      valor:`${score}/100`, sub:scoreLabel, cor: scoreCor, pct: score, icon:'⭐' },
-    ];
-
-    saude.innerHTML = indicadores.map(ind=>`
-      <div class="mcard">
-        <div class="mlabel">${ind.icon} ${ind.label}</div>
-        <div class="mval" style="color:${ind.cor};font-size:20px">${ind.valor}</div>
-        <div style="height:4px;background:var(--card3);border-radius:99px;margin:8px 0 4px;overflow:hidden">
-          <div style="height:4px;width:${Math.min(100,ind.pct)}%;background:${ind.cor};border-radius:99px;transition:width .6s"></div>
-        </div>
-        <div class="msub">${ind.sub}</div>
-      </div>`).join('');
-  }
-
-  // ── PRÓXIMOS MESES: tabela simples ──
-  const proxEl = document.getElementById('dash-proximos');
-  if(proxEl){
-    const proxMeses = getActiveMeses().slice(0, 6); // próximos 6 meses
-    const rows = proxMeses.map(m=>{
-      const i = D.meses.indexOf(m);
-      const e = totalEMes(i), d = totalDivBruto(i), s = sobraM(i), inv = invDisp(i);
-      const isAtual = i === mi;
-      return `<tr style="${isAtual?'background:var(--accent-glow);font-weight:700':''}">
-        <td style="font-weight:${isAtual?700:500}">${m}${isAtual?' <span style="font-size:10px;color:var(--accent);background:var(--accent-glow);padding:1px 6px;border-radius:99px">hoje</span>':''}</td>
-        <td class="tr tpos">${fmt(e)}</td>
-        <td class="tr tneg">${fmt(d)}</td>
-        <td class="tr ${s>=0?'tpos':'tneg'}">${fmt(s)}</td>
-        <td class="tr tteal">${fmt(inv)}</td>
-      </tr>`;
-    }).join('');
-    proxEl.innerHTML = `<thead><tr>
-      <th>Mês</th>
-      <th class="tr">💰 Entradas</th>
-      <th class="tr">💸 Saídas</th>
-      <th class="tr">📊 Sobra</th>
-      <th class="tr" style="color:var(--teal)">🚀 P/ Investir</th>
-    </tr></thead><tbody>${rows}</tbody>`;
-  }
-
-  // ── MAIORES GASTOS DO MÊS ──
-  renderTopGastosMes(mi);
-
-  // ── PATRIMÔNIO FUTURO ──
-  const pf = calcPatrimonioFuturo();
-  const pfEl = document.getElementById('dash-patrimonio-futuro');
-  if(pfEl && pf && pf.length){
-    pfEl.innerHTML = `
-      <div class="divider"><span class="divider-text">📈 Onde você estará no futuro</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:8px">
-        ${pf.map((p,i)=>`<div class="mcard ${i===pf.length-1?'mcard-accent':''}">
-          <div class="mlabel">${p.yr}</div>
-          <div class="mval ${i===pf.length-1?'mval-accent':'mval-teal'}" style="font-size:18px">${fmtK(p.saldo)}</div>
-          <div class="msub">aportes: ${fmtK(p.aporte)}</div>
-        </div>`).join('')}
-      </div>
-      <div style="font-size:10px;color:var(--text3)">Projeção estimada com juros compostos. Não garante rentabilidade futura.</div>`;
-  } else if(pfEl) pfEl.innerHTML = '';
-}
-
-function renderTopGastosMes(mi) {
-  const el = document.getElementById('dash-top-gastos');
-  if(!el) return;
-
-  // Coleta todos os gastos do mês
-  const gastos = [];
-  D.fixas.filter(f=>f.ativo && f.valor>0).forEach(f=>{
-    gastos.push({nome:f.nome, valor:f.valor, cat:f.cat, tipo:'Fixo'});
-  });
-  D.compras.filter(c=>c.ativo).forEach(c=>{
-    const v = calcValsCompra(c)[mi]||0;
-    if(v>0) gastos.push({nome:c.nome, valor:v, cat:c.cat, tipo:'Variável', cartao:c.cartao});
-  });
-
-  if(!gastos.length){
-    el.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhum gasto em ${D.meses[mi]||'este mês'}. Cadastre contas na aba Saídas.</div></div>`;
-    return;
-  }
-
-  const totalM = gastos.reduce((s,g)=>s+g.valor,0);
-  gastos.sort((a,b)=>b.valor-a.valor);
-
-  el.innerHTML = gastos.map(g=>{
-    const info = CATS[g.cat]||CATS.outros;
-    const pctVal = totalM>0?Math.round((g.valor/totalM)*100):0;
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:18px;flex-shrink:0">${info.icon}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.nome}</div>
-        <div style="font-size:10px;color:var(--text2)">${info.label}${g.cartao?' · 💳 '+g.cartao:''} · <span class="badge ${g.tipo==='Fixo'?'badge-fixo':'badge-var'}">${g.tipo}</span></div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:14px;font-weight:700;color:var(--neg)">${fmt(g.valor)}</div>
-        <div style="font-size:10px;color:var(--text3)">${pctVal}% das saídas</div>
-      </div>
-    </div>`;
-  }).join('') + `<div style="padding:10px 0;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:12px;font-weight:700;color:var(--text2)">Total</span>
-    <span style="font-size:16px;font-weight:700;color:var(--neg)">${fmt(totalM)}</span>
-  </div>`;
-}
-
-
-// ── POR MÊS ───────────────────────────────────────
-function renderMes() {
-  const i = selDash;
-  const e = totalEMes(i);
-  const cp = calcPendenteMes(i);
-  const inv = invDisp(i);
-  const r = calcInvest(i);
-  const pl = patrimonioLiquido();
-  const tudoPago = cp.bruto > 0 && cp.pendente === 0;
-  const mesNome = D.meses[i] || '';
-  const isRefMes = i === getMesRefIdx();
-
-  document.getElementById('dash-sec-label').textContent = 'Resumo de ' + mesNome + (isRefMes ? ' (referência)' : '');
-  buildMonths('dash-months', i, j => { selDash = j; renderMes(); });
-
-  const mc = document.getElementById('mes-cards');
-  if(!mc) return;
-
-  // ── SEÇÃO 1: Visão geral financeira do mês ──
-  const sobraLiquida = e - cp.bruto;
-  const icon = r.regra === 'negativo' ? '🔴' : r.regra === 'menor_meta' ? '🟡' : '🟢';
-  const regrasDesc = { maior_meta: 'Sobra − Meta CC', menor_meta: '50% da sobra', negativo: 'Contas > Entradas' };
-
-  mc.innerHTML = `
-    <!-- Entradas -->
-    <div class="mcard mcard-pos">
-      <div class="mlabel">💰 Entradas em ${mesNome}</div>
-      <div class="mval mval-pos">${fmt(e)}</div>
-      <div class="msub">${D.entradas.filter(e=>e.ativo).length} fonte(s) · salário e outros</div>
-    </div>
-
-    <!-- Total faturas -->
-    <div class="mcard mcard-neg">
-      <div class="mlabel">💸 Total de faturas</div>
-      <div class="mval mval-neg">${fmt(cp.bruto)}</div>
-      <div class="msub">${pct(cp.bruto, e)} da renda · fixas + variáveis</div>
-    </div>
-
-    ${tudoPago
-      ? `<!-- Tudo pago: sem sobra, mostra patrimônio -->
-        <div class="mcard" style="border-color:rgba(16,185,129,.3);background:var(--pos-bg)">
-          <div class="mlabel" style="color:var(--pos)">✅ Todas as faturas pagas!</div>
-          <div class="mval mval-pos" style="font-size:16px">${fmt(cp.pago)} pagos</div>
-          <div class="msub">Mês quitado · Parabéns! 🎉</div>
-        </div>`
-      : `<!-- Pendente -->
-        <div class="mcard mcard-warn">
-          <div class="mlabel">⏳ Ainda pendente</div>
-          <div class="mval mval-warn">${fmt(cp.pendente)}</div>
-          <div class="msub">Pago: ${fmt(cp.pago)} · ${pct(cp.pago, cp.bruto)}</div>
-        </div>
-
-        <!-- Disponível para investir -->
-        <div class="mcard mcard-teal" style="border-color:rgba(6,182,212,.3)">
-          <div class="mlabel">${icon} Disponível p/ investir</div>
-          <div class="mval mval-teal">${fmt(inv)}</div>
-          <div class="msub">${regrasDesc[r.regra]}</div>
-        </div>`
-    }
-
-    <!-- Patrimônio líquido -->
-    <div class="mcard mcard-accent">
-      <div class="mlabel">💎 Patrimônio líquido</div>
-      <div class="mval ${pl.liquido >= 0 ? 'mval-accent' : 'mval-neg'}">${fmt(pl.liquido)}</div>
-      <div class="msub">Ativos ${fmt(pl.ativos)}</div>
-    </div>
-  `;
-
-  // ── SEÇÃO 2: Progresso das faturas ──
-  const progEl = document.getElementById('mes-progresso');
-  if(progEl && cp.bruto > 0) {
-    const pctPago = Math.round((cp.pago / cp.bruto) * 100);
-    progEl.innerHTML = `
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:16px;margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-weight:600;font-size:13px">📊 Progresso das faturas em ${mesNome}</span>
-          <span style="font-size:13px;font-weight:700;color:${pctPago===100?'var(--pos)':'var(--warn)'}">${pctPago}%</span>
-        </div>
-        <div style="height:8px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:10px">
-          <div style="height:8px;width:${pctPago}%;background:${pctPago===100?'var(--pos)':'var(--accent)'};border-radius:99px;transition:width .5s"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
-          <span>✅ Pago: <strong style="color:var(--pos)">${fmt(cp.pago)}</strong></span>
-          <span>⏳ Pendente: <strong style="color:var(--warn)">${fmt(cp.pendente)}</strong></span>
-          <span>💸 Total: <strong>${fmt(cp.bruto)}</strong></span>
-        </div>
-        <div style="margin-top:10px;text-align:center">
-          <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="go('faturas',document.querySelectorAll('.ntab')[5])">
-            📋 Ver faturas detalhadas →
-          </button>
-        </div>
-      </div>`;
-  } else if(progEl) progEl.innerHTML = '';
-
-  // ── SEÇÃO 3: Gastos por categoria ──
-  const cats = {};
-  D.fixas.filter(f=>f.ativo).forEach(f=>{ const c=f.cat||'outros'; if(!cats[c])cats[c]={total:0,items:[]}; cats[c].total+=f.valor; cats[c].items.push({nome:f.nome,v:f.valor}); });
-  D.compras.filter(c=>c.ativo).forEach(c=>{ const v=calcValsCompra(c)[i]||0; if(!v)return; const cat=c.cat||'outros'; if(!cats[cat])cats[cat]={total:0,items:[]}; cats[cat].total+=v; cats[cat].items.push({nome:c.nome,v}); });
-  const cc = document.getElementById('mes-cat-cards');
-  if(cc) cc.innerHTML = Object.entries(cats).sort(([,a],[,b])=>b.total-a.total).map(([cat,{total,items}])=>{
-    const info = CATS[cat] || CATS.outros;
-    return `<div class="mcard" style="border-color:${info.cor}33">
-      <div class="mlabel" style="color:${info.cor}">${info.icon} ${info.label}</div>
-      <div class="mval tneg" style="font-size:18px">${fmt(total)}</div>
-      <div style="font-size:10px;color:var(--text2);margin-top:6px;line-height:1.6">${items.map(x=>`${x.nome}: <strong>${fmt(x.v)}</strong>`).join(' · ')}</div>
-    </div>`;
-  }).join('');
-
-  renderCartoesTo(document.getElementById('mes-cartoes'), i);
-
-  // ── SEÇÃO 4: Gráficos ──
-  dc('cMesBar'); dc('cMesDough');
-  const cMB = document.getElementById('cMesBar');
-  const atM = getActiveMeses();
-  if(cMB) CH['cMesBar'] = new Chart(cMB, {type:'bar', data:{
-    labels: atM.map(sM),
-    datasets:[
-      {label:'Faturas',    data:atM.map(m=>totalDivBruto(D.meses.indexOf(m))), backgroundColor:'#EF4444', borderRadius:4},
-      {label:'P/Investir', data:atM.map(m=>invDisp(D.meses.indexOf(m))),       backgroundColor:'#00D4AA',  borderRadius:4},
-    ]
-  }, options:chartOpts()});
-
-  const catTots = {};
-  D.fixas.filter(f=>f.ativo).forEach(f=>{ catTots[f.cat||'outros']=(catTots[f.cat||'outros']||0)+f.valor; });
-  D.compras.filter(c=>c.ativo).forEach(c=>{ const v=calcValsCompra(c)[i]||0; if(v) catTots[c.cat||'outros']=(catTots[c.cat||'outros']||0)+v; });
-  const cMD = document.getElementById('cMesDough');
-  if(cMD){ const catE=Object.entries(catTots).filter(([,v])=>v>0); CH['cMesDough']=new Chart(cMD,{type:'doughnut',data:{labels:catE.map(([k])=>(CATS[k]?.icon||'📦')+' '+(CATS[k]?.label||k)),datasets:[{data:catE.map(([,v])=>v),backgroundColor:catE.map(([k])=>CATS[k]?.cor||'#888'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:tc(),font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>' '+fmt(c.raw)}}}}}); }
-}
 
 function buildMonths(cid,sel,cb){const el=document.getElementById(cid);if(!el)return;const ativos=getActiveMeses();el.innerHTML=ativos.map((m)=>{const i=D.meses.indexOf(m);return`<button class="msb${i===sel?' on':''}" onclick="(${cb.toString()})(${i})">${sM(m)}</button>`;}).join('');}
 
