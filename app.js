@@ -453,9 +453,61 @@ function scoreFinanceiro() {
   return Math.min(100,score);
 }
 function caixaAtual()     { return D.ativos.filter(a=>a.bucket==='C').reduce((s,a)=>s+(a.valor||0),0); }
-function custoFixoMes()   { return totalFixasMes(0); }
+// Custo fixo base = soma de TODAS as fixas ativas, independente de período
+// É o custo de vida permanente — base para a reserva de emergência
+function custoFixoMes()   { return (D.fixas||[]).filter(f=>f.ativo&&(f.valor||0)>0).reduce((s,f)=>s+(f.valor||0),0); }
 function metaEmergencia() { return custoFixoMes()*6; }
 function arcaBloqueado()  { return caixaAtual()<metaEmergencia(); }
+
+// Retorna o status da reserva de emergência
+function statusReserva() {
+  const caixa = caixaAtual();
+  const meta  = metaEmergencia();
+  const pct   = meta>0 ? Math.min(100, Math.round((caixa/meta)*100)) : 100;
+  const falta = Math.max(0, meta-caixa);
+  const fase  = caixa >= meta ? 'completa' : pct >= 50 ? 'em_progresso' : 'inicio';
+  return { caixa, meta, pct, falta, fase, bloqueado: caixa < meta };
+}
+
+// Calcula como distribuir o disponível para investir neste mês
+// Fase 1 (reserva incompleta): 100% vai para Caixa
+// Fase 2 (reserva completa): distribui pelo ARCA, mas Caixa sempre recebe aporte mínimo
+function calcDistribuicaoInvest(valorDisp) {
+  const reserva = statusReserva();
+  if(valorDisp <= 0) return null;
+
+  if(reserva.bloqueado) {
+    // FASE 1: Tudo para caixa — construindo reserva de emergência
+    return {
+      fase: 1,
+      total: valorDisp,
+      distribuicao: [
+        { bucket:'C', label:'Caixa (Reserva)', valor:valorDisp, pct:100,
+          cor:'#6B7280', desc:'100% para reserva de emergência até atingir '+fmt(reserva.meta) }
+      ]
+    };
+  }
+
+  // FASE 2: Reserva completa — distribui pelo ARCA
+  // Caixa continua recebendo aporte (reserva é intocável, só cresce)
+  const intel = calcARCAIntelligence();
+  const rec = intel.rec;
+  const buckets = [
+    { bucket:'A',  label:'Ações BR',      pct:rec.a,  cor:ARCA.colors.A  },
+    { bucket:'R',  label:'Real Estate',   pct:rec.r,  cor:ARCA.colors.R  },
+    { bucket:'C',  label:'Caixa',         pct:rec.c,  cor:ARCA.colors.C  },
+    { bucket:'A2', label:'Internacional', pct:rec.a2, cor:ARCA.colors.A2 },
+  ];
+  return {
+    fase: 2,
+    total: valorDisp,
+    distribuicao: buckets.map(b=>({
+      ...b,
+      valor: Math.round(valorDisp*(b.pct/100)*100)/100,
+      desc: ARCA.desc[b.bucket]||''
+    }))
+  };
+}
 function taxaAnual(a) { const base=a.indice==='SELIC'?(D.cdi12||14.80):a.indice==='IPCA'?(D.ipca12||4.14):(D.cdi12||14.80); return (base*(a.pct||100)/100)/100; }
 function projetar(v,r,n){ return v*Math.pow(1+r,n); }
 function getYears() { const s=new Set(); D.meses.forEach(m=>{const p=m.match(/\/(\d+)/);if(p)s.add('20'+p[1]);}); return [...s].sort(); }
@@ -2074,6 +2126,63 @@ function renderInvestVisao(){
   const pl=patrimonioLiquido();
   const totInv=D.meses.reduce((s,_,i)=>s+invDisp(i),0);
   const icon=ref.regra==='negativo'?'🔴':ref.regra==='menor_meta'?'🟡':'🟢';
+  const reserva=statusReserva();
+  const dist=calcDistribuicaoInvest(ref.saldo);
+
+  // ── Banner de reserva de emergência ──
+  const reservaBanner=document.getElementById('inv-reserva-banner');
+  if(reservaBanner){
+    const pctCor=reserva.pct>=100?'var(--pos)':reserva.pct>=50?'var(--warn)':'var(--neg)';
+    const bgCor=reserva.pct>=100?'var(--pos-bg)':reserva.pct>=50?'var(--warn-bg)':'rgba(239,68,68,.06)';
+    const bordCor=reserva.pct>=100?'rgba(16,185,129,.3)':reserva.pct>=50?'rgba(245,158,11,.3)':'rgba(239,68,68,.3)';
+    reservaBanner.innerHTML=`
+      <div style="background:${bgCor};border:1px solid ${bordCor};border-radius:var(--r12);padding:16px 20px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:10px">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:${pctCor}">
+              ${reserva.pct>=100?'✅ Reserva de emergência completa!':reserva.pct>=50?'⚠️ Construindo reserva de emergência':'🔴 Reserva de emergência insuficiente'}
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">
+              ${reserva.pct>=100
+                ? `Caixa atual ${fmt(reserva.caixa)} ≥ meta ${fmt(reserva.meta)} · Investimentos ARCA liberados`
+                : `Faltam ${fmt(reserva.falta)} para completar a reserva · ${reserva.pct}% atingido`
+              }
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:24px;font-weight:800;color:${pctCor}">${reserva.pct}%</div>
+            <div style="font-size:10px;color:var(--text2)">${fmt(reserva.caixa)} / ${fmt(reserva.meta)}</div>
+          </div>
+        </div>
+        <div style="height:8px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:8px">
+          <div style="height:8px;width:${reserva.pct}%;background:${pctCor};border-radius:99px;transition:width .6s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6">
+          📋 Base de cálculo: ${D.fixas.filter(f=>f.ativo).length} contas fixas = <strong>${fmt(custoFixoMes())}/mês</strong> × 6 meses = <strong style="color:${pctCor}">${fmt(reserva.meta)}</strong>
+          ${reserva.pct<100?`<br>🎯 Fase atual: <strong>100% do disponível vai para Caixa</strong> até completar a reserva.`
+            :`<br>🎯 Reserva intocável — continua crescendo com aportes mensais em Caixa.`}
+        </div>
+      </div>
+      ${dist?`
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:16px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">
+          ${dist.fase===1?'💸 Como investir este mês (Fase 1 — Reserva)':'💰 Como investir este mês (Fase 2 — ARCA)'}
+          <span style="font-size:12px;font-weight:400;color:var(--text2);margin-left:8px">Disponível: ${fmt(dist.total)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+          ${dist.distribuicao.map(b=>`
+            <div style="background:var(--card2);border:1px solid ${b.cor}30;border-radius:var(--r8);padding:12px;text-align:center">
+              <div style="font-size:10px;font-weight:700;color:${b.cor};text-transform:uppercase;margin-bottom:4px">${b.label}</div>
+              <div style="font-size:20px;font-weight:800;color:${b.cor}">${fmt(b.valor)}</div>
+              <div style="font-size:10px;color:var(--text2);margin-top:2px">${b.pct}%</div>
+            </div>`).join('')}
+        </div>
+        ${dist.fase===1?`<div style="margin-top:10px;font-size:11px;color:var(--text2);padding:8px 12px;background:var(--warn-bg);border-radius:var(--r8);border:1px solid rgba(245,158,11,.2)">
+          ⚡ Quando a reserva estiver completa, o sistema passa automaticamente para a Fase 2 e distribui pelo método ARCA.
+        </div>`:''}
+      </div>`
+      : ''}`;
+  }
 
   const ic=document.getElementById('inv-cards');
   if(ic) ic.innerHTML=`
@@ -2096,9 +2205,10 @@ function renderInvestVisao(){
       <div class="mval mval-teal">${fmt(ref.saldo)}</div>
       <div class="msub">mês 1 como referência</div>
     </div>
-    <div class="mcard mcard-accent">
-      <div class="mlabel">💎 Total em ativos</div>
-      <div class="mval mval-accent">${fmt(pl.ativos)}</div>
+    <div class="mcard ${reserva.pct>=100?'mcard-pos':reserva.pct>=50?'mcard-warn':'mcard-neg'}">
+      <div class="mlabel">🛡️ Reserva emergência</div>
+      <div class="mval ${reserva.pct>=100?'mval-pos':reserva.pct>=50?'mval-warn':'mval-neg'}">${reserva.pct}%</div>
+      <div class="msub">${fmt(reserva.caixa)} / ${fmt(reserva.meta)}</div>
     </div>
     <div class="mcard mcard-pos">
       <div class="mlabel">🚀 Total a investir (período)</div>

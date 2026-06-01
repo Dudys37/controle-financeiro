@@ -917,13 +917,14 @@ select{cursor:pointer;}
     <button class="stab" onclick="switchSub('invest','inv-indicadores',this)">📡 Indicadores</button>
   </div>
   <div class="sub on" id="sub-inv-visao">
+    <div id="inv-reserva-banner"></div>
     <div class="gcards mb" id="inv-cards"></div>
     <div class="panel mb">
       <div class="panel-head"><span class="panel-title">💰 Disponível para investir — mês a mês</span><span class="panel-badge">Regras automáticas</span></div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;display:flex;flex-wrap:wrap;gap:12px">
-        <span>🟢 <strong>Sobra ≥ Meta CC</strong> → 50% da sobra</span>
-        <span>🟡 <strong>0 &lt; Sobra &lt; Meta CC</strong> → 50% da sobra</span>
-        <span>🔴 <strong>Contas &gt; Entradas</strong> → R$ 0,00</span>
+        <span>🛡️ <strong>Fase 1</strong> → 100% para Caixa (reserva de emergência)</span>
+        <span>🚀 <strong>Fase 2</strong> → Distribui pelo ARCA (reserva completa)</span>
+        <span>🟢 Sobra ≥ Meta CC → Sobra−Meta · 🟡 Sobra &lt; Meta → 50% · 🔴 Negativo → R$ 0</span>
       </div>
       <div class="scroll"><table class="tbl-wide" id="inv-mes-tbl"></table></div>
     </div>
