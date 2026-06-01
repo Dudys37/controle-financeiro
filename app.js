@@ -2578,29 +2578,86 @@ function renderIndicadores(){
 
 // Séries temporais do Banco Central (SGS/BCData)
 const BCB_SERIES = {
-  cdiMes:   4389,  // CDI acumulado no mês (% a.m.)
-  cdi12m:   4391,  // CDI % a.a. (últimos 12 meses)
-  selicMes: 4390,  // SELIC acumulada no mês
-  selicMeta:432,   // Meta SELIC % a.a.
-  ipcaMes:  433,   // IPCA mensal
-  ipca12m:  13522, // IPCA acumulado 12 meses
+  // CDI
+  cdiDiarioAnual: 12,    // CDI diário anualizado (% a.a.) → ~14.65% — mais confiável para CDI 12m
+  cdiMensal:      4389,  // CDI acumulado no mês (% a.m.) → ~1.13%
+  // SELIC
+  selicMeta:      432,   // Meta SELIC (% a.a.) → ~14.75%
+  selicDiaria:    11,    // SELIC diária anualizada (% a.a.)
+  // IPCA
+  ipcaMensal:     433,   // IPCA mensal (% a.m.) → ~0.43%
+  ipca12meses:    13522, // IPCA acumulado 12 meses (%) → ~4.39%
 };
 
 async function bcbFetch(serie, n=1) {
   const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados/ultimos/${n}?formato=json`;
-  // Tenta direto; se falhar por CORS, usa proxy
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error('status '+r.status);
     const d = await r.json();
     return d[d.length-1];
   } catch(e) {
-    // Fallback: proxy CORS público
     const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
     const r2 = await fetch(proxy);
     const d2 = await r2.json();
     const parsed = JSON.parse(d2.contents);
     return parsed[parsed.length-1];
+  }
+}
+
+async function fetchBCB() {
+  const btn  = document.getElementById('btn-bcb-fetch');
+  const stat = document.getElementById('bcb-status');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
+  if (stat) { stat.style.display = ''; stat.innerHTML = '⏳ Conectando ao Banco Central do Brasil...'; }
+
+  try {
+    const [selicMeta, cdiAnual, cdiMensal, ipcaMensal, ipca12m] = await Promise.all([
+      bcbFetch(BCB_SERIES.selicMeta,      1),
+      bcbFetch(BCB_SERIES.cdiDiarioAnual, 1),  // CDI % a.a. → o correto para CDI 12m
+      bcbFetch(BCB_SERIES.cdiMensal,      1),  // CDI % a.m. → mês de referência
+      bcbFetch(BCB_SERIES.ipcaMensal,     1),  // IPCA % a.m.
+      bcbFetch(BCB_SERIES.ipca12meses,    1),  // IPCA 12m %
+    ]);
+
+    // ── Atribui os valores corretamente ──
+    D.selic   = parseFloat(selicMeta.valor) || D.selic || 14.75;
+
+    // CDI 12m = CDI diário anualizado (série 12) → ~14.65%
+    // Se não disponível, usa SELIC - 0.10 (CDI fica ~0.1pp abaixo da SELIC)
+    const cdiAnualVal = parseFloat(cdiAnual.valor);
+    D.cdi12 = cdiAnualVal > 1 ? cdiAnualVal : D.selic - 0.10;
+
+    // CDI mensal (% a.m.) → série 4389 → ~1.13%
+    const cdiMensalVal = parseFloat(cdiMensal.valor);
+    D.cdifev = cdiMensalVal > 0 && cdiMensalVal < 5 ? cdiMensalVal : D.cdifev;
+
+    // IPCA 12m → série 13522 → ~4.39%
+    const ipca12Val = parseFloat(ipca12m.valor);
+    D.ipca12 = ipca12Val > 0 ? ipca12Val : D.ipca12;
+
+    // IPCA mensal (% a.m.) → série 433 → ~0.43%
+    const ipcaMensalVal = parseFloat(ipcaMensal.valor);
+    D.ipcafev = ipcaMensalVal > 0 && ipcaMensalVal < 5 ? ipcaMensalVal : D.ipcafev;
+
+    // Acumulado do ano = taxa mensal composta pelos meses decorridos
+    const mesesDecorridos = new Date().getMonth() + 1;
+    // CDI acum. ano = composto dos meses: (1 + cdi_mensal/100)^meses - 1
+    D.cdi26  = parseFloat((((Math.pow(1 + D.cdifev/100, mesesDecorridos)) - 1) * 100).toFixed(2));
+    // IPCA acum. ano = composto dos meses
+    D.ipca26 = parseFloat((((Math.pow(1 + D.ipcafev/100, mesesDecorridos)) - 1) * 100).toFixed(2));
+
+    const dataRef = selicMeta.data || ipcaMensal.data || '—';
+    if (stat) stat.innerHTML = `✅ Dados atualizados! Referência: <strong>${dataRef}</strong> · CDI 12m: <strong>${D.cdi12.toFixed(2)}%</strong> · IPCA 12m: <strong>${D.ipca12.toFixed(2)}%</strong> · SELIC meta: <strong>${D.selic}%</strong> · CDI mês: <strong>${D.cdifev.toFixed(2)}%</strong>`;
+
+    scheduleAutoSave();
+    renderIndicadores();
+
+  } catch(e) {
+    console.error('BCB fetch error:', e);
+    if (stat) { stat.innerHTML = `❌ Erro ao buscar dados: ${e.message}. Verifique sua conexão ou atualize manualmente.`; stat.style.color='var(--neg)'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar indicadores agora'; }
   }
 }
 
