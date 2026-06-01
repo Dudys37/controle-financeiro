@@ -143,28 +143,28 @@ let isDark = (localStorage.getItem('cf_theme')||'dark') === 'dark';
 
 // ── CATEGORIAS ────────────────────────────────────
 const CATS = {
-  moradia:    {label:'Moradia',     icon:'🏠', cor:'#3B82F6'},
-  alimentacao:{label:'Alimentação', icon:'🍽️', cor:'#10B981'},
-  transporte: {label:'Transporte',  icon:'🚗', cor:'#F97316'},
-  saude:      {label:'Saúde',       icon:'💊', cor:'#EF4444'},
-  educacao:   {label:'Educação',    icon:'🎓', cor:'#8B5CF6'},
-  servicos:   {label:'Serviços',    icon:'📱', cor:'#06B6D4'},
-  impostos:   {label:'Impostos',    icon:'📋', cor:'#F59E0B'},
+  moradia:    {label:'Moradia',     icon:'🏠', cor:'var(--info)'},
+  alimentacao:{label:'Alimentação', icon:'🍽️', cor:'var(--brand)'},
+  transporte: {label:'Transporte',  icon:'🚗', cor:'var(--warn)'},
+  saude:      {label:'Saúde',       icon:'💊', cor:'var(--neg)'},
+  educacao:   {label:'Educação',    icon:'🎓', cor:'var(--violet)'},
+  servicos:   {label:'Serviços',    icon:'📱', cor:'var(--teal)'},
+  impostos:   {label:'Impostos',    icon:'📋', cor:'var(--warn)'},
   lazer:      {label:'Lazer',       icon:'🎮', cor:'#84CC16'},
   cartao:     {label:'Cartão',      icon:'💳', cor:'#EC4899'},
   outros:     {label:'Outros',      icon:'📦', cor:'#6B7280'},
 };
 const CATS_ENTRADA = {
-  salario:    {label:'Salário',      icon:'💼', cor:'#10B981'},
-  freelance:  {label:'Freelance',    icon:'💻', cor:'#8B5CF6'},
-  investimento:{label:'Investimento',icon:'📈', cor:'#F59E0B'},
-  aluguel:    {label:'Aluguel',      icon:'🏠', cor:'#3B82F6'},
-  venda:      {label:'Venda',        icon:'🛒', cor:'#F97316'},
+  salario:    {label:'Salário',      icon:'💼', cor:'var(--brand)'},
+  freelance:  {label:'Freelance',    icon:'💻', cor:'var(--violet)'},
+  investimento:{label:'Investimento',icon:'📈', cor:'var(--warn)'},
+  aluguel:    {label:'Aluguel',      icon:'🏠', cor:'var(--info)'},
+  venda:      {label:'Venda',        icon:'🛒', cor:'var(--warn)'},
   bonus:      {label:'Bônus/13°',    icon:'🎁', cor:'#EC4899'},
   outros:     {label:'Outros',       icon:'📦', cor:'#6B7280'},
 };
 const ARCA = {
-  colors:{A:'#3B82F6',R:'#F97316',C:'#6B7280',A2:'#F59E0B'},
+  colors:{A:'var(--info)',R:'var(--warn)',C:'#6B7280',A2:'var(--warn)'},
   names:{A:'A — Ações Brasileiras',R:'R — Real Estate',C:'C — Caixa',A2:'A — Ativos Internacionais'},
   desc:{
     A:'Ações da B3 — crescimento de longo prazo no mercado nacional',
@@ -173,7 +173,7 @@ const ARCA = {
     A2:'ETFs globais, BDRs — diversificação internacional',
   },
 };
-const CHART_COLORS=['#EF4444','#F59E0B','#3B82F6','#8B5CF6','#F97316','#06B6D4','#84CC16','#EC4899','#10B981'];
+const CHART_COLORS=['var(--neg)','var(--warn)','var(--info)','var(--violet)','var(--warn)','var(--teal)','#84CC16','#EC4899','var(--brand)'];
 
 // ── MIGRAÇÃO ──────────────────────────────────────
 function migrateData(d) {
@@ -796,7 +796,7 @@ function renderGeral() {
   const caixa     = caixaAtual();
   const metaE     = metaEmergencia();
   const pctEmerg  = metaE > 0 ? Math.min(100, Math.round((caixa / metaE) * 100)) : 0;
-  const scoreCor  = score>=70 ? '#10B981' : score>=40 ? '#F59E0B' : '#EF4444';
+  const scoreCor  = score>=70 ? 'var(--brand)' : score>=40 ? 'var(--warn)' : 'var(--neg)';
   const scoreLabel= score>=70 ? 'Ótimo' : score>=40 ? 'Regular' : 'Atenção';
   const ativos    = D.meses.length;
   const n         = getActiveMeses().length;
@@ -872,8 +872,8 @@ function renderGeral() {
     const pctVar    = entrada>0?Math.round((varMes/entrada)*100):0;
 
     const indicadores = [
-      { label:'Reserva de emergência', valor:`${pctEmerg}%`, sub:`${fmt(caixa)} de ${fmt(metaE)}`, cor: pctEmerg>=100?'#10B981':pctEmerg>=50?'#F59E0B':'#EF4444', pct: pctEmerg, icon:'🛡️' },
-      { label:'Comprometimento fixo',  valor:`${pctFixas}%`, sub:`${fmt(fixasMes)} de ${fmt(entrada)}`, cor: pctFixas<=30?'#10B981':pctFixas<=50?'#F59E0B':'#EF4444', pct: pctFixas, icon:'📌' },
+      { label:'Reserva de emergência', valor:`${pctEmerg}%`, sub:`${fmt(caixa)} de ${fmt(metaE)}`, cor: pctEmerg>=100?'var(--brand)':pctEmerg>=50?'var(--warn)':'var(--neg)', pct: pctEmerg, icon:'🛡️' },
+      { label:'Comprometimento fixo',  valor:`${pctFixas}%`, sub:`${fmt(fixasMes)} de ${fmt(entrada)}`, cor: pctFixas<=30?'var(--brand)':pctFixas<=50?'var(--warn)':'var(--neg)', pct: pctFixas, icon:'📌' },
       { label:'Score financeiro',      valor:`${score}/100`, sub:scoreLabel, cor: scoreCor, pct: score, icon:'⭐' },
     ];
 
@@ -1093,8 +1093,8 @@ function renderMes() {
   if(cMB) CH['cMesBar'] = new Chart(cMB, {type:'bar', data:{
     labels: atM.map(sM),
     datasets:[
-      {label:'Faturas',    data:atM.map(m=>totalDivBruto(D.meses.indexOf(m))), backgroundColor:'rgba(239,68,68,.75)', borderRadius:4},
-      {label:'P/Investir', data:atM.map(m=>invDisp(D.meses.indexOf(m))),       backgroundColor:'rgba(6,182,212,.75)',  borderRadius:4},
+      {label:'Faturas',    data:atM.map(m=>totalDivBruto(D.meses.indexOf(m))), backgroundColor:'#EF4444', borderRadius:4},
+      {label:'P/Investir', data:atM.map(m=>invDisp(D.meses.indexOf(m))),       backgroundColor:'#00D4AA',  borderRadius:4},
     ]
   }, options:chartOpts()});
 
@@ -1244,7 +1244,7 @@ function renderCartoesTo(el, i) {
     });
 
     const pctUsado = lim>0?Math.min(100,Math.round((totalAberto/lim)*100)):null;
-    const barCor = pctUsado===null?'#6B7280':pctUsado>=80?'#EF4444':pctUsado>=50?'#F59E0B':'#10B981';
+    const barCor = pctUsado===null?'#6B7280':pctUsado>=80?'var(--neg)':pctUsado>=50?'var(--warn)':'var(--brand)';
     const cardCls = pctUsado!==null&&pctUsado>=80?'alert-card':pctUsado!==null&&pctUsado>=50?'warn-card':'';
 
     // Fatura deste mês — quanto ainda está pendente
@@ -1296,7 +1296,7 @@ function renderCarteira() {
   const pl=patrimonioLiquido();
   const totalLim=D.cartoes.reduce((s,c)=>s+(c.limite||0),0);
   const score=scoreFinanceiro();
-  const scoreCor=score>=70?'#10B981':score>=40?'#F59E0B':'#EF4444';
+  const scoreCor=score>=70?'var(--brand)':score>=40?'var(--warn)':'var(--neg)';
   const e0=totalEMes(getMesRefIdx());
 
   // Hero
@@ -1319,10 +1319,10 @@ function renderCarteira() {
 
   const res=document.getElementById('carteira-resumo');
   if(res) res.innerHTML=`
-    <div class="pstat"><span class="pstat-label">Renda mensal (mês 1)</span><strong style="color:#10B981">${fmt(e0)}</strong></div>
+    <div class="pstat"><span class="pstat-label">Renda mensal (mês 1)</span><strong style="color:var(--brand)">${fmt(e0)}</strong></div>
     <div class="pstat"><span class="pstat-label">Saldo conta corrente</span><strong>${fmt(D.saldo)}</strong></div>
     <div class="pstat"><span class="pstat-label">Meta conta corrente</span><strong style="color:var(--teal)">${fmt(D.metaCC)}</strong></div>
-    <div class="pstat"><span class="pstat-label">Patrimônio líquido</span><strong style="color:${pl.liquido>=0?'#06B6D4':'#EF4444'}">${fmt(pl.liquido)}</strong></div>
+    <div class="pstat"><span class="pstat-label">Patrimônio líquido</span><strong style="color:${pl.liquido>=0?'var(--teal)':'var(--neg)'}">${fmt(pl.liquido)}</strong></div>
     <div class="pstat"><span class="pstat-label">Score financeiro</span><strong style="color:${scoreCor}">${score}/100</strong></div>
   `;
 
@@ -1919,7 +1919,7 @@ function renderFaturas() {
   if(allDone){if(pctP===100&&grupos.length>0){allDone.style.display='';allDone.innerHTML=`<div style="text-align:center;padding:16px;background:var(--pos-bg);border:1px solid rgba(16,185,129,.3);border-radius:var(--r12);color:var(--pos);font-weight:700">🎉 Todas as faturas de ${mesNome} foram pagas!</div>`;}else{allDone.style.display='none';}}
 
   const buildGrupo = (g, pago) => {
-    const bordaCor = g.tipo==='cartao'?'rgba(139,92,246,.2)':g.tipo==='fixa'?'rgba(59,130,246,.15)':'rgba(245,158,11,.15)';
+    const bordaCor = g.tipo==='cartao'?'var(--violet-glow)':g.tipo==='fixa'?'rgba(59,130,246,.15)':'rgba(245,158,11,.15)';
     const itensHTML = g.itens&&g.itens.length>1
       ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">${g.itens.map(it=>`<span class="cc-chip-sml">${(CATS[it.cat]||CATS.outros).icon} ${it.nome}: ${fmtK(it.valor)}</span>`).join('')}</div>`
       : '';
@@ -2300,7 +2300,7 @@ function renderInvestVisao(){
     // Subtotal do ano (só mostra se tem pelo menos um mês visível)
     if(temMesNoAno) {
       const yrCor=yr==='2026'?'rgba(59,130,246,.08)':'rgba(139,92,246,.08)';
-      const yrBord=yr==='2026'?'rgba(59,130,246,.2)':'rgba(139,92,246,.2)';
+      const yrBord=yr==='2026'?'rgba(59,130,246,.2)':'var(--violet-glow)';
       const yrTxt=yr==='2026'?'var(--info)':'var(--accent)';
       rows.push(`<tr style="background:linear-gradient(90deg,${yrCor},transparent);font-weight:700;border-top:2px solid ${yrBord}">
         <td style="color:${yrTxt};font-size:12px">Σ ${yr}</td>
@@ -2401,7 +2401,7 @@ function renderArca(){
     const pctAtual=tot>0?Math.round((valB/tot)*100):0;
     const meta=bloq?(b==='C'?100:0):(D.arcaMeta[b==='A2'?'a2':b.toLowerCase()]||0);
     const diff=pctAtual-meta;
-    const diffCor=diff===0?'#10B981':diff>0?'#F59E0B':'#EF4444';
+    const diffCor=diff===0?'var(--brand)':diff>0?'var(--warn)':'var(--neg)';
     const diffStr=diff===0?'✓ na meta':diff>0?`+${diff}pp acima`:`${diff}pp abaixo`;
     return `<div class="acard acard-${b}">
       <div class="acard-label" style="color:${ARCA.colors[b]}">${ARCA.names[b]}</div>
@@ -2537,7 +2537,7 @@ function renderAtivos(){
       borderColor:CHART_COLORS[idx%CHART_COLORS.length],backgroundColor:'transparent',tension:.4,pointRadius:3,borderWidth:2
     }));
     datasets.push({label:'Total',data:ANOS.map(n=>Math.round(projetar(atTot,txMedia,n))),
-      borderColor:'#10B981',backgroundColor:'rgba(16,185,129,.08)',tension:.4,pointRadius:4,borderWidth:3,fill:true});
+      borderColor:'var(--brand)',backgroundColor:'rgba(16,185,129,.08)',tension:.4,pointRadius:4,borderWidth:3,fill:true});
     CH['cProjLine']=new Chart(cPL,{type:'line',data:{labels:ANOS.map(a=>a===0?'Hoje':`${a}a`),datasets},options:chartOpts()});
   }
 }
@@ -2600,8 +2600,8 @@ function renderIndicadores(){
   if(cIC) CH['cIndComp']=new Chart(cIC,{type:'bar',data:{
     labels:['12 meses','Mês ref.','Acum. 2026'],
     datasets:[
-      {label:'CDI',  data:[D.cdi12,D.cdifev,D.cdi26],  backgroundColor:'rgba(16,185,129,.85)',borderRadius:6},
-      {label:'IPCA', data:[D.ipca12,D.ipcafev,D.ipca26],backgroundColor:'rgba(245,158,11,.85)',borderRadius:6},
+      {label:'CDI',  data:[D.cdi12,D.cdifev,D.cdi26],  backgroundColor:'#00D4AA',borderRadius:6},
+      {label:'IPCA', data:[D.ipca12,D.ipcafev,D.ipca26],backgroundColor:'#F5A623',borderRadius:6},
     ]
   },options:chartOpts({scales:{
     x:{grid:{color:gc()},ticks:{color:tc()}},
@@ -2819,7 +2819,7 @@ function calcPerfilInvestidor() {
   if (risco < 33) {
     perfil = 'conservador';
     perfilIcon = '🛡️';
-    perfilCor = '#3B82F6';
+    perfilCor = 'var(--info)';
     perfilDesc = 'Você prioriza segurança e liquidez. Prefere renda fixa mesmo com retornos menores.';
     perfilAloc = {
       juros_altos:    { a: 5,  r: 10, c: 70, a2: 15 },
@@ -2837,7 +2837,7 @@ function calcPerfilInvestidor() {
   } else if (risco < 66) {
     perfil = 'moderado';
     perfilIcon = '⚖️';
-    perfilCor = '#F59E0B';
+    perfilCor = 'var(--warn)';
     perfilDesc = 'Você busca equilíbrio entre segurança e crescimento, aceitando riscos moderados.';
     perfilAloc = {
       juros_altos:    { a: 15, r: 20, c: 45, a2: 20 },
@@ -2855,7 +2855,7 @@ function calcPerfilInvestidor() {
   } else {
     perfil = 'arrojado';
     perfilIcon = '🚀';
-    perfilCor = '#10B981';
+    perfilCor = 'var(--brand)';
     perfilDesc = 'Você foca no longo prazo e aceita alta volatilidade em busca de retornos expressivos.';
     perfilAloc = {
       juros_altos:    { a: 20, r: 25, c: 30, a2: 25 },
@@ -2919,9 +2919,9 @@ function calcARCAIntelligence() {
     rec = recBase;
     rationale = [
       { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — SELIC a ${selic}% remunera muito bem sem risco. Tesouro Selic e CDBs são excelentes.` },
-      { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs sofrem mais com juros altos, mas mantém diversificação e renda de dividendos.` },
-      { bucket:'A2',cor:'#F59E0B', txt:`Internacionais (${rec.a2}%) — dólar como proteção e diversificação em mercados menos correlacionados.` },
-      { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — bolsa pressionada por juros altos, posição mínima para não perder o movimento de queda de juros.` },
+      { bucket:'R', cor:'var(--warn)', txt:`Real Estate (${rec.r}%) — FIIs sofrem mais com juros altos, mas mantém diversificação e renda de dividendos.` },
+      { bucket:'A2',cor:'var(--warn)', txt:`Internacionais (${rec.a2}%) — dólar como proteção e diversificação em mercados menos correlacionados.` },
+      { bucket:'A', cor:'var(--info)', txt:`Ações BR (${rec.a}%) — bolsa pressionada por juros altos, posição mínima para não perder o movimento de queda de juros.` },
     ];
     alertas = [
       { tipo:'warn', txt:`Juro real de ${juroReal.toFixed(2)}% a.a. — renda fixa gerando retorno real expressivo acima da inflação.` },
@@ -2931,9 +2931,9 @@ function calcARCAIntelligence() {
     rec = recBase;
     rationale = [
       { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — juros ainda atrativos, manter parcela relevante em renda fixa de qualidade.` },
-      { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs de tijolo com desconto histórico. Bom momento de acumulação de cotas.` },
-      { bucket:'A2',cor:'#F59E0B', txt:`Internacionais (${rec.a2}%) — diversificação cambial e exposição a mercados desenvolvidos.` },
-      { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — início de posição para capturar ciclo de queda de juros que virá.` },
+      { bucket:'R', cor:'var(--warn)', txt:`Real Estate (${rec.r}%) — FIIs de tijolo com desconto histórico. Bom momento de acumulação de cotas.` },
+      { bucket:'A2',cor:'var(--warn)', txt:`Internacionais (${rec.a2}%) — diversificação cambial e exposição a mercados desenvolvidos.` },
+      { bucket:'A', cor:'var(--info)', txt:`Ações BR (${rec.a}%) — início de posição para capturar ciclo de queda de juros que virá.` },
     ];
     alertas = [
       { tipo:'info', txt:`Juro real de ${juroReal.toFixed(2)}% a.a. — momento de transição. Monitore as decisões do COPOM.` },
@@ -2942,10 +2942,10 @@ function calcARCAIntelligence() {
   } else if (ciclo === 'juros_moderados') {
     rec = recBase;
     rationale = [
-      { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — juros em queda favorecem bolsa. Hora de aumentar exposição a renda variável.` },
-      { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs se valorizam com queda de juros. Renda de aluguéis + ganho de capital.` },
+      { bucket:'A', cor:'var(--info)', txt:`Ações BR (${rec.a}%) — juros em queda favorecem bolsa. Hora de aumentar exposição a renda variável.` },
+      { bucket:'R', cor:'var(--warn)', txt:`Real Estate (${rec.r}%) — FIIs se valorizam com queda de juros. Renda de aluguéis + ganho de capital.` },
       { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — ainda relevante para liquidez e proteção, mas retorno real menor.` },
-      { bucket:'A2',cor:'#F59E0B', txt:`Internacionais (${rec.a2}%) — diversificação geográfica importante independente do ciclo local.` },
+      { bucket:'A2',cor:'var(--warn)', txt:`Internacionais (${rec.a2}%) — diversificação geográfica importante independente do ciclo local.` },
     ];
     alertas = [
       { tipo:'pos', txt:'Ciclo favorável para renda variável. Priorize boas empresas com histórico de dividendos.' },
@@ -2954,9 +2954,9 @@ function calcARCAIntelligence() {
   } else {
     rec = recBase;
     rationale = [
-      { bucket:'A', cor:'#3B82F6', txt:`Ações BR (${rec.a}%) — ambiente de juros baixos é o melhor para a bolsa. Maximize exposição.` },
-      { bucket:'R', cor:'#F97316', txt:`Real Estate (${rec.r}%) — FIIs com excelente custo de oportunidade vs. renda fixa.` },
-      { bucket:'A2',cor:'#F59E0B', txt:`Internacionais (${rec.a2}%) — manter diversificação global para proteção cambial.` },
+      { bucket:'A', cor:'var(--info)', txt:`Ações BR (${rec.a}%) — ambiente de juros baixos é o melhor para a bolsa. Maximize exposição.` },
+      { bucket:'R', cor:'var(--warn)', txt:`Real Estate (${rec.r}%) — FIIs com excelente custo de oportunidade vs. renda fixa.` },
+      { bucket:'A2',cor:'var(--warn)', txt:`Internacionais (${rec.a2}%) — manter diversificação global para proteção cambial.` },
       { bucket:'C', cor:'#6B7280', txt:`Caixa (${rec.c}%) — apenas para emergências e oportunidades. Renda fixa perde para inflação.` },
     ];
     alertas = [
@@ -2995,7 +2995,7 @@ function renderARCAIntelligence() {
       <div style="font-size:12px;line-height:1.6;color:var(--text2)">${r.txt}</div>
     </div>`).join('');
 
-  const bucketColors = {A:'#3B82F6',R:'#F97316',C:'#6B7280',A2:'#F59E0B'};
+  const bucketColors = {A:'var(--info)',R:'var(--warn)',C:'#6B7280',A2:'var(--warn)'};
   const recCards = [
     {b:'A',  label:'Ações BR',      pct:intel.rec.a},
     {b:'R',  label:'Real Estate',   pct:intel.rec.r},
