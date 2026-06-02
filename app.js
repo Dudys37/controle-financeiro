@@ -177,15 +177,26 @@ const ARCA = {
 // ── CHART.JS GLOBAL DEFAULTS ─────────────────────────
 function applyChartDefaults() {
   if(typeof Chart === 'undefined') return;
-  Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue('--text2').trim() || '#8B90A7';
-  Chart.defaults.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,.06)';
+  const textColor  = tc();
+  const textLight  = tc1();
+  const gridColor  = gc();
+  Chart.defaults.color = textColor;
+  Chart.defaults.borderColor = gridColor;
   Chart.defaults.font.family = 'DM Sans';
   Chart.defaults.font.size = 11;
-  Chart.defaults.plugins.legend.labels.color = Chart.defaults.color;
-  Chart.defaults.plugins.tooltip.titleColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#F1F2F6';
-  Chart.defaults.plugins.tooltip.bodyColor = Chart.defaults.color;
-  Chart.defaults.scale.ticks.color = Chart.defaults.color;
-  Chart.defaults.scale.grid.color = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,.06)';
+  Chart.defaults.plugins.legend.labels.color = textColor;
+  Chart.defaults.plugins.legend.labels.font = {family:'DM Sans',size:11};
+  Chart.defaults.plugins.tooltip.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--card2').trim()||'#1A1D27';
+  Chart.defaults.plugins.tooltip.titleColor = textLight;
+  Chart.defaults.plugins.tooltip.bodyColor = textColor;
+  Chart.defaults.plugins.tooltip.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border2').trim()||'rgba(255,255,255,.11)';
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+  Chart.defaults.plugins.tooltip.cornerRadius = 10;
+  Chart.defaults.plugins.tooltip.padding = 12;
+  Chart.defaults.scale.ticks.color = textColor;
+  Chart.defaults.scale.grid.color = gridColor;
+  // Redraw all existing charts with new colors
+  Object.values(CH).forEach(ch=>{ if(ch&&ch.update) ch.update(); });
 }
 const CHART_COLORS=['var(--neg)','var(--warn)','var(--info)','var(--violet)','var(--warn)','var(--teal)','#84CC16','#EC4899','var(--brand)'];
 
@@ -598,8 +609,9 @@ const sM = m => { const p=m.split('/'); return p[0].substring(0,3)+'/'+(p[1]||''
 const pct = (v,t) => t>0?Math.round((v/t)*100)+'%':'0%';
 
 // ── CHART HELPERS ─────────────────────────────────
-const gc = () => getComputedStyle(document.documentElement).getPropertyValue('--gc').trim();
-const tc = () => getComputedStyle(document.documentElement).getPropertyValue('--tc').trim();
+const gc = () => getComputedStyle(document.documentElement).getPropertyValue('--border').trim()||'rgba(255,255,255,.06)';
+const tc = () => getComputedStyle(document.documentElement).getPropertyValue('--text2').trim()||'#8B90A7';
+const tc1= () => getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#F1F2F6';
 const dc = id => { if(CH[id]){CH[id].destroy();delete CH[id];} };
 const chartOpts = (extra={}) => ({
   responsive:true, maintainAspectRatio:false,
@@ -611,6 +623,19 @@ const chartOpts = (extra={}) => ({
     ...(extra.scales||{})
   },...extra
 });
+
+
+// Resolves a category color to something Chart.js can use
+const catColor = (cat) => {
+  const cor = CATS[cat]?.cor || '#6B7280';
+  // If it's a CSS var, map to hex equivalent
+  const varMap = {
+    'var(--neg)':'#EF4444','var(--pos)':'#10B981','var(--warn)':'#F5A623',
+    'var(--info)':'#38BDF8','var(--brand)':'#00D4AA','var(--violet)':'#7C6FCD',
+    'var(--teal)':'#06B6D4','var(--rose)':'#F0516B','var(--amber)':'#F5A623',
+  };
+  return varMap[cor] || cor;
+};
 
 // ── TEMA ──────────────────────────────────────────
 function applyTheme() {
@@ -728,19 +753,21 @@ function switchRole(role) {
 }
 
 function renderPage(id) {
-  if(id==='dash')       renderDashboard();
-  else if(id==='entradas') renderEntradas();
-  else if(id==='carteira') renderCarteira();
-  else if(id==='saidas')   renderSaidas();
-  else if(id==='invest')   renderInvestAtiva();
-  else if(id==='faturas')  renderFaturas();
-  else if(id==='metas')    renderMetas();
-  else if(id==='relatorio') renderRelatorio();
-  else if(id==='cats')     renderAdminCategorias();
-  else if(id==='params')   renderAdminParams();
-  else if(id==='perfil')   { if(window._renderPerfil) window._renderPerfil(); }
-  else if(id==='admin')    { if(window._renderAdmin)  window._renderAdmin(); }
-  else if(id==='config')   renderConfig();
+  // Fast renders — synchronous
+  if(id==='dash')      { renderDashboard(); return; }
+  if(id==='faturas')   { renderFaturas(); return; }
+  if(id==='entradas')  { renderEntradas(); return; }
+  if(id==='carteira')  { renderCarteira(); return; }
+  if(id==='saidas')    { renderSaidas(); return; }
+  // Slightly heavier — use requestAnimationFrame to let UI update first
+  if(id==='invest')    { requestAnimationFrame(renderInvestAtiva); return; }
+  if(id==='perfil')    { requestAnimationFrame(()=>{ if(window._renderPerfil) window._renderPerfil(); }); return; }
+  if(id==='admin')     { requestAnimationFrame(()=>{ if(window._renderAdmin) window._renderAdmin(); }); return; }
+  if(id==='metas')     { requestAnimationFrame(renderMetas); return; }
+  if(id==='relatorio') { requestAnimationFrame(renderRelatorio); return; }
+  if(id==='cats')      { requestAnimationFrame(renderAdminCategorias); return; }
+  if(id==='params')    { requestAnimationFrame(renderAdminParams); return; }
+  if(id==='config')    { requestAnimationFrame(renderConfig); return; }
 }
 function renderAll() {
   const a=document.querySelector('.page.on');
@@ -973,7 +1000,7 @@ function renderDashboard() {
   }
 
   // ── GRÁFICO FLUXO ──
-  dc('cDashFluxo'); dc('cDashCats');
+  applyChartDefaults(); dc('cDashFluxo'); dc('cDashCats');
   const periodoEl = document.getElementById('dash-chart-period');
   const ativosChart = getActiveMeses().slice(0,12);
   if(periodoEl) periodoEl.textContent = `${ativosChart[0]||''} → ${ativosChart[ativosChart.length-1]||''}`;
@@ -1028,14 +1055,14 @@ function renderDashboard() {
         data:{
           labels: catEntries.map(([k])=>(CATS[k]?.icon||'📦')+' '+(CATS[k]?.label||k)),
           datasets:[{ data:catEntries.map(([,v])=>v),
-            backgroundColor:catEntries.map(([k],i)=>CATS[k]?.cor||`hsl(${i*47},70%,60%)`),
+            backgroundColor:catEntries.map(([k],i)=>catColor(k)||`hsl(${i*47},70%,60%)`),
             borderWidth:0, hoverOffset:6 }]
         },
         options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
           animation:{duration:600,easing:'easeOutQuart'},
           plugins:{
             legend:{position:'right',labels:{color:tc(),font:{size:10,family:'DM Sans',weight:'500'},
-              boxWidth:8,padding:10,usePointStyle:true,generateLabels:(chart)=>Chart.defaults.plugins.legend.labels.generateLabels(chart)}},
+              boxWidth:8,padding:10,usePointStyle:true}},
             tooltip:{backgroundColor:document.documentElement.getAttribute('data-theme')!=='light'?'#1A1D27':'#fff',
               titleColor:tc(),bodyColor:tc(),borderColor:'rgba(255,255,255,.11)',
               borderWidth:1,padding:10,cornerRadius:8,
@@ -2597,13 +2624,13 @@ function renderArca(){
     </div>`;
   }).join('');
 
-  dc('cArcaDough');
+  applyChartDefaults(); dc('cArcaDough');
   const cAD=document.getElementById('cArcaDough');
   if(cAD){
     const vals=buckets.map(b=>D.ativos.filter(a=>a.bucket===b).reduce((s,a)=>s+(a.valor||0),0));
     CH['cArcaDough']=new Chart(cAD,{type:'doughnut',data:{
       labels:buckets.map(b=>ARCA.names[b]),
-      datasets:[{data:vals,backgroundColor:buckets.map(b=>ARCA.colors[b]),borderWidth:0,hoverOffset:10}]
+      datasets:[{data:vals,backgroundColor:['#38BDF8','#F5A623','#00D4AA','#7C6FCD'],borderWidth:0,hoverOffset:10}]
     },options:{
       responsive:true,maintainAspectRatio:false,cutout:'60%',
       plugins:{legend:{position:'right',labels:{color:tc(),font:{size:11},boxWidth:10,padding:8}},
@@ -2707,7 +2734,7 @@ function renderAtivos(){
   }
 
   // Gráfico projeção
-  dc('cProjLine');
+  applyChartDefaults(); dc('cProjLine');
   const cPL=document.getElementById('cProjLine');
   if(cPL){
     const ANOS=[0,1,2,3,5,10,20,30];
@@ -2842,62 +2869,6 @@ async function bcbFetch(serie, n=1) {
     } catch { continue; }
   }
   throw new Error('API do BCB inacessível — use os campos manuais abaixo.');
-}
-
-async function fetchBCB() {
-  const btn  = document.getElementById('btn-bcb-fetch');
-  const stat = document.getElementById('bcb-status');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
-  if (stat) { stat.style.display = ''; stat.innerHTML = '⏳ Conectando ao Banco Central do Brasil...'; }
-
-  try {
-    const [selicMeta, cdiAnual, cdiMensal, ipcaMensal, ipca12m] = await Promise.all([
-      bcbFetch(BCB_SERIES.selicMeta,      1),
-      bcbFetch(BCB_SERIES.cdiDiarioAnual, 1),  // CDI % a.a. → o correto para CDI 12m
-      bcbFetch(BCB_SERIES.cdiMensal,      1),  // CDI % a.m. → mês de referência
-      bcbFetch(BCB_SERIES.ipcaMensal,     1),  // IPCA % a.m.
-      bcbFetch(BCB_SERIES.ipca12meses,    1),  // IPCA 12m %
-    ]);
-
-    // ── Atribui os valores corretamente ──
-    D.selic   = parseFloat(selicMeta.valor) || D.selic || 14.75;
-
-    // CDI 12m = CDI diário anualizado (série 12) → ~14.65%
-    // Se não disponível, usa SELIC - 0.10 (CDI fica ~0.1pp abaixo da SELIC)
-    const cdiAnualVal = parseFloat(cdiAnual.valor);
-    D.cdi12 = cdiAnualVal > 1 ? cdiAnualVal : D.selic - 0.10;
-
-    // CDI mensal (% a.m.) → série 4389 → ~1.13%
-    const cdiMensalVal = parseFloat(cdiMensal.valor);
-    D.cdifev = cdiMensalVal > 0 && cdiMensalVal < 5 ? cdiMensalVal : D.cdifev;
-
-    // IPCA 12m → série 13522 → ~4.39%
-    const ipca12Val = parseFloat(ipca12m.valor);
-    D.ipca12 = ipca12Val > 0 ? ipca12Val : D.ipca12;
-
-    // IPCA mensal (% a.m.) → série 433 → ~0.43%
-    const ipcaMensalVal = parseFloat(ipcaMensal.valor);
-    D.ipcafev = ipcaMensalVal > 0 && ipcaMensalVal < 5 ? ipcaMensalVal : D.ipcafev;
-
-    // Acumulado do ano = taxa mensal composta pelos meses decorridos
-    const mesesDecorridos = new Date().getMonth() + 1;
-    // CDI acum. ano = composto dos meses: (1 + cdi_mensal/100)^meses - 1
-    D.cdi26  = parseFloat((((Math.pow(1 + D.cdifev/100, mesesDecorridos)) - 1) * 100).toFixed(2));
-    // IPCA acum. ano = composto dos meses
-    D.ipca26 = parseFloat((((Math.pow(1 + D.ipcafev/100, mesesDecorridos)) - 1) * 100).toFixed(2));
-
-    const dataRef = selicMeta.data || ipcaMensal.data || '—';
-    if (stat) stat.innerHTML = `✅ Dados atualizados! Referência: <strong>${dataRef}</strong> · CDI 12m: <strong>${D.cdi12.toFixed(2)}%</strong> · IPCA 12m: <strong>${D.ipca12.toFixed(2)}%</strong> · SELIC meta: <strong>${D.selic}%</strong> · CDI mês: <strong>${D.cdifev.toFixed(2)}%</strong>`;
-
-    scheduleAutoSave();
-    renderIndicadores();
-
-  } catch(e) {
-    console.error('BCB fetch error:', e);
-    if (stat) { stat.innerHTML = `❌ ${e.message}<br><small style='color:var(--text3)'>Insira os valores manualmente nos campos abaixo.</small>`; stat.style.color='var(--neg)'; }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '⚡ Atualizar indicadores agora'; }
-  }
 }
 
 async function fetchBCB() {

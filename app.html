@@ -81,11 +81,17 @@
   --ease:    cubic-bezier(0.16, 1, 0.3, 1);
   --spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur1: 0.15s; --dur2: 0.25s; --dur3: 0.4s;
+
+  /* Chart color vars — read by tc() and gc() */
+  --tc: #8B90A7;
+  --gc: rgba(255,255,255,.06);
 }
 
 /* Light theme */
 [data-theme="light"] {
   --bg:    #F4F5F9;
+  --tc: #5A6075;
+  --gc: rgba(0,0,0,.07);
   --bg2:   #ECEEF5;
   --card:  #FFFFFF;
   --card2: #F8F9FC;
@@ -98,6 +104,9 @@
   --glass:   rgba(255,255,255,.92);
   --shadow:  0 2px 12px rgba(0,0,0,.08);
   --shadow2: 0 4px 24px rgba(0,0,0,.10);
+
+  --tc: #5A6075;
+  --gc: rgba(0,0,0,.07);
 }
 
 /* ── RESET & BASE ── */
@@ -1114,6 +1123,19 @@ tr:hover td { background: var(--card2); }
   100% { transform: scale(1); opacity: 1; }
 }
 
+
+/* Perfil page responsive */
+@media (max-width: 768px) {
+  #page-perfil > div > div { grid-template-columns: 1fr !important; }
+}
+
+/* Fix page overflow - ensure pages don't clip their content */
+.page { overflow: visible; }
+.page.on { display: block; min-height: calc(100vh - 52px); }
+
+/* Fix sidebar clipping on all pages */
+#main-content { min-width: 0; overflow: visible; }
+
 </style>
 </head>
 <body>
@@ -1511,7 +1533,7 @@ tr:hover td { background: var(--card2); }
 <div class="page" id="page-perfil">
   <div style="font-family:var(--font-head);font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:24px">👤 Meu Perfil</div>
 
-  <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start">
+  <div style="display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:16px;align-items:start">
 
     <!-- COLUNA ESQUERDA: Avatar + Info + Badge -->
     <div style="display:flex;flex-direction:column;gap:14px">
@@ -1528,7 +1550,7 @@ tr:hover td { background: var(--card2); }
       <div id="perfil-pills" style="display:flex;flex-direction:column;gap:8px"></div>
 
       <!-- Stats rápidos -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r16);overflow:hidden">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r16);overflow:visible;min-width:0">
         <div style="padding:12px 16px;background:var(--card2);border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">📊 Resumo</div>
         <div id="perfil-stats" style="padding:4px 0"></div>
       </div>
