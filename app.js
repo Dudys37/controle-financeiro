@@ -682,9 +682,10 @@ function go(id, el) {
   document.querySelectorAll('.snav').forEach(t=>t.classList.remove('on'));
   const pg=document.getElementById('page-'+id); if(pg) pg.classList.add('on');
   const sn=document.getElementById('snav-'+id); if(sn) sn.classList.add('on');
-  // Scroll to top of main content area
+  // Scroll to top on page change
+  window.scrollTo(0,0);
   const mc=document.getElementById('main-content');
-  if(mc) mc.scrollTo(0,0); else window.scrollTo(0,0);
+  if(mc) mc.scrollTop=0;
   // Update nav breadcrumb
   const meta=PAGE_META[id]||{};
   const bc=document.getElementById('nav-breadcrumb');
@@ -3414,9 +3415,9 @@ function renderRelatorio() {
   const topCats = Object.entries(cats).sort(([,a],[,b])=>b-a).slice(0,5);
 
   el.innerHTML = `
-    <div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r16);padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--brand);margin-bottom:4px">📋 Relatório Mensal</div>
-      <div style="font-family:var(--font-head);font-size:20px;font-weight:800">${mesNome}</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--brand);margin-bottom:4px">📋 Relatório Mensal</div>
+      <div style="font-family:var(--font-head);font-size:22px;font-weight:800;letter-spacing:-.5px">${mesNome}</div></div>
       <div style="font-size:11px;color:var(--text2)">Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
     </div>
     <div class="gcards mb">
