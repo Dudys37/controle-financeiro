@@ -760,14 +760,14 @@ function renderPage(id) {
   if(id==='carteira')  { renderCarteira(); return; }
   if(id==='saidas')    { renderSaidas(); return; }
   // Slightly heavier — use requestAnimationFrame to let UI update first
-  if(id==='invest')    { requestAnimationFrame(renderInvestAtiva); return; }
+  if(id==='invest')    { requestAnimationFrame(()=>typeof renderInvestAtiva==='function'?renderInvestAtiva():null); return; }
   if(id==='perfil')    { requestAnimationFrame(()=>{ if(window._renderPerfil) window._renderPerfil(); }); return; }
   if(id==='admin')     { requestAnimationFrame(()=>{ if(window._renderAdmin) window._renderAdmin(); }); return; }
-  if(id==='metas')     { requestAnimationFrame(renderMetas); return; }
-  if(id==='relatorio') { requestAnimationFrame(renderRelatorio); return; }
-  if(id==='cats')      { requestAnimationFrame(renderAdminCategorias); return; }
-  if(id==='params')    { requestAnimationFrame(renderAdminParams); return; }
-  if(id==='config')    { requestAnimationFrame(renderConfig); return; }
+  if(id==='metas')     { requestAnimationFrame(()=>typeof renderMetas==='function'?renderMetas():null); return; }
+  if(id==='relatorio') { requestAnimationFrame(()=>typeof renderRelatorio==='function'?renderRelatorio():null); return; }
+  if(id==='cats')      { requestAnimationFrame(()=>typeof renderAdminCategorias==='function'?renderAdminCategorias():null); return; }
+  if(id==='params')    { requestAnimationFrame(()=>typeof renderAdminParams==='function'?renderAdminParams():null); return; }
+  if(id==='config')    { requestAnimationFrame(()=>typeof renderConfig==='function'?renderConfig():null); return; }
 }
 function renderAll() {
   const a=document.querySelector('.page.on');
@@ -3379,6 +3379,105 @@ function aportarMeta(mi) {
 }
 
 // ── ADMIN: CATEGORIAS ─────────────────────────────────────────────
+// ── RELATÓRIO MENSAL ──────────────────────────────
+function renderRelatorio() {
+  const el = document.getElementById('relatorio-content');
+  if(!el) return;
+  const mi = getMesRefIdx();
+  const mesNome = D.meses[mi]||'';
+  const e = totalEMes(mi);
+  const cp = calcPendenteMes(mi);
+  const inv = invDisp(mi);
+  const reserva = statusReserva();
+  const pl = patrimonioLiquido();
+  const perf = calcPerfilInvestidor();
+  const dist = calcDistribuicaoInvest(inv);
+  const pctComp = e>0?Math.round((cp.bruto/e)*100):0;
+
+  // Gastos por categoria
+  const cats = {};
+  D.fixas.filter(f=>{
+    if(!f.ativo||(f.valor||0)<=0) return false;
+    if(!f.mesInicio&&!f.mesFim) return true;
+    const {m,y}=parseMes(D.meses[mi]||'Mai/26');const anosM=y*12+m;
+    const desde=f.mesInicio?parseMes(f.mesInicio):null;
+    const ate=f.mesFim?parseMes(f.mesFim):null;
+    return anosM>=(desde?desde.y*12+desde.m:-Infinity)&&anosM<=(ate?ate.y*12+ate.m:Infinity);
+  }).forEach(f=>{cats[f.cat]=(cats[f.cat]||0)+(f.valor||0);});
+  D.compras.filter(c=>c.ativo).forEach(c=>{
+    const v=calcValsCompra(c)[mi]||0;
+    if(v) cats[c.cat]=(cats[c.cat]||0)+v;
+  });
+  const topCats = Object.entries(cats).sort(([,a],[,b])=>b-a).slice(0,5);
+
+  el.innerHTML = `
+    <div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r16);padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--brand);margin-bottom:4px">📋 Relatório Mensal</div>
+      <div style="font-family:var(--font-head);font-size:20px;font-weight:800">${mesNome}</div></div>
+      <div style="font-size:11px;color:var(--text2)">Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+    </div>
+    <div class="gcards mb">
+      <div class="mcard mcard-pos"><div class="mlabel">💰 Receita</div><div class="mval mval-pos">${fmt(e)}</div></div>
+      <div class="mcard mcard-neg"><div class="mlabel">💸 Despesas</div><div class="mval mval-neg">${fmt(cp.bruto)}</div><div class="msub">${pctComp}% da renda</div></div>
+      <div class="mcard ${cp.pago>0?'mcard-pos':''}"><div class="mlabel">✅ Pago</div><div class="mval ${cp.pago>0?'mval-pos':''}">${fmt(cp.pago)}</div></div>
+      <div class="mcard mcard-teal"><div class="mlabel">🚀 P/ Investir</div><div class="mval mval-teal">${fmt(inv)}</div></div>
+      <div class="mcard ${reserva.pct>=100?'mcard-pos':'mcard-warn'}"><div class="mlabel">🛡️ Reserva</div><div class="mval" style="color:${reserva.pct>=100?'var(--brand)':'var(--warn)'}">${reserva.pct}%</div></div>
+      <div class="mcard"><div class="mlabel">💎 Patrimônio</div><div class="mval" style="color:${pl.liquido>=0?'var(--brand)':'var(--neg)'}">${fmtK(pl.liquido)}</div></div>
+    </div>
+    <div class="g2 mb">
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">📊 Composição da renda</span></div>
+        <div style="padding:16px">
+          <div style="display:flex;height:12px;border-radius:99px;overflow:hidden;margin-bottom:10px">
+            <div style="width:${Math.min(100,pctComp)}%;background:var(--neg)"></div>
+            <div style="width:${Math.min(100,e>0?Math.round(inv/e*100):0)}%;background:var(--brand)"></div>
+            <div style="flex:1;background:var(--card3)"></div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text2)">
+            <span>🔴 Despesas: <strong style="color:var(--neg)">${pctComp}%</strong></span>
+            <span>🟢 Investimento: <strong style="color:var(--brand)">${e>0?Math.round(inv/e*100):0}%</strong></span>
+            <span>⬜ Livre: <strong>${Math.max(0,100-pctComp-(e>0?Math.round(inv/e*100):0))}%</strong></span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">🏆 Top categorias</span></div>
+        <div style="padding:8px 0">
+          ${topCats.length?topCats.map(([cat,val])=>{
+            const info=CATS[cat]||CATS.outros;
+            const pctCat=cp.bruto>0?Math.round(val/cp.bruto*100):0;
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 16px">
+              <span style="font-size:15px">${info.icon}</span>
+              <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500">${info.label}</div>
+              <div style="height:3px;background:var(--card3);border-radius:99px;overflow:hidden;margin-top:3px">
+                <div style="height:3px;width:${pctCat}%;background:${catColor(cat)};border-radius:99px"></div>
+              </div></div>
+              <div style="font-size:12px;font-weight:700;color:var(--neg);font-family:var(--font-mono)">${fmt(val)}</div>
+            </div>`;
+          }).join(''):'<div class="empty" style="padding:20px"><div class="empty-icon">📭</div></div>'}
+        </div>
+      </div>
+    </div>
+    ${dist?`<div class="ebox accent-border">
+      <h3>💡 Como investir ${fmt(inv)} em ${mesNome}</h3>
+      <p>Perfil ${perf.perfilIcon} ${perf.perfil} · Ciclo de juros atual.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
+        ${dist.distribuicao.map(b=>`<div style="background:var(--card2);border:1px solid ${b.cor}30;border-radius:var(--r10);padding:10px;text-align:center">
+          <div style="font-size:10px;color:${b.cor};font-weight:700;margin-bottom:3px">${b.label}</div>
+          <div style="font-family:var(--font-head);font-size:16px;font-weight:800;color:${b.cor}">${fmt(b.valor)}</div>
+          <div style="font-size:10px;color:var(--text2)">${b.pct}%</div>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r16);padding:14px 18px;display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap">
+      <span style="font-size:26px">${perf.perfilIcon}</span>
+      <div style="flex:1"><div style="font-weight:700;color:${perf.perfilCor}">Perfil ${perf.perfil.charAt(0).toUpperCase()+perf.perfil.slice(1)}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">${perf.perfilDesc}</div></div>
+      <div style="text-align:right"><div style="font-family:var(--font-head);font-size:20px;font-weight:800;color:${perf.perfilCor}">${perf.risco}/100</div>
+      <div style="font-size:10px;color:var(--text2)">Apetite a risco</div></div>
+    </div>`;
+}
+
 function renderAdminCategorias() {
   const el = document.getElementById('admin-cats-list');
   if (!el) return;
