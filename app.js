@@ -682,6 +682,9 @@ function go(id, el) {
   document.querySelectorAll('.snav').forEach(t=>t.classList.remove('on'));
   const pg=document.getElementById('page-'+id); if(pg) pg.classList.add('on');
   const sn=document.getElementById('snav-'+id); if(sn) sn.classList.add('on');
+  // Scroll to top of main content area
+  const mc=document.getElementById('main-content');
+  if(mc) mc.scrollTo(0,0); else window.scrollTo(0,0);
   // Update nav breadcrumb
   const meta=PAGE_META[id]||{};
   const bc=document.getElementById('nav-breadcrumb');
