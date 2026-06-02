@@ -130,6 +130,7 @@ body {
 #app-shell {
   display: flex;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 #main-content {
   flex: 1;
@@ -1129,14 +1130,11 @@ tr:hover td { background: var(--card2); }
   #page-perfil > div > div { grid-template-columns: 1fr !important; }
 }
 
-/* Fix page overflow - ensure pages don't clip their content */
+/* Fix page layout */
 .page { overflow: visible; }
-.page.on { display: block; min-height: calc(100vh - 52px); }
-
-/* Fix sidebar clipping on all pages */
-#main-content { min-width: 0; overflow: visible; }
-
-</style>
+.page.on { display: block; }
+#app-shell { display: flex; min-height: 100vh; overflow-x: hidden; }
+#main-content { min-width: 0; overflow: visible; flex: 1; position: relative; }tyle>
 </head>
 <body>
 <div id="app-shell">
