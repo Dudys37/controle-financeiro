@@ -3368,8 +3368,9 @@ function aportarMeta(mi) {
 // ── ADMIN: CATEGORIAS ─────────────────────────────────────────────
 // ── RELATÓRIO MENSAL ──────────────────────────────
 function renderRelatorio() {
-  const el = document.getElementById('relatorio-content');
-  if(!el) return;
+  const pg = document.getElementById('page-relatorio');
+  if(!pg) return;
+  const el = pg; // inject into page directly
   const mi = getMesRefIdx();
   const mesNome = D.meses[mi]||'';
   const e = totalEMes(mi);
