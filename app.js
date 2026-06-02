@@ -767,11 +767,11 @@ function renderPage(id) {
   if(id==='invest')    { requestAnimationFrame(()=>typeof renderInvestAtiva==='function'?renderInvestAtiva():null); return; }
   if(id==='perfil')    { requestAnimationFrame(()=>{ if(window._renderPerfil) window._renderPerfil(); }); return; }
   if(id==='admin')     { requestAnimationFrame(()=>{ if(window._renderAdmin) window._renderAdmin(); }); return; }
-  if(id==='metas')     { requestAnimationFrame(()=>typeof renderMetas==='function'?renderMetas():null); return; }
-  if(id==='relatorio') { requestAnimationFrame(()=>typeof renderRelatorio==='function'?renderRelatorio():null); return; }
-  if(id==='cats')      { requestAnimationFrame(()=>typeof renderAdminCategorias==='function'?renderAdminCategorias():null); return; }
-  if(id==='params')    { requestAnimationFrame(()=>typeof renderAdminParams==='function'?renderAdminParams():null); return; }
-  if(id==='config')    { requestAnimationFrame(()=>typeof renderConfig==='function'?renderConfig():null); return; }
+  if(id==='metas')     { if(typeof renderMetas==='function') renderMetas(); return; }
+  if(id==='relatorio') { if(typeof renderRelatorio==='function') renderRelatorio(); return; }
+  if(id==='cats')      { if(typeof renderAdminCategorias==='function') renderAdminCategorias(); return; }
+  if(id==='params')    { if(typeof renderAdminParams==='function') renderAdminParams(); return; }
+  if(id==='config')    { if(typeof renderConfig==='function') renderConfig(); return; }
 }
 function renderAll() {
   const a=document.querySelector('.page.on');
@@ -3255,90 +3255,73 @@ function getCatsEntrada() {
 
 // ── METAS FINANCEIRAS ────────────────────────────────────────────
 function renderMetas() {
-  const sumEl2 = document.getElementById('metas-summary');
-  const lista2 = document.getElementById('metas-lista');
-  if (!sumEl2 && !lista2) return;
-  if (!D.metas) D.metas = [];
-
-  const totalAtivos = D.ativos.reduce((s,a) => s+(a.valor||0), 0);
-  const totInv = D.meses.reduce((s,_,i) => s+invDisp(i), 0);
-
-  // Cards de resumo
-  const sumEl = document.getElementById('metas-summary');
-  if (sumEl) {
-    const concluidas = D.metas.filter(m => m.atual >= m.valor).length;
-    const totalMeta = D.metas.reduce((s,m) => s+(m.valor||0), 0);
-    const totalAtingido = D.metas.reduce((s,m) => s+Math.min(m.atual||0, m.valor||0), 0);
-    const pctGeral = totalMeta > 0 ? Math.round((totalAtingido/totalMeta)*100) : 0;
-    sumEl.innerHTML = `
-      <div class="mcard mcard-accent"><div class="mlabel">🎯 Total de metas</div><div class="mval mval-accent">${D.metas.length}</div><div class="msub">${concluidas} concluída(s)</div></div>
-      <div class="mcard ${pctGeral>=100?'mcard-pos':'mcard-warn'}"><div class="mlabel">📊 Progresso geral</div><div class="mval ${pctGeral>=100?'mval-pos':'mval-warn'}">${pctGeral}%</div><div class="msub">${fmt(totalAtingido)} / ${fmt(totalMeta)}</div></div>
-      <div class="mcard mcard-teal"><div class="mlabel">🚀 Aportes mensais</div><div class="mval mval-teal">${fmt(invDisp(getMesRefIdx()))}</div><div class="msub">disponível este mês</div></div>
-      <div class="mcard mcard-pos"><div class="mlabel">💎 Patrimônio atual</div><div class="mval mval-pos">${fmtK(totalAtivos)}</div></div>
-    `;
-  }
-
-  const lista = document.getElementById('metas-lista');
-  if (!lista) return;
-
-  if (!D.metas.length) {
-    lista.innerHTML = `<div class="empty"><div class="empty-icon" style="animation:pulse-badge 2s ease-in-out infinite">🎯</div><div class="empty-text">Nenhuma meta cadastrada.<br>Defina seus objetivos financeiros e acompanhe o progresso.</div></div>`;
-    return;
-  }
-
-  // Aportes mensais disponíveis (para calcular prazo)
+  const pg = document.getElementById('page-metas');
+  if(!pg) return;
+  if(!D.metas) D.metas = [];
+  const totalAtivos = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
   const aporteMes = invDisp(getMesRefIdx());
+  const concluidas = D.metas.filter(m=>m.atual>=m.valor).length;
+  const totalMeta = D.metas.reduce((s,m)=>s+(m.valor||0),0);
+  const totalAting = D.metas.reduce((s,m)=>s+Math.min(m.atual||0,m.valor||0),0);
+  const pctGeral = totalMeta>0?Math.round((totalAting/totalMeta)*100):0;
 
-  lista.innerHTML = D.metas.map((meta, mi) => {
-    const atual = meta.atual || 0;
-    const target = meta.valor || 0;
-    const pct = target > 0 ? Math.min(100, Math.round((atual/target)*100)) : 0;
-    const falta = Math.max(0, target - atual);
-    const concluida = atual >= target;
-    const mesesRestantes = aporteMes > 0 && !concluida ? Math.ceil(falta / aporteMes) : null;
-    const dataEst = mesesRestantes ? (() => {
-      const hoje = new Date();
-      const est = new Date(hoje.getFullYear(), hoje.getMonth() + mesesRestantes, 1);
-      return est.toLocaleDateString('pt-BR', {month:'short', year:'numeric'});
-    })() : null;
-
-    const corPct = pct>=100?'var(--pos)':pct>=50?'var(--accent)':'var(--warn)';
-    const icons = {casa:'🏠',carro:'🚗',viagem:'✈️',educacao:'🎓',investimento:'📈',emergencia:'🛡️',casamento:'💍',eletronico:'💻',reforma:'🔨',outros:'🎯'};
-    const icon = icons[meta.tipo||'outros']||'🎯';
-
-    return `<div style="background:var(--card);border:1px solid ${concluida?'rgba(16,185,129,.3)':'var(--border)'};border-radius:var(--r16);padding:20px;margin-bottom:12px;${concluida?'background:var(--pos-bg)':''}">
-      <div style="display:flex;align-items:flex-start;gap:14px">
-        <div style="font-size:32px;flex-shrink:0">${icon}</div>
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-            <span style="font-size:16px;font-weight:700">${meta.nome}</span>
-            ${concluida?'<span class="badge badge-pos payment-success">✅ Concluída!</span>':''}
-            ${meta.prazo?`<span class="badge" style="background:var(--card3);color:var(--text2)">📅 Meta: ${meta.prazo}</span>`:''}
+  const lista = D.metas.length===0 ? `
+    <div class="empty"><div class="empty-icon">🎯</div>
+    <div class="empty-text">Nenhuma meta cadastrada.<br>Defina seus objetivos financeiros e acompanhe o progresso.</div></div>` :
+    D.metas.map((meta,mi)=>{
+      const atual=meta.atual||0, target=meta.valor||0;
+      const pct=target>0?Math.min(100,Math.round((atual/target)*100)):0;
+      const falta=Math.max(0,target-atual);
+      const concluida=atual>=target;
+      const mesesR=aporteMes>0&&!concluida?Math.ceil(falta/aporteMes):null;
+      const dataEst=mesesR?(()=>{const h=new Date();const e=new Date(h.getFullYear(),h.getMonth()+mesesR,1);return e.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});})():null;
+      const cor=pct>=100?'var(--brand)':pct>=50?'var(--accent)':'var(--warn)';
+      const icons={casa:'🏠',carro:'🚗',viagem:'✈️',educacao:'🎓',investimento:'📈',emergencia:'🛡️',casamento:'💍',eletronico:'💻',reforma:'🔨',outros:'🎯'};
+      return `<div style="background:var(--card);border:1px solid ${concluida?'rgba(0,212,170,.25)':'var(--border)'};border-radius:var(--r16);padding:20px;margin-bottom:12px">
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="font-size:28px;flex-shrink:0">${icons[meta.tipo||'outros']||'🎯'}</span>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+              <span style="font-size:15px;font-weight:700">${meta.nome}</span>
+              ${concluida?'<span class="badge badge-pos">✅ Concluída</span>':''}
+              ${meta.prazo?`<span class="badge">${meta.prazo}</span>`:''}
+            </div>
+            ${meta.descricao?`<div style="font-size:12px;color:var(--text2);margin-bottom:10px">${meta.descricao}</div>`:''}
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+              <span style="color:var(--text2)">Progresso</span><span style="font-weight:700;color:${cor}">${pct}%</span>
+            </div>
+            <div style="height:7px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:8px">
+              <div style="height:7px;width:${pct}%;background:${cor};border-radius:99px;transition:width .7s"></div>
+            </div>
+            <div style="display:flex;gap:14px;font-size:11px;flex-wrap:wrap">
+              <span>Atual: <strong style="color:var(--pos)">${fmt(atual)}</strong></span>
+              <span>Meta: <strong>${fmt(target)}</strong></span>
+              ${!concluida?`<span>Falta: <strong style="color:var(--neg)">${fmt(falta)}</strong></span>`:''}
+              ${dataEst?`<span>Est.: <strong style="color:var(--brand)">${dataEst}</strong></span>`:''}
+            </div>
           </div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">${meta.descricao||''}</div>
-          <!-- Progresso -->
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-            <span style="color:var(--text2)">Progresso</span>
-            <span style="font-weight:700;color:${corPct}">${pct}%</span>
-          </div>
-          <div style="height:8px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:8px">
-            <div style="height:8px;width:${pct}%;background:${corPct};border-radius:99px;transition:width .8s var(--ease-out)"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;flex-wrap:wrap;gap:8px">
-            <span>Atual: <strong style="color:var(--pos)">${fmt(atual)}</strong></span>
-            <span>Meta: <strong>${fmt(target)}</strong></span>
-            ${!concluida?`<span>Falta: <strong style="color:var(--neg)">${fmt(falta)}</strong></span>`:''}
-            ${dataEst?`<span>Estimativa: <strong style="color:var(--accent)">${dataEst}</strong> (${mesesRestantes}m)</span>`:''}
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="editarMeta(${mi})">✏️</button>
+            <button class="btn btn-pos" style="height:28px;font-size:11px;padding:0 8px" onclick="aportarMeta(${mi})">+</button>
+            <button class="btn-rm" style="width:26px;height:26px" onclick="removerMeta(${mi})">✕</button>
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-          <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="editarMeta(${mi})">✏️</button>
-          <button class="btn btn-pos" style="height:30px;font-size:11px" onclick="aportarMeta(${mi})">+ Aportar</button>
-          <button class="btn-rm" onclick="removerMeta(${mi})">✕</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+      </div>`;
+    }).join('');
+
+  pg.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">🎯 Metas Financeiras</div>
+      <div class="page-sub-title">Defina objetivos e acompanhe seu progresso</div></div>
+      <button class="btn btn-pri" onclick="abrirModalMeta()">+ Nova meta</button>
+    </div>
+    <div class="gcards mb">
+      <div class="mcard mcard-accent"><div class="mlabel">🎯 Total de metas</div><div class="mval mval-accent">${D.metas.length}</div><div class="msub">${concluidas} concluída(s)</div></div>
+      <div class="mcard ${pctGeral>=100?'mcard-pos':'mcard-warn'}"><div class="mlabel">📊 Progresso geral</div><div class="mval ${pctGeral>=100?'mval-pos':'mval-warn'}">${pctGeral}%</div><div class="msub">${fmt(totalAting)} / ${fmt(totalMeta)}</div></div>
+      <div class="mcard mcard-teal"><div class="mlabel">🚀 Aportes disponíveis</div><div class="mval mval-teal">${fmt(aporteMes)}</div><div class="msub">este mês</div></div>
+      <div class="mcard mcard-pos"><div class="mlabel">💎 Patrimônio atual</div><div class="mval mval-pos">${fmtK(totalAtivos)}</div></div>
+    </div>
+    ${lista}`;
 }
 
 function abrirModalMeta(mi=-1) {
@@ -3483,22 +3466,116 @@ function renderRelatorio() {
 }
 
 function renderAdminCategorias() {
-  const el = document.getElementById('admin-cats-list');
-  if (!el) return;
-  const cats = D.catsCustom || {...CATS};
-
-  el.innerHTML = Object.entries(cats).map(([key, cat]) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--r8);margin-bottom:6px">
+  const pg = document.getElementById('page-cats');
+  if(!pg) return;
+  const cats = D.catsCustom && Object.keys(D.catsCustom).length > 0 ? D.catsCustom : CATS;
+  const catList = Object.entries(cats).map(([key,cat])=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
       <span style="font-size:20px">${cat.icon||'📦'}</span>
       <div style="flex:1">
         <div style="font-weight:600;font-size:13px">${cat.label}</div>
-        <div style="font-size:10px;color:var(--text2);font-family:monospace">${key}</div>
+        <div style="font-size:10px;color:var(--text2);font-family:var(--font-mono)">${key}</div>
       </div>
-      <div style="width:16px;height:16px;border-radius:50%;background:${cat.cor||'#888'};flex-shrink:0"></div>
-      <button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="editarCategoria('${key}')">✏️</button>
-      ${!CATS[key]?`<button class="btn-rm" onclick="removerCategoria('${key}')">✕</button>`:'<span style="font-size:10px;color:var(--text3)">padrão</span>'}
+      <div style="width:14px;height:14px;border-radius:50%;background:${catColor(key)};flex-shrink:0"></div>
+      <button class="btn btn-ghost" style="height:26px;font-size:11px" onclick="editarCategoria('${key}')">✏️</button>
+      ${!CATS[key]?`<button class="btn-rm" style="width:24px;height:24px" onclick="removerCategoria('${key}')">✕</button>`:'<span style="font-size:10px;color:var(--text3)">padrão</span>'}
     </div>`).join('');
+
+  pg.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">🏷️ Categorias de Gastos</div>
+      <div class="page-sub-title">Gerencie as categorias usadas em Saídas e Entradas</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-pos" onclick="adicionarCategoria()">+ Nova categoria</button>
+        <button class="btn btn-ghost" onclick="resetarCategorias()">↺ Restaurar padrão</button>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">💸 Categorias de gastos</span>
+          <span style="font-size:11px;color:var(--text2)">${Object.keys(cats).length} categorias</span>
+        </div>
+        <div>${catList}</div>
+      </div>
+      <div class="ebox info-border">
+        <h3>ℹ️ Como funciona</h3>
+        <p>As categorias organizam seus gastos e aparecem nos dashboards e relatórios.</p>
+        <div class="pstat"><span class="pstat-label">Categorias padrão</span><span>Podem ter nome/ícone editados, não removíveis</span></div>
+        <div class="pstat"><span class="pstat-label">Personalizadas</span><span>Totalmente gerenciáveis</span></div>
+        <div style="margin-top:12px;padding:10px;background:var(--warn-bg);border-radius:var(--r8);font-size:11px;color:var(--warn)">⚠️ Alterações afetam a exibição de todos os dados do sistema.</div>
+      </div>
+    </div>`;
 }
+
+function renderAdminParams() {
+  const pg = document.getElementById('page-params');
+  if(!pg) return;
+  const intel = calcARCAIntelligence();
+  const perf = calcPerfilInvestidor();
+
+  pg.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">🔧 Parâmetros do Sistema</div>
+      <div class="page-sub-title">Configure as regras financeiras e cálculos do sistema</div></div>
+    </div>
+    <div class="g2 mb">
+      <div class="ebox pos-border">
+        <h3>🛡️ Reserva de emergência</h3>
+        <p>Quantos meses de custo fixo devem ser guardados antes de investir em outros ativos.</p>
+        <div class="field">
+          <label class="flabel">Multiplicador (meses)</label>
+          <input type="number" id="param-reserva-mult" min="1" max="24" value="${D.reservaMult||6}" style="max-width:100px"
+            onchange="D.reservaMult=parseInt(this.value)||6;scheduleAutoSave();renderAll()">
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Padrão: 6 meses · 3=agressivo · 12=ultra-conservador</div>
+        </div>
+        <div style="padding:12px;background:var(--card2);border-radius:var(--r10);font-size:12px;color:var(--text2);line-height:1.8">
+          ${perf.perfilIcon} Perfil: <strong style="color:${perf.perfilCor}">${perf.perfil}</strong> ·
+          Ciclo: <strong>${intel.cicloEmoji||''} ${intel.cicloDesc||''}</strong><br>
+          Reserva meta: <strong style="color:var(--brand)">${fmt(custoFixoMes()*(D.reservaMult||6))}</strong>
+          (${fmt(custoFixoMes())}/mês × ${D.reservaMult||6})
+        </div>
+      </div>
+      <div class="ebox warn-border">
+        <h3>💰 Parâmetros financeiros</h3>
+        <p>Valores base para os cálculos do sistema.</p>
+        <div class="field">
+          <label class="flabel">Meta conta corrente (R$)</label>
+          <input type="number" id="param-meta-cc" step="100" value="${D.metaCC||2000}"
+            onchange="D.metaCC=parseFloat(this.value)||2000;scheduleAutoSave();renderAll()">
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Valor mínimo mantido em conta corrente</div>
+        </div>
+        <div class="field">
+          <label class="flabel">Dia de corte do ciclo (1–28)</label>
+          <input type="number" id="param-dia-corte" min="1" max="28" value="${D.diaCorte||20}"
+            onchange="D.diaCorte=parseInt(this.value)||20;scheduleAutoSave();renderCarteira()">
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Após este dia o sistema avança para o próximo mês de referência</div>
+        </div>
+      </div>
+    </div>
+    <div class="ebox accent-border">
+      <h3>🏛️ Metas ARCA padrão</h3>
+      <p>Percentuais alvo para cada bucket de investimento (devem totalizar 100%).</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+        ${['a','r','c','a2'].map((k,i)=>{
+          const labels={a:'A — Ações Brasileiras',r:'R — Real Estate / FIIs',c:'C — Caixa',a2:'A — Ativos Internacionais'};
+          return `<div class="field" style="margin-bottom:0">
+            <label class="flabel">${labels[k]} (%)</label>
+            <input type="number" min="0" max="100" step="1" value="${D.arcaMeta[k]||0}"
+              onchange="D.arcaMeta['${k}']=parseInt(this.value)||0;scheduleAutoSave();renderAdminParams()">
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="margin-top:10px;font-size:12px;padding:8px 12px;background:var(--card2);border-radius:var(--r8)">
+        Soma atual: <strong style="color:${(D.arcaMeta.a||0)+(D.arcaMeta.r||0)+(D.arcaMeta.c||0)+(D.arcaMeta.a2||0)===100?'var(--pos)':'var(--neg)'}">${(D.arcaMeta.a||0)+(D.arcaMeta.r||0)+(D.arcaMeta.c||0)+(D.arcaMeta.a2||0)}%</strong>
+        ${(D.arcaMeta.a||0)+(D.arcaMeta.r||0)+(D.arcaMeta.c||0)+(D.arcaMeta.a2||0)===100?' ✅':' — deve totalizar 100%'}
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-pri" onclick="toast('Parâmetros salvos!',true,'⚙️');scheduleAutoSave()" style="height:40px;padding:0 24px">💾 Salvar parâmetros</button>
+    </div>`;
+}
+  const cats = D.catsCustom || {...CATS};
+
 
 function editarCategoria(key) {
   const cats = D.catsCustom || {...CATS};
@@ -3533,26 +3610,6 @@ function resetarCategorias() {
 }
 
 // ── ADMIN: PARÂMETROS DO SISTEMA ─────────────────────────────────
-function renderAdminParams() {
-  const reservaMult = document.getElementById('param-reserva-mult');
-  if(reservaMult) reservaMult.value = D.reservaMult||6;
-  const metaCC = document.getElementById('param-meta-cc');
-  if(metaCC) metaCC.value = D.metaCC||2000;
-  const diaCorte = document.getElementById('param-dia-corte');
-  if(diaCorte) diaCorte.value = D.diaCorte||20;
-  // Mostrar resumo dos parâmetros ARCA por ciclo
-  const arcaEl = document.getElementById('admin-arca-rules');
-  if(arcaEl) {
-    const intel = calcARCAIntelligence();
-    arcaEl.innerHTML = `
-      <div style="font-size:12px;color:var(--text2);line-height:1.8">
-        <div>Ciclo atual: <strong style="color:${intel.cicloColor}">${intel.cicloEmoji} ${intel.cicloDesc}</strong></div>
-        <div>Perfil investidor: <strong>${calcPerfilInvestidor().perfilIcon} ${calcPerfilInvestidor().perfil}</strong></div>
-        <div>Alocação recomendada: A=${intel.rec.a}% · R=${intel.rec.r}% · C=${intel.rec.c}% · A2=${intel.rec.a2}%</div>
-        <div>Reserva de emergência: ${D.reservaMult||6}x o custo fixo = <strong>${fmt(custoFixoMes()*(D.reservaMult||6))}</strong></div>
-      </div>`;
-  }
-}
 
 function salvarAdminParams() {
   const mult = parseInt(document.getElementById('param-reserva-mult')?.value)||6;

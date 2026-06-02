@@ -2219,95 +2219,17 @@ auth.onAuthStateChanged(function(user){
 
 
 <!-- ████ METAS FINANCEIRAS ████ -->
-<div class="page" id="page-metas">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
-    <div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🎯 Metas Financeiras</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:4px">Defina objetivos e acompanhe seu progresso</div>
-    </div>
-    <button class="btn btn-pri" onclick="abrirModalMeta()" style="height:40px">+ Nova meta</button>
-  </div>
-  <div class="gcards mb" id="metas-summary"></div>
-  <div id="metas-lista"></div>
-</div>
+<div class="page" id="page-metas"></div>
 
 <!-- ████ RELATÓRIO MENSAL ████ -->
-<div class="page" id="page-relatorio">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
-    <div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">📋 Relatório Mensal</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:4px">Visão consolidada das suas finanças do mês</div>
-    </div>
-  </div>
-  <div id="relatorio-content"></div>
-</div>
+<div class="page" id="page-relatorio"></div>
 
 <!-- ████ CATEGORIAS (admin) ████ -->
-<div class="page" id="page-cats">
-  <div style="margin-bottom:20px">
-    <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🏷️ Categorias de Gastos</div>
-    <div style="font-size:13px;color:var(--text2);margin-top:4px">Gerencie as categorias usadas em Saídas e Entradas</div>
-  </div>
-  <div class="g2 mb">
-    <div class="panel">
-      <div class="panel-head">
-        <span class="panel-title">💸 Categorias de gastos</span>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-pos" style="height:28px;font-size:11px" onclick="adicionarCategoria()">+ Nova</button>
-          <button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="resetarCategorias()">↺ Padrão</button>
-        </div>
-      </div>
-      <div id="admin-cats-list"></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><span class="panel-title">ℹ️ Como funciona</span></div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.8;padding:8px">
-        <p>As categorias organizam seus gastos em Saídas e aparecem nos dashboards e relatórios.</p>
-        <br>
-        <strong>Categorias padrão</strong> (marcadas com "padrão") podem ter nome e ícone editados, mas não podem ser removidas.<br><br>
-        <strong>Categorias personalizadas</strong> aparecem além das padrão e podem ser totalmente gerenciadas.<br><br>
-        ⚠️ Alterar categorias afeta todos os usuários do sistema.
-      </div>
-    </div>
-  </div>
-</div>
+<div class="page" id="page-cats"></div>
 
 <!-- ████ PARÂMETROS DO SISTEMA (admin) ████ -->
-<div class="page" id="page-params">
-  <div style="margin-bottom:20px">
-    <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🔧 Parâmetros do Sistema</div>
-    <div style="font-size:13px;color:var(--text2);margin-top:4px">Configure as regras financeiras e cálculos do sistema</div>
-  </div>
-  <div class="g2 mb">
-    <div class="ebox pos-border">
-      <h3>🛡️ Reserva de emergência</h3>
-      <p>Define quantos meses de custo fixo o usuário deve ter guardado antes de investir em outros ativos.</p>
-      <div class="field">
-        <label class="flabel">Multiplicador (meses)</label>
-        <input type="number" id="param-reserva-mult" min="1" max="24" value="6" style="max-width:100px">
-        <div style="font-size:11px;color:var(--text2);margin-top:4px">Padrão: 6 meses. Pode variar entre 3 (agressivo) e 12 (ultra-conservador).</div>
-      </div>
-      <div id="admin-arca-rules" style="margin-top:12px;padding:12px;background:var(--card2);border-radius:var(--r8)"></div>
-    </div>
-    <div class="ebox warn-border">
-      <h3>💰 Parâmetros financeiros padrão</h3>
-      <p>Valores base para novos usuários e cálculos do sistema.</p>
-      <div class="field">
-        <label class="flabel">Meta conta corrente padrão (R$)</label>
-        <input type="number" id="param-meta-cc" step="100" value="2000">
-        <div style="font-size:11px;color:var(--text2);margin-top:4px">Valor mínimo que o usuário mantém em CC.</div>
-      </div>
-      <div class="field">
-        <label class="flabel">Dia de corte padrão</label>
-        <input type="number" id="param-dia-corte" min="1" max="28" value="20">
-        <div style="font-size:11px;color:var(--text2);margin-top:4px">Dia que o sistema avança o mês de referência.</div>
-      </div>
-    </div>
-  </div>
-  <div style="display:flex;justify-content:flex-end;margin-top:4px">
-    <button class="btn btn-pri" onclick="salvarAdminParams()" style="height:40px;padding:0 24px">💾 Salvar parâmetros</button>
-  </div>
-</div>
+<div class="page" id="page-params"></div>
+
 
 <!-- Modal Meta -->
 <div id="modal-meta-overlay" class="modal-overlay"
