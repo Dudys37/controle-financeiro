@@ -800,34 +800,43 @@ function getEmptyStateAlerts() {
   return alerts;
 }
 function calcPatrimonioFuturo() {
-  const meses = D.meses;
-  if(!meses.length) return null;
-  const totalAtivos = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-  if(totalAtivos===0 && meses.every((_,i)=>invDisp(i)===0)) return null;
+  // Apenas meses ativos a partir do mês de referência atual
+  const mesRefIdx = getMesRefIdx();
+  const mesesAtivos = getActiveMeses();
+  const mesesProj = D.meses
+    .map((mes, i) => ({ mes, i }))
+    .filter(({ mes, i }) => i >= mesRefIdx && mesesAtivos.includes(mes));
 
-  // Taxa média mensal ponderada pelos ativos existentes
-  const txAnual = totalAtivos>0
+  if(!mesesProj.length) return null;
+
+  const totalAtivos = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
+  const saldoCC = D.saldo || 0;
+
+  // Patrimônio inicial real = Saldo CC (Carteira) + Total carteira (Investimentos)
+  if(totalAtivos + saldoCC === 0 && mesesProj.every(({i})=>invDisp(i)===0)) return null;
+
+  // Taxa anual ponderada pelos ativos
+  const txAnual = totalAtivos > 0
     ? D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/totalAtivos
     : (D.cdi12||14.65)/100;
-  const txMensal = Math.pow(1+txAnual,1/12)-1;
+  const txMensal = Math.pow(1+txAnual, 1/12)-1;
 
-  let saldoAcum = totalAtivos; // patrimônio acumulado (ativos atuais + aportes futuros)
-  const rows = meses.map((mes,i)=>{
-    const entradas = totalEMes(i);
-    const saidas   = totalDivBruto(i);
-    const aporte   = invDisp(i);  // P/ investir = Sobra − Meta CC
-    const sobra    = entradas - saidas;
+  let saldoInvest = totalAtivos; // parcela que rende (ativos de investimento)
 
-    // Rendimento sobre o saldo acumulado (juros compostos mensais)
-    const rendimento = Math.round(saldoAcum * txMensal);
-    saldoAcum = Math.round(saldoAcum + aporte + rendimento);
-
-    return { mes, i, entradas, saidas, sobra, aporte, rendimento, saldoAcum };
+  const rows = mesesProj.map(({mes, i}, rowIdx) => {
+    const entradas   = totalEMes(i);
+    const saidas     = totalDivBruto(i);
+    const aporte     = invDisp(i);  // P/ investir (Sobra − Meta CC)
+    const sobra      = entradas - saidas;
+    const rendimento = Math.round(saldoInvest * txMensal);
+    saldoInvest      = Math.round(saldoInvest + aporte + rendimento);
+    const saldoAcum  = saldoInvest + saldoCC; // patrimônio total = investimentos + CC
+    return { mes, i, entradas, saidas, sobra, aporte, rendimento, saldoAcum, isFirst: rowIdx===0 };
   });
-  return { rows, txAnual, txMensal };
+
+  return { rows, txAnual, saldoCC, totalAtivos, patrimonioInicial: totalAtivos + saldoCC };
 }
 
-// ── DASHBOARD ─────────────────────────────────────
 function renderDashboard() {
   const mi = selDash >= 0 && selDash < nm() ? selDash : getMesRefIdx();
   selDash = mi;
@@ -1183,6 +1192,106 @@ function renderDashboard() {
   // ── PROJEÇÃO FUTURA ──
   const pf = calcPatrimonioFuturo();
   const pfEl = document.getElementById('dash-patrimonio-futuro');
+  if(pfEl && pf && pf.rows.length) {
+    const { rows, txAnual, saldoCC, totalAtivos, patrimonioInicial } = pf;
+    const anos = [...new Set(rows.map(r=>r.mes.split('/')[1]))];
+    const totAportes    = rows.reduce((s,r)=>s+r.aporte,0);
+    const totRendimento = rows.reduce((s,r)=>s+r.rendimento,0);
+    const ultimoSaldo   = rows[rows.length-1].saldoAcum;
+    const mesAtualIdx   = getMesRefIdx();
+
+    const summaryHtml = `
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r12);padding:12px 16px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);margin-bottom:8px">📌 Base atual (dados reais)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:13px">
+          <span>💼 Carteira de investimentos: <strong style="color:var(--brand)">${fmt(totalAtivos)}</strong></span>
+          <span>🏦 Saldo conta corrente: <strong style="color:var(--teal)">${fmt(saldoCC)}</strong></span>
+          <span>💎 Patrimônio inicial: <strong style="color:var(--brand)">${fmt(patrimonioInicial)}</strong></span>
+          <span>📈 Taxa: <strong>${(txAnual*100).toFixed(2)}% a.a.</strong></span>
+        </div>
+      </div>
+      <div class="gcards" style="margin-bottom:14px">
+        <div class="mcard mcard-teal"><div class="mlabel">💎 Patrimônio projetado</div><div class="mval mval-teal">${fmtK(ultimoSaldo)}</div><div class="msub">em ${rows[rows.length-1].mes}</div></div>
+        <div class="mcard mcard-pos"><div class="mlabel">🚀 Total aportado</div><div class="mval mval-pos">${fmtK(totAportes)}</div><div class="msub">${rows.length} meses</div></div>
+        <div class="mcard mcard-accent"><div class="mlabel">📈 Total rendimentos</div><div class="mval mval-accent">${fmtK(totRendimento)}</div><div class="msub">juros compostos</div></div>
+      </div>`;
+
+    const tableByYear = anos.map(ano => {
+      const mesesAno    = rows.filter(r=>r.mes.endsWith('/'+ano));
+      const totEntAno   = mesesAno.reduce((s,r)=>s+r.entradas,0);
+      const totSaiAno   = mesesAno.reduce((s,r)=>s+r.saidas,0);
+      const totApoAno   = mesesAno.reduce((s,r)=>s+r.aporte,0);
+      const totRendAno  = mesesAno.reduce((s,r)=>s+r.rendimento,0);
+      const saldoFimAno = mesesAno[mesesAno.length-1]?.saldoAcum||0;
+
+      return `
+        <div style="margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:8px 14px;background:var(--card2);border-radius:var(--r10) var(--r10) 0 0;border:1px solid var(--border);border-bottom:none">
+            <span style="font-size:13px;font-weight:700;color:var(--brand)">20${ano}</span>
+            <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--text2)">
+              <span>Entradas: <strong style="color:var(--pos)">${fmtK(totEntAno)}</strong></span>
+              <span>Saídas: <strong style="color:var(--neg)">${fmtK(totSaiAno)}</strong></span>
+              <span>Aportes: <strong style="color:var(--teal)">${fmtK(totApoAno)}</strong></span>
+              <span>Rendimentos: <strong style="color:var(--brand)">${fmtK(totRendAno)}</strong></span>
+              <span>Patrimônio fim: <strong style="color:var(--brand)">${fmtK(saldoFimAno)}</strong></span>
+            </div>
+          </div>
+          <div class="scroll">
+            <table style="min-width:720px;border:1px solid var(--border);border-top:none">
+              <thead>
+                <tr>
+                  <th style="width:80px">Mês</th>
+                  <th class="tr" style="color:var(--pos)">💰 Entradas</th>
+                  <th class="tr" style="color:var(--neg)">💸 Saídas</th>
+                  <th class="tr">📊 Sobra</th>
+                  <th class="tr" style="color:var(--teal)">🚀 P/ Investir</th>
+                  <th class="tr" style="color:var(--brand)">📈 Rendimento</th>
+                  <th class="tr" style="color:var(--brand)">💎 Patrimônio</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${mesesAno.map(r=>{
+                  const isRef = r.i === mesAtualIdx;
+                  return `<tr style="${isRef?'background:var(--brand-glow2)':''}">
+                    <td style="font-weight:${isRef?700:500}">
+                      ${r.mes.split('/')[0]}
+                      ${isRef?'<span class="badge" style="background:var(--brand);color:#0A0B0E;font-size:9px;margin-left:4px">hoje</span>':''}
+                    </td>
+                    <td class="tr tpos">${fmt(r.entradas)}</td>
+                    <td class="tr tneg">${fmt(r.saidas)}</td>
+                    <td class="tr ${r.sobra>=0?'tpos':'tneg'}">${fmt(r.sobra)}</td>
+                    <td class="tr tteal">${r.aporte>0?fmt(r.aporte):'<span style="color:var(--text3)">—</span>'}</td>
+                    <td class="tr" style="color:var(--brand);font-family:var(--font-mono)">${r.rendimento>0?fmt(r.rendimento):'<span style="color:var(--text3)">—</span>'}</td>
+                    <td class="tr" style="color:var(--brand);font-family:var(--font-head);font-weight:700">${fmtK(r.saldoAcum)}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }).join('');
+
+    pfEl.innerHTML = `<div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">📈 Projeção de patrimônio</span>
+        <span style="font-size:10px;color:var(--text3)">a partir de ${rows[0].mes} · juros compostos mensais</span>
+      </div>
+      <div style="padding:14px 16px">
+        ${summaryHtml}
+        ${tableByYear}
+        <div style="font-size:10px;color:var(--text3);padding-top:4px">⚠️ Estimativa com base nos dados cadastrados. Rendimento calculado sobre a parcela investida. Saldo CC considerado constante. Não constitui recomendação de investimento.</div>
+      </div>
+    </div>`;
+  } else if(pfEl) {
+    pfEl.innerHTML = `<div class="panel">
+      <div class="panel-head"><span class="panel-title">📈 Projeção de patrimônio</span></div>
+      <div class="empty" style="padding:24px">
+        <div class="empty-icon">📈</div>
+        <div class="empty-text">Cadastre seus ativos em Investimentos → Carteira para ver a projeção.</div>
+      </div>
+    </div>`;
+  }
+
   if(pfEl && pf && pf.rows.length) {
     const { rows, txAnual } = pf;
     const anos = [...new Set(rows.map(r=>r.mes.split('/')[1]))];
