@@ -1935,16 +1935,19 @@ function openReset(uid,email){
   document.getElementById('modal-reset').classList.add('show');
 }
 function closeModal(){document.getElementById('modal-reset').classList.remove('show');}
-document.getElementById('btn-conf-reset').onclick=function(){
-  const np=document.getElementById('modal-reset-pass').value;
-  if(np.length<6){showAlert('modal-err','Mínimo 6 caracteres.');return;}
-  this.disabled=true;this.textContent='Salvando...';
-  db.collection('pendingReset').doc(_resetUid).set({
-    newPassword:np,requestedAt:new Date().toISOString(),requestedBy:_user.uid
-  }).then(()=>{closeModal();toast('Redefinição registrada.');})
-  .catch(e=>showAlert('modal-err',e.message))
-  .finally(()=>{this.disabled=false;this.textContent='Redefinir senha';});
-};
+document.addEventListener('DOMContentLoaded', function() {
+  const btnConf = document.getElementById('btn-conf-reset');
+  if(btnConf) btnConf.onclick = function(){
+    const np=document.getElementById('modal-reset-pass').value;
+    if(np.length<6){showAlert('modal-err','Mínimo 6 caracteres.');return;}
+    this.disabled=true;this.textContent='Salvando...';
+    db.collection('pendingReset').doc(_resetUid).set({
+      newPassword:np,requestedAt:new Date().toISOString(),requestedBy:_user.uid
+    }).then(()=>{closeModal();toast('Redefinição registrada.');})
+    .catch(e=>showAlert('modal-err',e.message))
+    .finally(()=>{this.disabled=false;this.textContent='Redefinir senha';});
+  };
+});
 function reloadAdmin(btn){
   const orig=btn.textContent;
   btn.textContent='⏳ Carregando...';
