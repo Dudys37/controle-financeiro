@@ -3254,125 +3254,15 @@ function getCatsEntrada() {
 }
 
 // ── METAS FINANCEIRAS ────────────────────────────────────────────
-function renderMetas() {
-  const pg = document.getElementById('page-metas');
-  if(!pg) return;
-  if(!D.metas) D.metas = [];
-  const totalAtivos = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-  const aporteMes = invDisp(getMesRefIdx());
-  const concluidas = D.metas.filter(m=>m.atual>=m.valor).length;
-  const totalMeta = D.metas.reduce((s,m)=>s+(m.valor||0),0);
-  const totalAting = D.metas.reduce((s,m)=>s+Math.min(m.atual||0,m.valor||0),0);
-  const pctGeral = totalMeta>0?Math.round((totalAting/totalMeta)*100):0;
 
-  const lista = D.metas.length===0 ? `
-    <div class="empty"><div class="empty-icon">🎯</div>
-    <div class="empty-text">Nenhuma meta cadastrada.<br>Defina seus objetivos financeiros e acompanhe o progresso.</div></div>` :
-    D.metas.map((meta,mi)=>{
-      const atual=meta.atual||0, target=meta.valor||0;
-      const pct=target>0?Math.min(100,Math.round((atual/target)*100)):0;
-      const falta=Math.max(0,target-atual);
-      const concluida=atual>=target;
-      const mesesR=aporteMes>0&&!concluida?Math.ceil(falta/aporteMes):null;
-      const dataEst=mesesR?(()=>{const h=new Date();const e=new Date(h.getFullYear(),h.getMonth()+mesesR,1);return e.toLocaleDateString('pt-BR',{month:'short',year:'numeric'});})():null;
-      const cor=pct>=100?'var(--brand)':pct>=50?'var(--accent)':'var(--warn)';
-      const icons={casa:'🏠',carro:'🚗',viagem:'✈️',educacao:'🎓',investimento:'📈',emergencia:'🛡️',casamento:'💍',eletronico:'💻',reforma:'🔨',outros:'🎯'};
-      return `<div style="background:var(--card);border:1px solid ${concluida?'rgba(0,212,170,.25)':'var(--border)'};border-radius:var(--r16);padding:20px;margin-bottom:12px">
-        <div style="display:flex;gap:14px;align-items:flex-start">
-          <span style="font-size:28px;flex-shrink:0">${icons[meta.tipo||'outros']||'🎯'}</span>
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-              <span style="font-size:15px;font-weight:700">${meta.nome}</span>
-              ${concluida?'<span class="badge badge-pos">✅ Concluída</span>':''}
-              ${meta.prazo?`<span class="badge">${meta.prazo}</span>`:''}
-            </div>
-            ${meta.descricao?`<div style="font-size:12px;color:var(--text2);margin-bottom:10px">${meta.descricao}</div>`:''}
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
-              <span style="color:var(--text2)">Progresso</span><span style="font-weight:700;color:${cor}">${pct}%</span>
-            </div>
-            <div style="height:7px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:8px">
-              <div style="height:7px;width:${pct}%;background:${cor};border-radius:99px;transition:width .7s"></div>
-            </div>
-            <div style="display:flex;gap:14px;font-size:11px;flex-wrap:wrap">
-              <span>Atual: <strong style="color:var(--pos)">${fmt(atual)}</strong></span>
-              <span>Meta: <strong>${fmt(target)}</strong></span>
-              ${!concluida?`<span>Falta: <strong style="color:var(--neg)">${fmt(falta)}</strong></span>`:''}
-              ${dataEst?`<span>Est.: <strong style="color:var(--brand)">${dataEst}</strong></span>`:''}
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-            <button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="editarMeta(${mi})">✏️</button>
-            <button class="btn btn-pos" style="height:28px;font-size:11px;padding:0 8px" onclick="aportarMeta(${mi})">+</button>
-            <button class="btn-rm" style="width:26px;height:26px" onclick="removerMeta(${mi})">✕</button>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-
-  pg.innerHTML = `
-    <div class="page-header">
-      <div><div class="page-title">🎯 Metas Financeiras</div>
-      <div class="page-sub-title">Defina objetivos e acompanhe seu progresso</div></div>
-      <button class="btn btn-pri" onclick="abrirModalMeta()">+ Nova meta</button>
-    </div>
-    <div class="gcards mb">
-      <div class="mcard mcard-accent"><div class="mlabel">🎯 Total de metas</div><div class="mval mval-accent">${D.metas.length}</div><div class="msub">${concluidas} concluída(s)</div></div>
-      <div class="mcard ${pctGeral>=100?'mcard-pos':'mcard-warn'}"><div class="mlabel">📊 Progresso geral</div><div class="mval ${pctGeral>=100?'mval-pos':'mval-warn'}">${pctGeral}%</div><div class="msub">${fmt(totalAting)} / ${fmt(totalMeta)}</div></div>
-      <div class="mcard mcard-teal"><div class="mlabel">🚀 Aportes disponíveis</div><div class="mval mval-teal">${fmt(aporteMes)}</div><div class="msub">este mês</div></div>
-      <div class="mcard mcard-pos"><div class="mlabel">💎 Patrimônio atual</div><div class="mval mval-pos">${fmtK(totalAtivos)}</div></div>
-    </div>
-    ${lista}`;
-}
-
-function abrirModalMeta(mi=-1) {
-  const m = mi >= 0 ? D.metas[mi] : {nome:'',tipo:'outros',valor:0,atual:0,prazo:'',descricao:''};
-  document.getElementById('modal-meta-overlay').style.display='flex';
-  document.getElementById('mm-nome').value = m.nome;
-  document.getElementById('mm-tipo').value = m.tipo||'outros';
-  document.getElementById('mm-valor').value = m.valor||'';
-  document.getElementById('mm-atual').value = m.atual||'';
-  document.getElementById('mm-prazo').value = m.prazo||'';
-  document.getElementById('mm-desc').value = m.descricao||'';
-  document.getElementById('btn-salvar-meta').onclick = () => salvarMeta(mi);
-}
-function editarMeta(mi) { abrirModalMeta(mi); }
-function fecharModalMeta() { document.getElementById('modal-meta-overlay').style.display='none'; }
-function salvarMeta(mi) {
-  const nome = document.getElementById('mm-nome').value.trim();
-  if(!nome) { alert('Informe o nome da meta.'); return; }
-  const obj = {
-    nome, tipo: document.getElementById('mm-tipo').value,
-    valor: parseFloat(document.getElementById('mm-valor').value)||0,
-    atual: parseFloat(document.getElementById('mm-atual').value)||0,
-    prazo: document.getElementById('mm-prazo').value,
-    descricao: document.getElementById('mm-desc').value,
-    criadoEm: mi>=0?(D.metas[mi].criadoEm||new Date().toISOString()):new Date().toISOString(),
-  };
-  if(!D.metas) D.metas=[];
-  if(mi>=0) D.metas[mi]=obj; else D.metas.push(obj);
-  fecharModalMeta(); scheduleAutoSave(); renderMetas();
-  toast('Meta salva!', true, '🎯');
-}
-function removerMeta(mi) {
-  if(!confirm(`Remover meta "${D.metas[mi].nome}"?`)) return;
-  D.metas.splice(mi,1); scheduleAutoSave(); renderMetas();
-}
-function aportarMeta(mi) {
-  const v = parseFloat(prompt(`Valor a adicionar na meta "${D.metas[mi].nome}":`))||0;
-  if(!v) return;
-  D.metas[mi].atual = (D.metas[mi].atual||0) + v;
-  scheduleAutoSave(); renderMetas();
-  toast(`Aporte de ${fmt(v)} registrado!`, true, '💰');
-}
-
-// ── ADMIN: CATEGORIAS ─────────────────────────────────────────────
-// ── RELATÓRIO MENSAL ──────────────────────────────
+// ═══════════════════════════════════════════════════
+//  RELATÓRIO MENSAL
+// ═══════════════════════════════════════════════════
 function renderRelatorio() {
-  const pg = document.getElementById('page-relatorio');
-  if(!pg) return;
-  const el = pg; // inject into page directly
+  const el = document.getElementById('relatorio-content');
+  if (!el) return;
   const mi = getMesRefIdx();
-  const mesNome = D.meses[mi]||'';
+  const mes = D.meses[mi] || '';
   const e = totalEMes(mi);
   const cp = calcPendenteMes(mi);
   const inv = invDisp(mi);
@@ -3380,160 +3270,206 @@ function renderRelatorio() {
   const pl = patrimonioLiquido();
   const perf = calcPerfilInvestidor();
   const dist = calcDistribuicaoInvest(inv);
-  const pctComp = e>0?Math.round((cp.bruto/e)*100):0;
+  const pctComp = e > 0 ? Math.round((cp.bruto / e) * 100) : 0;
 
   // Gastos por categoria
-  const cats = {};
-  D.fixas.filter(f=>{
-    if(!f.ativo||(f.valor||0)<=0) return false;
-    if(!f.mesInicio&&!f.mesFim) return true;
-    const {m,y}=parseMes(D.meses[mi]||'Mai/26');const anosM=y*12+m;
-    const desde=f.mesInicio?parseMes(f.mesInicio):null;
-    const ate=f.mesFim?parseMes(f.mesFim):null;
-    return anosM>=(desde?desde.y*12+desde.m:-Infinity)&&anosM<=(ate?ate.y*12+ate.m:Infinity);
-  }).forEach(f=>{cats[f.cat]=(cats[f.cat]||0)+(f.valor||0);});
-  D.compras.filter(c=>c.ativo).forEach(c=>{
-    const v=calcValsCompra(c)[mi]||0;
-    if(v) cats[c.cat]=(cats[c.cat]||0)+v;
+  const catMap = {};
+  D.fixas.filter(f => {
+    if (!f.ativo || (f.valor || 0) <= 0) return false;
+    if (!f.mesInicio && !f.mesFim) return true;
+    const { m: mm, y } = parseMes(mes);
+    const anosM = y * 12 + mm;
+    const desde = f.mesInicio ? parseMes(f.mesInicio) : null;
+    const ate = f.mesFim ? parseMes(f.mesFim) : null;
+    return anosM >= (desde ? desde.y * 12 + desde.m : -Infinity) && anosM <= (ate ? ate.y * 12 + ate.m : Infinity);
+  }).forEach(f => { catMap[f.cat] = (catMap[f.cat] || 0) + f.valor; });
+  D.compras.filter(c => c.ativo).forEach(c => {
+    const v = calcValsCompra(c)[mi] || 0;
+    if (v) catMap[c.cat] = (catMap[c.cat] || 0) + v;
   });
-  const topCats = Object.entries(cats).sort(([,a],[,b])=>b-a).slice(0,5);
+  const topCats = Object.entries(catMap).sort(([, a], [, b]) => b - a).slice(0, 5);
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-      <div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--brand);margin-bottom:4px">📋 Relatório Mensal</div>
-      <div style="font-family:var(--font-head);font-size:22px;font-weight:800;letter-spacing:-.5px">${mesNome}</div></div>
-      <div style="font-size:11px;color:var(--text2)">Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
-    </div>
     <div class="gcards mb">
       <div class="mcard mcard-pos"><div class="mlabel">💰 Receita</div><div class="mval mval-pos">${fmt(e)}</div></div>
       <div class="mcard mcard-neg"><div class="mlabel">💸 Despesas</div><div class="mval mval-neg">${fmt(cp.bruto)}</div><div class="msub">${pctComp}% da renda</div></div>
-      <div class="mcard ${cp.pago>0?'mcard-pos':''}"><div class="mlabel">✅ Pago</div><div class="mval ${cp.pago>0?'mval-pos':''}">${fmt(cp.pago)}</div></div>
+      <div class="mcard ${cp.pago > 0 ? 'mcard-pos' : ''}"><div class="mlabel">✅ Pago</div><div class="mval ${cp.pago > 0 ? 'mval-pos' : ''}">${fmt(cp.pago)}</div></div>
       <div class="mcard mcard-teal"><div class="mlabel">🚀 P/ Investir</div><div class="mval mval-teal">${fmt(inv)}</div></div>
-      <div class="mcard ${reserva.pct>=100?'mcard-pos':'mcard-warn'}"><div class="mlabel">🛡️ Reserva</div><div class="mval" style="color:${reserva.pct>=100?'var(--brand)':'var(--warn)'}">${reserva.pct}%</div></div>
-      <div class="mcard"><div class="mlabel">💎 Patrimônio</div><div class="mval" style="color:${pl.liquido>=0?'var(--brand)':'var(--neg)'}">${fmtK(pl.liquido)}</div></div>
+      <div class="mcard ${reserva.pct >= 100 ? 'mcard-pos' : 'mcard-warn'}"><div class="mlabel">🛡️ Reserva</div><div class="mval" style="color:${reserva.pct >= 100 ? 'var(--brand)' : 'var(--warn)'}">${reserva.pct}%</div></div>
+      <div class="mcard"><div class="mlabel">💎 Patrimônio</div><div class="mval" style="color:${pl.liquido >= 0 ? 'var(--brand)' : 'var(--neg)'}">${fmtK(pl.liquido)}</div></div>
     </div>
     <div class="g2 mb">
       <div class="panel">
         <div class="panel-head"><span class="panel-title">📊 Composição da renda</span></div>
         <div style="padding:16px">
           <div style="display:flex;height:12px;border-radius:99px;overflow:hidden;margin-bottom:10px">
-            <div style="width:${Math.min(100,pctComp)}%;background:var(--neg)"></div>
-            <div style="width:${Math.min(100,e>0?Math.round(inv/e*100):0)}%;background:var(--brand)"></div>
+            <div style="width:${Math.min(100, pctComp)}%;background:var(--neg)"></div>
+            <div style="width:${Math.min(100, e > 0 ? Math.round(inv / e * 100) : 0)}%;background:var(--brand)"></div>
             <div style="flex:1;background:var(--card3)"></div>
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text2)">
+          <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text2)">
             <span>🔴 Despesas: <strong style="color:var(--neg)">${pctComp}%</strong></span>
-            <span>🟢 Investimento: <strong style="color:var(--brand)">${e>0?Math.round(inv/e*100):0}%</strong></span>
-            <span>⬜ Livre: <strong>${Math.max(0,100-pctComp-(e>0?Math.round(inv/e*100):0))}%</strong></span>
+            <span>🟢 Investimento: <strong style="color:var(--brand)">${e > 0 ? Math.round(inv / e * 100) : 0}%</strong></span>
+            <span>⬜ Livre: <strong>${Math.max(0, 100 - pctComp - (e > 0 ? Math.round(inv / e * 100) : 0))}%</strong></span>
           </div>
         </div>
       </div>
       <div class="panel">
         <div class="panel-head"><span class="panel-title">🏆 Top categorias</span></div>
-        <div style="padding:8px 0">
-          ${topCats.length?topCats.map(([cat,val])=>{
-            const info=CATS[cat]||CATS.outros;
-            const pctCat=cp.bruto>0?Math.round(val/cp.bruto*100):0;
+        <div style="padding:4px 0">
+          ${topCats.length ? topCats.map(([cat, val]) => {
+            const info = CATS[cat] || CATS.outros;
+            const pctCat = cp.bruto > 0 ? Math.round(val / cp.bruto * 100) : 0;
             return `<div style="display:flex;align-items:center;gap:10px;padding:8px 16px">
               <span style="font-size:15px">${info.icon}</span>
-              <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500">${info.label}</div>
-              <div style="height:3px;background:var(--card3);border-radius:99px;overflow:hidden;margin-top:3px">
-                <div style="height:3px;width:${pctCat}%;background:${catColor(cat)};border-radius:99px"></div>
-              </div></div>
-              <div style="font-size:12px;font-weight:700;color:var(--neg);font-family:var(--font-mono)">${fmt(val)}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12.5px;font-weight:500">${info.label}</div>
+                <div style="height:3px;background:var(--card3);border-radius:99px;overflow:hidden;margin-top:3px">
+                  <div style="height:3px;width:${pctCat}%;background:${catColor(cat)};border-radius:99px"></div>
+                </div>
+              </div>
+              <div style="font-size:12.5px;font-weight:700;color:var(--neg);font-family:var(--font-mono)">${fmt(val)}</div>
             </div>`;
-          }).join(''):'<div class="empty" style="padding:20px"><div class="empty-icon">📭</div></div>'}
+          }).join('') : '<div class="empty" style="padding:20px"><div class="empty-icon">📭</div></div>'}
         </div>
       </div>
     </div>
-    ${dist?`<div class="ebox accent-border">
-      <h3>💡 Como investir ${fmt(inv)} em ${mesNome}</h3>
-      <p>Perfil ${perf.perfilIcon} ${perf.perfil} · Ciclo de juros atual.</p>
+    ${dist ? `<div class="ebox accent-border mb">
+      <h3>💡 Recomendação para ${mes}</h3>
+      <p>Perfil ${perf.perfilIcon} ${perf.perfil}. Invista ${fmt(inv)} assim:</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
-        ${dist.distribuicao.map(b=>`<div style="background:var(--card2);border:1px solid ${b.cor}30;border-radius:var(--r10);padding:10px;text-align:center">
+        ${dist.distribuicao.map(b => `<div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r10);padding:10px;text-align:center">
           <div style="font-size:10px;color:${b.cor};font-weight:700;margin-bottom:3px">${b.label}</div>
           <div style="font-family:var(--font-head);font-size:16px;font-weight:800;color:${b.cor}">${fmt(b.valor)}</div>
           <div style="font-size:10px;color:var(--text2)">${b.pct}%</div>
         </div>`).join('')}
       </div>
-    </div>`:''}
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r16);padding:14px 18px;display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap">
+    </div>` : ''}
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r16);padding:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
       <span style="font-size:26px">${perf.perfilIcon}</span>
-      <div style="flex:1"><div style="font-weight:700;color:${perf.perfilCor}">Perfil ${perf.perfil.charAt(0).toUpperCase()+perf.perfil.slice(1)}</div>
-      <div style="font-size:12px;color:var(--text2);margin-top:2px">${perf.perfilDesc}</div></div>
-      <div style="text-align:right"><div style="font-family:var(--font-head);font-size:20px;font-weight:800;color:${perf.perfilCor}">${perf.risco}/100</div>
-      <div style="font-size:10px;color:var(--text2)">Apetite a risco</div></div>
+      <div style="flex:1">
+        <div style="font-weight:700;color:${perf.perfilCor}">${perf.perfil.charAt(0).toUpperCase() + perf.perfil.slice(1)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${perf.perfilDesc}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--font-head);font-size:22px;font-weight:800;color:${perf.perfilCor}">${perf.risco}/100</div>
+        <div style="font-size:10px;color:var(--text2)">Apetite a risco</div>
+      </div>
     </div>`;
 }
 
+// ═══════════════════════════════════════════════════
+//  METAS FINANCEIRAS
+// ═══════════════════════════════════════════════════
+function renderMetas() {
+  if (!D.metas) D.metas = [];
+  const sumEl = document.getElementById('metas-summary');
+  const listaEl = document.getElementById('metas-lista');
+  if (!sumEl || !listaEl) return;
+
+  const totalAtivos = D.ativos.reduce((s, a) => s + (a.valor || 0), 0);
+  const aporteMes = invDisp(getMesRefIdx());
+  const concluidas = D.metas.filter(m => (m.atual || 0) >= (m.valor || 1)).length;
+  const totalMeta = D.metas.reduce((s, m) => s + (m.valor || 0), 0);
+  const totalAting = D.metas.reduce((s, m) => s + Math.min(m.atual || 0, m.valor || 0), 0);
+  const pctGeral = totalMeta > 0 ? Math.round((totalAting / totalMeta) * 100) : 0;
+
+  sumEl.innerHTML = `
+    <div class="mcard mcard-accent"><div class="mlabel">🎯 Total de metas</div><div class="mval mval-accent">${D.metas.length}</div><div class="msub">${concluidas} concluída(s)</div></div>
+    <div class="mcard ${pctGeral >= 100 ? 'mcard-pos' : 'mcard-warn'}"><div class="mlabel">📊 Progresso geral</div><div class="mval ${pctGeral >= 100 ? 'mval-pos' : 'mval-warn'}">${pctGeral}%</div><div class="msub">${fmt(totalAting)} / ${fmt(totalMeta)}</div></div>
+    <div class="mcard mcard-teal"><div class="mlabel">🚀 Aporte disponível</div><div class="mval mval-teal">${fmt(aporteMes)}</div><div class="msub">este mês</div></div>
+    <div class="mcard mcard-pos"><div class="mlabel">💎 Patrimônio</div><div class="mval mval-pos">${fmtK(totalAtivos)}</div></div>`;
+
+  if (!D.metas.length) {
+    listaEl.innerHTML = `<div class="empty"><div class="empty-icon">🎯</div><div class="empty-text">Nenhuma meta cadastrada.<br>Clique em "+ Nova meta" para começar.</div></div>`;
+    return;
+  }
+
+  const icons = { casa: '🏠', carro: '🚗', viagem: '✈️', educacao: '🎓', investimento: '📈', emergencia: '🛡️', casamento: '💍', eletronico: '💻', reforma: '🔨', outros: '🎯' };
+  listaEl.innerHTML = D.metas.map((meta, mi) => {
+    const atual = meta.atual || 0, target = meta.valor || 0;
+    const pct = target > 0 ? Math.min(100, Math.round((atual / target) * 100)) : 0;
+    const falta = Math.max(0, target - atual);
+    const concluida = atual >= target;
+    const mesesR = aporteMes > 0 && !concluida ? Math.ceil(falta / aporteMes) : null;
+    const cor = pct >= 100 ? 'var(--brand)' : pct >= 50 ? 'var(--accent)' : 'var(--warn)';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r16);padding:20px;margin-bottom:12px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <span style="font-size:28px;flex-shrink:0">${icons[meta.tipo || 'outros'] || '🎯'}</span>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <span style="font-size:15px;font-weight:700">${meta.nome}</span>
+            ${concluida ? '<span class="badge badge-pos">✅ Concluída</span>' : ''}
+            ${meta.prazo ? `<span class="badge">${meta.prazo}</span>` : ''}
+          </div>
+          ${meta.descricao ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px">${meta.descricao}</div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+            <span style="color:var(--text2)">Progresso</span><span style="font-weight:700;color:${cor}">${pct}%</span>
+          </div>
+          <div style="height:7px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:8px">
+            <div style="height:7px;width:${pct}%;background:${cor};border-radius:99px;transition:width .7s"></div>
+          </div>
+          <div style="display:flex;gap:12px;font-size:11px;flex-wrap:wrap;color:var(--text2)">
+            <span>Atual: <strong style="color:var(--pos)">${fmt(atual)}</strong></span>
+            <span>Meta: <strong style="color:var(--text)">${fmt(target)}</strong></span>
+            ${!concluida ? `<span>Falta: <strong style="color:var(--neg)">${fmt(falta)}</strong></span>` : ''}
+            ${mesesR ? `<span>~${mesesR} meses no ritmo atual</span>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="editarMeta(${mi})">✏️</button>
+          <button class="btn btn-pos" style="height:28px;font-size:11px;padding:0 8px" onclick="aportarMeta(${mi})">+</button>
+          <button class="btn-rm" onclick="removerMeta(${mi})">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  CATEGORIAS (admin)
+// ═══════════════════════════════════════════════════
 function renderAdminCategorias() {
-  const pg = document.getElementById('page-cats');
-  if(!pg) return;
-  const cats = D.catsCustom && Object.keys(D.catsCustom).length > 0 ? D.catsCustom : CATS;
-  const catList = Object.entries(cats).map(([key,cat])=>`
+  const el = document.getElementById('admin-cats-list');
+  if (!el) return;
+  const cats = D.catsCustom && Object.keys(D.catsCustom).length > 0 ? D.catsCustom : { ...CATS };
+  el.innerHTML = Object.entries(cats).map(([key, cat]) => `
     <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
-      <span style="font-size:20px">${cat.icon||'📦'}</span>
+      <span style="font-size:20px">${cat.icon || '📦'}</span>
       <div style="flex:1">
         <div style="font-weight:600;font-size:13px">${cat.label}</div>
         <div style="font-size:10px;color:var(--text2);font-family:var(--font-mono)">${key}</div>
       </div>
-      <div style="width:14px;height:14px;border-radius:50%;background:${catColor(key)};flex-shrink:0"></div>
+      <div style="width:12px;height:12px;border-radius:50%;background:${catColor(key)};flex-shrink:0"></div>
       <button class="btn btn-ghost" style="height:26px;font-size:11px" onclick="editarCategoria('${key}')">✏️</button>
-      ${!CATS[key]?`<button class="btn-rm" style="width:24px;height:24px" onclick="removerCategoria('${key}')">✕</button>`:'<span style="font-size:10px;color:var(--text3)">padrão</span>'}
+      ${!CATS[key] ? `<button class="btn-rm" style="width:24px;height:24px;font-size:11px" onclick="removerCategoria('${key}')">✕</button>` : '<span style="font-size:10px;color:var(--text3);width:24px;text-align:center">•</span>'}
     </div>`).join('');
-
-  pg.innerHTML = `
-    <div class="page-header">
-      <div><div class="page-title">🏷️ Categorias de Gastos</div>
-      <div class="page-sub-title">Gerencie as categorias usadas em Saídas e Entradas</div></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-pos" onclick="adicionarCategoria()">+ Nova categoria</button>
-        <button class="btn btn-ghost" onclick="resetarCategorias()">↺ Restaurar padrão</button>
-      </div>
-    </div>
-    <div class="g2">
-      <div class="panel">
-        <div class="panel-head"><span class="panel-title">💸 Categorias de gastos</span>
-          <span style="font-size:11px;color:var(--text2)">${Object.keys(cats).length} categorias</span>
-        </div>
-        <div>${catList}</div>
-      </div>
-      <div class="ebox info-border">
-        <h3>ℹ️ Como funciona</h3>
-        <p>As categorias organizam seus gastos e aparecem nos dashboards e relatórios.</p>
-        <div class="pstat"><span class="pstat-label">Categorias padrão</span><span>Podem ter nome/ícone editados, não removíveis</span></div>
-        <div class="pstat"><span class="pstat-label">Personalizadas</span><span>Totalmente gerenciáveis</span></div>
-        <div style="margin-top:12px;padding:10px;background:var(--warn-bg);border-radius:var(--r8);font-size:11px;color:var(--warn)">⚠️ Alterações afetam a exibição de todos os dados do sistema.</div>
-      </div>
-    </div>`;
 }
 
+// ═══════════════════════════════════════════════════
+//  PARÂMETROS DO SISTEMA (admin)
+// ═══════════════════════════════════════════════════
 function renderAdminParams() {
-  const pg = document.getElementById('page-params');
-  if(!pg) return;
-  const intel = calcARCAIntelligence();
+  const el = document.getElementById('params-content');
+  if (!el) return;
+  const intel = calcARCAIntelligence ? calcARCAIntelligence() : {};
   const perf = calcPerfilInvestidor();
+  const soma = (D.arcaMeta.a || 0) + (D.arcaMeta.r || 0) + (D.arcaMeta.c || 0) + (D.arcaMeta.a2 || 0);
 
-  pg.innerHTML = `
-    <div class="page-header">
-      <div><div class="page-title">🔧 Parâmetros do Sistema</div>
-      <div class="page-sub-title">Configure as regras financeiras e cálculos do sistema</div></div>
-    </div>
+  el.innerHTML = `
     <div class="g2 mb">
       <div class="ebox pos-border">
         <h3>🛡️ Reserva de emergência</h3>
-        <p>Quantos meses de custo fixo devem ser guardados antes de investir em outros ativos.</p>
+        <p>Quantos meses de custo fixo guardar antes de investir em outros ativos.</p>
         <div class="field">
           <label class="flabel">Multiplicador (meses)</label>
-          <input type="number" id="param-reserva-mult" min="1" max="24" value="${D.reservaMult||6}" style="max-width:100px"
-            onchange="D.reservaMult=parseInt(this.value)||6;scheduleAutoSave();renderAll()">
-          <div style="font-size:11px;color:var(--text2);margin-top:4px">Padrão: 6 meses · 3=agressivo · 12=ultra-conservador</div>
+          <input type="number" id="param-reserva-mult" min="1" max="24" value="${D.reservaMult || 6}" style="max-width:100px">
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Padrão: 6 · Agressivo: 3 · Conservador: 12</div>
         </div>
-        <div style="padding:12px;background:var(--card2);border-radius:var(--r10);font-size:12px;color:var(--text2);line-height:1.8">
-          ${perf.perfilIcon} Perfil: <strong style="color:${perf.perfilCor}">${perf.perfil}</strong> ·
-          Ciclo: <strong>${intel.cicloEmoji||''} ${intel.cicloDesc||''}</strong><br>
-          Reserva meta: <strong style="color:var(--brand)">${fmt(custoFixoMes()*(D.reservaMult||6))}</strong>
-          (${fmt(custoFixoMes())}/mês × ${D.reservaMult||6})
+        <div style="padding:10px 12px;background:var(--card2);border-radius:var(--r8);font-size:12px;color:var(--text2);line-height:1.8">
+          ${perf.perfilIcon} Perfil: <strong style="color:${perf.perfilCor}">${perf.perfil}</strong><br>
+          Meta atual: <strong style="color:var(--brand)">${fmt(custoFixoMes() * (D.reservaMult || 6))}</strong>
+          = ${fmt(custoFixoMes())}/mês × ${D.reservaMult || 6}
         </div>
       </div>
       <div class="ebox warn-border">
@@ -3541,41 +3477,51 @@ function renderAdminParams() {
         <p>Valores base para os cálculos do sistema.</p>
         <div class="field">
           <label class="flabel">Meta conta corrente (R$)</label>
-          <input type="number" id="param-meta-cc" step="100" value="${D.metaCC||2000}"
-            onchange="D.metaCC=parseFloat(this.value)||2000;scheduleAutoSave();renderAll()">
-          <div style="font-size:11px;color:var(--text2);margin-top:4px">Valor mínimo mantido em conta corrente</div>
+          <input type="number" id="param-meta-cc" step="100" value="${D.metaCC || 2000}">
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Valor mínimo mantido em CC</div>
         </div>
         <div class="field">
-          <label class="flabel">Dia de corte do ciclo (1–28)</label>
-          <input type="number" id="param-dia-corte" min="1" max="28" value="${D.diaCorte||20}"
-            onchange="D.diaCorte=parseInt(this.value)||20;scheduleAutoSave();renderCarteira()">
-          <div style="font-size:11px;color:var(--text2);margin-top:4px">Após este dia o sistema avança para o próximo mês de referência</div>
+          <label class="flabel">Dia de corte (1–28)</label>
+          <input type="number" id="param-dia-corte" min="1" max="28" value="${D.diaCorte || 20}">
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Após este dia o sistema avança o mês de referência</div>
         </div>
       </div>
     </div>
-    <div class="ebox accent-border">
-      <h3>🏛️ Metas ARCA padrão</h3>
-      <p>Percentuais alvo para cada bucket de investimento (devem totalizar 100%).</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
-        ${['a','r','c','a2'].map((k,i)=>{
-          const labels={a:'A — Ações Brasileiras',r:'R — Real Estate / FIIs',c:'C — Caixa',a2:'A — Ativos Internacionais'};
-          return `<div class="field" style="margin-bottom:0">
-            <label class="flabel">${labels[k]} (%)</label>
-            <input type="number" min="0" max="100" step="1" value="${D.arcaMeta[k]||0}"
-              onchange="D.arcaMeta['${k}']=parseInt(this.value)||0;scheduleAutoSave();renderAdminParams()">
-          </div>`;
-        }).join('')}
+    <div class="ebox accent-border mb">
+      <h3>🏛️ Metas ARCA (deve totalizar 100%)</h3>
+      <p>Percentuais alvo para cada bucket de investimento.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+        <div class="field" style="margin-bottom:0"><label class="flabel">A — Ações Brasileiras (%)</label><input type="number" id="pa-a" min="0" max="100" value="${D.arcaMeta.a || 0}"></div>
+        <div class="field" style="margin-bottom:0"><label class="flabel">R — Real Estate / FIIs (%)</label><input type="number" id="pa-r" min="0" max="100" value="${D.arcaMeta.r || 0}"></div>
+        <div class="field" style="margin-bottom:0"><label class="flabel">C — Caixa / Renda Fixa (%)</label><input type="number" id="pa-c" min="0" max="100" value="${D.arcaMeta.c || 0}"></div>
+        <div class="field" style="margin-bottom:0"><label class="flabel">A — Ativos Internacionais (%)</label><input type="number" id="pa-a2" min="0" max="100" value="${D.arcaMeta.a2 || 0}"></div>
       </div>
-      <div style="margin-top:10px;font-size:12px;padding:8px 12px;background:var(--card2);border-radius:var(--r8)">
-        Soma atual: <strong style="color:${(D.arcaMeta.a||0)+(D.arcaMeta.r||0)+(D.arcaMeta.c||0)+(D.arcaMeta.a2||0)===100?'var(--pos)':'var(--neg)'}">${(D.arcaMeta.a||0)+(D.arcaMeta.r||0)+(D.arcaMeta.c||0)+(D.arcaMeta.a2||0)}%</strong>
-        ${(D.arcaMeta.a||0)+(D.arcaMeta.r||0)+(D.arcaMeta.c||0)+(D.arcaMeta.a2||0)===100?' ✅':' — deve totalizar 100%'}
+      <div style="margin-top:10px;padding:8px 12px;background:var(--card2);border-radius:var(--r8);font-size:12px">
+        Soma atual: <strong style="color:${soma === 100 ? 'var(--pos)' : 'var(--neg)'}">${soma}%</strong>
+        ${soma === 100 ? ' ✅' : ' — deve somar 100%'}
       </div>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:16px">
-      <button class="btn btn-pri" onclick="toast('Parâmetros salvos!',true,'⚙️');scheduleAutoSave()" style="height:40px;padding:0 24px">💾 Salvar parâmetros</button>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-pri" onclick="salvarAdminParams()" style="height:40px;padding:0 28px">💾 Salvar parâmetros</button>
     </div>`;
 }
-  const cats = D.catsCustom || {...CATS};
+
+function salvarAdminParams() {
+  const mult = parseInt(document.getElementById('param-reserva-mult')?.value) || 6;
+  if (mult < 1 || mult > 24) { alert('Multiplicador deve ser entre 1 e 24.'); return; }
+  D.reservaMult = mult;
+  D.metaCC = parseFloat(document.getElementById('param-meta-cc')?.value) || 2000;
+  D.diaCorte = parseInt(document.getElementById('param-dia-corte')?.value) || 20;
+  D.arcaMeta.a = parseInt(document.getElementById('pa-a')?.value) || 0;
+  D.arcaMeta.r = parseInt(document.getElementById('pa-r')?.value) || 0;
+  D.arcaMeta.c = parseInt(document.getElementById('pa-c')?.value) || 0;
+  D.arcaMeta.a2 = parseInt(document.getElementById('pa-a2')?.value) || 0;
+  scheduleAutoSave();
+  renderAll();
+  toast('Parâmetros salvos!', true, '⚙️');
+}
+
+const cats = D.catsCustom || {...CATS};
 
 
 function editarCategoria(key) {
@@ -3612,14 +3558,5 @@ function resetarCategorias() {
 
 // ── ADMIN: PARÂMETROS DO SISTEMA ─────────────────────────────────
 
-function salvarAdminParams() {
-  const mult = parseInt(document.getElementById('param-reserva-mult')?.value)||6;
-  if(mult < 1 || mult > 24) { alert('Multiplicador deve ser entre 1 e 24.'); return; }
-  D.reservaMult = mult;
-  D.metaCC = parseFloat(document.getElementById('param-meta-cc')?.value)||2000;
-  D.diaCorte = parseInt(document.getElementById('param-dia-corte')?.value)||20;
-  scheduleAutoSave(); renderAll();
-  toast('Parâmetros salvos!', true, '⚙️');
-}
 
 

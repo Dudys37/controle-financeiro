@@ -2219,16 +2219,66 @@ auth.onAuthStateChanged(function(user){
 
 
 <!-- ████ METAS FINANCEIRAS ████ -->
-<div class="page" id="page-metas"></div>
+<div class="page" id="page-metas">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🎯 Metas Financeiras</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Defina objetivos e acompanhe seu progresso</div>
+    </div>
+    <button class="btn btn-pri" onclick="abrirModalMeta()">+ Nova meta</button>
+  </div>
+  <div class="gcards mb" id="metas-summary"></div>
+  <div id="metas-lista"></div>
+</div>
 
 <!-- ████ RELATÓRIO MENSAL ████ -->
-<div class="page" id="page-relatorio"></div>
+<div class="page" id="page-relatorio">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+    <div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">📋 Relatório Mensal</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Visão consolidada das suas finanças do mês</div>
+    </div>
+  </div>
+  <div id="relatorio-content"></div>
+</div>
 
 <!-- ████ CATEGORIAS (admin) ████ -->
-<div class="page" id="page-cats"></div>
+<div class="page" id="page-cats">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+    <div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🏷️ Categorias de Gastos</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Gerencie as categorias de Saídas e Entradas</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-pos" onclick="adicionarCategoria()">+ Nova</button>
+      <button class="btn btn-ghost" onclick="resetarCategorias()">↺ Padrão</button>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">💸 Categorias cadastradas</span></div>
+      <div id="admin-cats-list"></div>
+    </div>
+    <div class="ebox info-border">
+      <h3>ℹ️ Como funciona</h3>
+      <p>Categorias organizam seus gastos em Saídas e aparecem nos dashboards.</p>
+      <div class="pstat"><span class="pstat-label">Padrão</span><span style="font-size:12px;color:var(--text2)">Editáveis (nome/ícone), não removíveis</span></div>
+      <div class="pstat"><span class="pstat-label">Personalizadas</span><span style="font-size:12px;color:var(--text2)">Totalmente gerenciáveis</span></div>
+      <div style="margin-top:12px;padding:10px;background:var(--warn-bg);border-radius:var(--r8);font-size:11px;color:var(--warn)">⚠️ Alterações afetam todos os dados do sistema.</div>
+    </div>
+  </div>
+</div>
 
 <!-- ████ PARÂMETROS DO SISTEMA (admin) ████ -->
-<div class="page" id="page-params"></div>
+<div class="page" id="page-params">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+    <div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🔧 Parâmetros do Sistema</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Configure as regras financeiras e cálculos</div>
+    </div>
+  </div>
+  <div id="params-content"></div>
+</div>
 
 
 <!-- Modal Meta -->
