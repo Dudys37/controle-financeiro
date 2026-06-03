@@ -1121,6 +1121,51 @@ function renderDashboard() {
     }
   }
 
+  // ── 🧠 COMO INVESTIR ESTE MÊS ──
+  const arcaRecEl = document.getElementById('dash-arca-rec');
+  if(arcaRecEl) {
+    const dispMes = invDisp(mi); // ← usa o mês selecionado no dashboard
+    const intel = calcARCAIntelligence();
+    const dist = calcDistribuicaoInvest(dispMes);
+    const ARCA_COLORS = {A:'#38BDF8',R:'#F5A623',C:'#00D4AA',A2:'#7C6FCD'};
+    if(dispMes > 0 && dist) {
+      const recAbs = {
+        A:  Math.round(dispMes*(intel.rec.a/100)),
+        R:  Math.round(dispMes*(intel.rec.r/100)),
+        C:  Math.round(dispMes*(intel.rec.c/100)),
+        A2: Math.round(dispMes*(intel.rec.a2/100))
+      };
+      arcaRecEl.innerHTML = `<div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">🧠 Como investir em ${mesNome}</span>
+          <span style="font-size:11px;color:var(--text2)">${intel.cicloEmoji||''} ${intel.cicloDesc||''}</span>
+        </div>
+        <div style="padding:14px 16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+            <div>
+              <span style="font-size:15px;font-weight:700">🚀 P/ Investir: </span>
+              <span style="font-size:15px;font-weight:800;color:var(--brand)">${fmt(dispMes)}</span>
+              <span style="font-size:11px;color:var(--text2);margin-left:8px">(Sobra − Meta CC)</span>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">${dist.fase===1?'⚠️ Fase 1 — prioridade para reserva de emergência':'✅ Fase 2 — distribuição ARCA'}</div>
+            </div>
+            <button class="btn btn-accent" onclick="applyARCARec(${intel.rec.a},${intel.rec.r},${intel.rec.c},${intel.rec.a2})" style="height:32px;font-size:12px">🎯 Aplicar metas ARCA</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            ${[{b:'A',l:'Ações BR'},{b:'R',l:'Real Estate'},{b:'C',l:'Caixa'},{b:'A2',l:'Internacional'}].map(x=>`
+            <div style="background:var(--card2);border:1px solid ${ARCA_COLORS[x.b]}30;border-radius:var(--r10);padding:12px;text-align:center">
+              <div style="font-size:10px;font-weight:700;color:${ARCA_COLORS[x.b]};text-transform:uppercase;margin-bottom:4px">${x.l}</div>
+              <div style="font-size:20px;font-weight:800;color:${ARCA_COLORS[x.b]}">${fmt(recAbs[x.b])}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">${intel.rec[x.b==='A2'?'a2':x.b.toLowerCase()]}%</div>
+            </div>`).join('')}
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:8px">⚠️ Sugestão baseada no ciclo de juros. Não constitui assessoria de investimento.</div>
+        </div>
+      </div>`;
+    } else {
+      arcaRecEl.innerHTML = dispMes<=0 ? `<div class="panel"><div class="panel-head"><span class="panel-title">🧠 Como investir em ${mesNome}</span></div><div style="padding:14px 16px;font-size:13px;color:var(--text2)">⚠️ Sem valor disponível para investir em ${mesNome}. Despesas ≥ renda ou saldo abaixo da meta CC.</div></div>` : '';
+    }
+  }
+
   // ── PROJEÇÃO FUTURA ──
   const pf = calcPatrimonioFuturo();
   const pfEl = document.getElementById('dash-patrimonio-futuro');
@@ -1138,46 +1183,6 @@ function renderDashboard() {
     </div>`;
   } else if(pfEl) pfEl.innerHTML = '';
 
-  // ── METAS CARD ──
-  const metasCard = document.getElementById('dash-metas-card');
-  if(metasCard) {
-    const metas = D.metas||[];
-    if(metas.length) {
-      const emAndamento = metas.filter(m=>(m.atual||0)<(m.valor||1));
-      const concluidas  = metas.filter(m=>(m.atual||0)>=(m.valor||1));
-      metasCard.innerHTML = `<div class="panel">
-        <div class="panel-head">
-          <span class="panel-title">🎯 Metas financeiras</span>
-          <button class="btn btn-ghost" style="height:26px;font-size:11px" onclick="goSide('metas')">Ver todas →</button>
-        </div>
-        <div style="padding:10px 16px;display:flex;flex-direction:column;gap:8px">
-          ${emAndamento.slice(0,3).map(m=>{
-            const pctM=Math.min(100,Math.round(((m.atual||0)/(m.valor||1))*100));
-            return `<div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                <span style="font-size:12.5px;font-weight:600">${m.nome}</span>
-                <span style="font-size:11px;font-family:var(--font-mono);color:var(--text2)">${pctM}%</span>
-              </div>
-              <div style="height:4px;background:var(--card3);border-radius:99px;overflow:hidden">
-                <div style="height:4px;width:${pctM}%;background:var(--brand);border-radius:99px"></div>
-              </div>
-              <div style="font-size:10px;color:var(--text3);margin-top:2px">${fmt(m.atual||0)} / ${fmt(m.valor||0)}</div>
-            </div>`;
-          }).join('')}
-          ${concluidas.length?`<div style="font-size:11px;color:var(--pos);padding:4px 0">✅ ${concluidas.length} meta(s) concluída(s)</div>`:''}
-        </div>
-      </div>`;
-    } else {
-      metasCard.innerHTML = `<div class="panel">
-        <div class="panel-head"><span class="panel-title">🎯 Metas financeiras</span></div>
-        <div class="empty" style="padding:20px">
-          <div class="empty-icon" style="font-size:24px">🎯</div>
-          <div class="empty-text">Defina seus objetivos financeiros</div>
-          <button class="btn btn-pri" style="margin-top:10px;height:34px" onclick="goSide('metas')">+ Criar meta</button>
-        </div>
-      </div>`;
-    }
-  }
 }
 
 // Renderiza lista de gastos para o dashboard
@@ -1311,14 +1316,30 @@ function renderMes()   { renderDashboard(); }
 
 function buildMonths(cid,sel,cb){const el=document.getElementById(cid);if(!el)return;const ativos=getActiveMeses();el.innerHTML=ativos.map((m)=>{const i=D.meses.indexOf(m);return`<button class="msb${i===sel?' on':''}" onclick="(${cb.toString()})(${i})">${sM(m)}</button>`;}).join('');}
 
+// Helper: build a month dropdown select
+function buildMesSelect(elId, valorAtual, onChangeFn, labelTodos) {
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const ativos = getActiveMeses();
+  const opts = (labelTodos ? `<option value="">${labelTodos}</option>` : '') +
+    ativos.map(m => `<option value="${m}" ${m===valorAtual?'selected':''}>${m}</option>`).join('');
+  el.innerHTML = opts;
+  el.onchange = function(){ onChangeFn(this.value); };
+}
+
 // ── ENTRADAS ──────────────────────────────────────
 function renderEntradas() {
-  // Filtro de mês
+  // Dropdown de mês
   const filtroEl=document.getElementById('entradas-filtro');
   if(filtroEl) {
     const ativosE=getActiveMeses();
-    filtroEl.innerHTML=`<button class="msb${selEntradas===''?' on':''}" onclick="selEntradas='';renderEntradas()">Todos</button>`
-      +ativosE.map(m=>`<button class="msb${selEntradas===m?' on':''}" onclick="selEntradas='${m}';renderEntradas()">${sM(m)}</button>`).join('');
+    const mesRef = D.meses[getMesRefIdx()]||'';
+    if(!selEntradas && mesRef) selEntradas = mesRef; // default = mês atual
+    filtroEl.innerHTML = `<select id="entradas-mes-sel" style="padding:7px 32px 7px 14px;border-radius:var(--rfull);background:var(--card2);border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;appearance:none;min-width:130px">
+      <option value="">Todos os meses</option>
+      ${ativosE.map(m=>`<option value="${m}" ${selEntradas===m?'selected':''}>${m}</option>`).join('')}
+    </select>`;
+    document.getElementById('entradas-mes-sel').onchange = function(){ selEntradas=this.value; renderEntradas(); };
   }
 
   const ativas=D.entradas.filter(e=>{
@@ -1547,27 +1568,6 @@ function renderCarteira() {
     ct.innerHTML=`<thead><tr><th>Nome</th><th>Bandeira</th><th class="tr">Limite (R$)</th><th>Fechamento</th><th>Vencimento</th><th></th></tr></thead><tbody>${rows}</tbody>`;
   }
 
-  // Recomendação ARCA
-  const recEl=document.getElementById('carteira-arca-rec');
-  if(recEl){
-    const intel=calcARCAIntelligence();
-    const dispMes=invDisp(0);
-    const recAbs={A:Math.round(dispMes*(intel.rec.a/100)),R:Math.round(dispMes*(intel.rec.r/100)),C:Math.round(dispMes*(intel.rec.c/100)),A2:Math.round(dispMes*(intel.rec.a2/100))};
-    recEl.innerHTML=`
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-        <div><div style="font-weight:700;font-size:15px">🧠 Como investir ${fmt(dispMes)} este mês</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${intel.cicloEmoji} ${intel.cicloDesc}</div></div>
-        <button class="btn btn-accent" onclick="applyARCARec(${intel.rec.a},${intel.rec.r},${intel.rec.c},${intel.rec.a2})" style="height:34px;font-size:12px">🎯 Aplicar nas metas</button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-        ${[{b:'A',l:'Ações'},{b:'R',l:'Real Estate'},{b:'C',l:'Caixa'},{b:'A2',l:'Internacional'}].map(x=>`
-        <div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r8);padding:10px;text-align:center">
-          <div style="font-size:10px;font-weight:700;color:${ARCA.colors[x.b]};text-transform:uppercase;margin-bottom:4px">${x.l}</div>
-          <div style="font-size:18px;font-weight:800;color:${ARCA.colors[x.b]}">${intel.rec[x.b==='A2'?'a2':x.b.toLowerCase()]}%</div>
-          <div style="font-size:11px;color:var(--teal);margin-top:2px">${fmt(recAbs[x.b])}</div>
-        </div>`).join('')}
-      </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:10px">⚠️ Sugestão baseada no ciclo de juros. Não é assessoria de investimento.</div>`;
-  }
 }
 function addCartao()    { D.cartoes.push({nome:'Novo Cartão',bandeira:'Mastercard',limite:0,cor:'#6B7280',diaFechamento:10,diaVencimento:17}); renderCarteira(); scheduleAutoSave(); }
 function removeCartao(i){ if(!confirm(`Remover "${D.cartoes[i].nome}"?`))return; D.cartoes.splice(i,1); renderCarteira(); scheduleAutoSave(); }
@@ -1678,8 +1678,13 @@ function renderSaidasVar() {
     });
     // Se o mês selecionado ficou sem pendentes, volta para "Todas"
     if(selSaidasMes && !mesesPendentes.includes(selSaidasMes)) selSaidasMes='';
-    filtroEl.innerHTML=`<button class="msb${selSaidasMes===''?' on':''}" onclick="selSaidasMes='';renderSaidasVar()">Todas</button>`
-      +mesesPendentes.map(m=>`<button class="msb${selSaidasMes===m?' on':''}" onclick="selSaidasMes='${m}';renderSaidasVar()">${sM(m)}</button>`).join('');
+    const mesRef2 = D.meses[getMesRefIdx()]||'';
+    if(!selSaidasMes && mesesPendentes.includes(mesRef2)) selSaidasMes = mesRef2;
+    filtroEl.innerHTML = `<select id="saidas-mes-sel" style="padding:7px 32px 7px 14px;border-radius:var(--rfull);background:var(--card2);border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;appearance:none;min-width:130px">
+      <option value="">Todos os meses</option>
+      ${mesesPendentes.map(m=>`<option value="${m}" ${selSaidasMes===m?'selected':''}>${m}</option>`).join('')}
+    </select>`;
+    document.getElementById('saidas-mes-sel').onchange = function(){ selSaidasMes=this.value; renderSaidasVar(); };
   }
 
   if(!D.compras.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">🔄</div><div class="empty-text">Nenhuma compra/parcela. Clique em + para adicionar.</div></div>`; return; }
@@ -2029,32 +2034,103 @@ function renderAnosList() {
     ${yrs.length>1?`<button class="btn btn-neg" style="height:30px;font-size:12px" onclick="removerUltimoAno()">− Remover ${yrs[yrs.length-1]}</button>`:''}
   </div>`;
 }
-function addAno() {
-  const anoStr=prompt('Digite o ano para adicionar (ex: 2028):');if(!anoStr)return;
-  const ano=parseInt(anoStr);if(isNaN(ano)||ano<2024||ano>2040){alert('Ano inválido.');return;}
-  const sufixo=String(ano).slice(2);
-  const mesesNomes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+function abrirModalAddAno() {
+  const modal = document.getElementById('modal-add-ano');
+  if(!modal) return;
+  const anos = getYears();
+  const nextAno = parseInt(anos[anos.length-1])+1 || new Date().getFullYear()+1;
+  document.getElementById('maa-ano').value = nextAno;
+  // Default: all 12 months checked
+  document.querySelectorAll('.maa-mes-cb').forEach(cb => cb.checked = true);
+  modal.style.display='flex';
+}
+function fecharModalAddAno() {
+  const modal = document.getElementById('modal-add-ano');
+  if(modal) modal.style.display='none';
+}
+function confirmarAddAno() {
+  const anoStr = document.getElementById('maa-ano').value;
+  const ano = parseInt(anoStr);
+  if(isNaN(ano)||ano<2024||ano>2040){ alert('Ano inválido (2024–2040).'); return; }
+  const sufixo = String(ano).slice(2);
+  const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const selecionados = [];
+  document.querySelectorAll('.maa-mes-cb:checked').forEach(cb => selecionados.push(cb.value));
+  if(!selecionados.length){ alert('Selecione pelo menos um mês.'); return; }
   let add=0;
-  mesesNomes.forEach(m=>{const n=`${m}/${sufixo}`;if(!D.meses.includes(n)){D.meses.push(n);if(!D.invManual)D.invManual=[];D.invManual.push(null);add++;}});
-  if(add===0){alert(`Meses de ${ano} já existem.`);return;}
-  scheduleAutoSave();renderAll();if(window.toast)toast(`✅ ${add} meses de ${ano} adicionados!`);
+  // Add in order
+  mesesNomes.filter(m=>selecionados.includes(m)).forEach(m=>{
+    const n=`${m}/${sufixo}`;
+    if(!D.meses.includes(n)){ D.meses.push(n); if(!D.invManual)D.invManual=[]; D.invManual.push(null); add++; }
+  });
+  fecharModalAddAno();
+  if(add===0){ toast(`Meses de ${ano} já existem.`,false,'ℹ️'); }
+  else { scheduleAutoSave(); renderAll(); toast(`${add} meses de ${ano} adicionados!`,true,'📅'); }
 }
-function removerUltimoAno() {
-  const yrs=getYears();if(yrs.length<=1){alert('Mínimo de 1 ano.');return;}
-  const yr=yrs[yrs.length-1];
-  const meses=D.meses.filter(m=>m.includes('/'+yr.slice(2)));
-  if(!confirm(`Remover ${meses.length} meses de ${yr}?`))return;
-  const qtd=meses.length;
-  for(let i=0;i<qtd;i++){D.meses.pop();if(D.invManual)D.invManual.pop();}
-  if(selDash>=nm())selDash=nm()-1;
-  scheduleAutoSave();renderAll();if(window.toast)toast(`✅ Meses de ${yr} removidos.`);
+function removerMesConfig(mesNome) {
+  if(!confirm(`Remover o mês "${mesNome}" do planejamento?\n\nAtenção: dados de pagamentos e investimentos deste mês serão perdidos.`)) return;
+  const idx = D.meses.indexOf(mesNome);
+  if(idx<0) return;
+  D.meses.splice(idx,1);
+  if(D.invManual) D.invManual.splice(idx,1);
+  if(selDash>=nm()) selDash=nm()-1;
+  scheduleAutoSave(); renderAll();
+  toast(`Mês ${mesNome} removido.`,true,'🗑️');
 }
+function removerAnoConfig(ano) {
+  const sufixo = String(ano).slice(2);
+  const meses = D.meses.filter(m=>m.endsWith('/'+sufixo));
+  if(!confirm(`Remover todos os ${meses.length} meses de ${ano}?`)) return;
+  const yrs = getYears();
+  if(yrs.length<=1){ alert('Mínimo de 1 ano no planejamento.'); return; }
+  meses.forEach(mes=>{ const i=D.meses.indexOf(mes); if(i>=0){ D.meses.splice(i,1); if(D.invManual) D.invManual.splice(i,1); }});
+  if(selDash>=nm()) selDash=nm()-1;
+  scheduleAutoSave(); renderAll();
+  toast(`Ano ${ano} removido.`,true,'🗑️');
+}
+function renderConfigMeses() {
+  const el = document.getElementById('config-meses-tabela');
+  if(!el) return;
+  const anos = getYears();
+  const mesRefAtual = D.meses[getMesRefIdx()]||'';
+  const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  el.innerHTML = anos.map(ano => {
+    const sufixo = String(ano).slice(2);
+    const mesesDoAno = mesesNomes.map(m=>`${m}/${sufixo}`);
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--card2);border-radius:var(--r10) var(--r10) 0 0;border:1px solid var(--border);border-bottom:none">
+        <span style="font-size:13px;font-weight:700">${ano}</span>
+        <button class="btn btn-neg" style="height:26px;font-size:11px" onclick="removerAnoConfig(${ano})">🗑️ Remover ano</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:0;border:1px solid var(--border);border-radius:0 0 var(--r10) var(--r10);overflow:hidden">
+        ${mesesDoAno.map((mes,i) => {
+          const existe = D.meses.includes(mes);
+          const isRef = mes === mesRefAtual;
+          return `<div style="padding:8px 10px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:${isRef?'var(--brand-glow2)':existe?'var(--card)':'var(--card3)'};display:flex;align-items:center;justify-content:space-between;gap:4px">
+            <span style="font-size:12px;font-weight:${isRef?700:500};color:${isRef?'var(--brand)':existe?'var(--text)':'var(--text3)'}">${mesesNomes[i]}</span>
+            ${existe ? `<button onclick="removerMesConfig('${mes}')" style="background:none;border:none;cursor:pointer;color:var(--neg);font-size:12px;padding:0;line-height:1;opacity:.6" title="Remover ${mes}">✕</button>` : `<span style="font-size:10px;color:var(--text3)">—</span>`}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+function addAno() { abrirModalAddAno(); } // backward compat
+
 
 // ── FATURAS ───────────────────────────────────────
 function renderFaturas() {
   if(selFaturas===-1) selFaturas=getMesAtualIdx();
   const ms=document.getElementById('faturas-months');
-  if(ms){const ativosF=getActiveMeses();ms.innerHTML=ativosF.map(m=>{const i=D.meses.indexOf(m);return`<button class="msb${i===selFaturas?' on':''}" onclick="selFaturas=${i};renderFaturas()">${sM(m)}</button>`;}).join('');}
+  if(ms){
+    const ativosF=getActiveMeses();
+    const curMes = D.meses[selFaturas]||'';
+    ms.innerHTML=`<select id="faturas-mes-sel" style="padding:7px 32px 7px 14px;border-radius:var(--rfull);background:var(--card2);border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;appearance:none;min-width:130px">
+      ${ativosF.map(m=>`<option value="${D.meses.indexOf(m)}" ${D.meses.indexOf(m)===selFaturas?'selected':''}>${m}</option>`).join('')}
+    </select>`;
+    document.getElementById('faturas-mes-sel').onchange=function(){selFaturas=parseInt(this.value);renderFaturas();};
+  }
   const mi=selFaturas;
   const mesNome=D.meses[mi]||'';
   const lbl=document.getElementById('faturas-mes-label');if(lbl)lbl.textContent=`Faturas de ${mesNome}`;
@@ -2196,6 +2272,7 @@ function getMesAtualIdx() {
 function renderConfig() {
   // Dias de corte
   const dc=document.getElementById('config-diacorte');if(dc)dc.value=D.diaCorte||20;
+  renderConfigMeses();
   const hojeEl=document.getElementById('config-hoje');if(hojeEl)hojeEl.textContent=new Date().getDate();
   const mrEl=document.getElementById('config-mes-ref');if(mrEl)mrEl.textContent=D.meses[getMesRefIdx()]||'—';
   // Parâmetros

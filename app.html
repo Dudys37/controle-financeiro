@@ -1342,9 +1342,11 @@ body { margin: 0; padding: 0; }
   <div id="dash-cartoes-section" style="margin-bottom:20px"></div>
 
   <!-- LINHA 6: Projeção de patrimônio + Metas -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px" id="dash-future-row">
+  <!-- 🧠 Como investir -->
+  <div id="dash-arca-rec" style="margin-bottom:16px"></div>
+
+  <div style="margin-bottom:8px" id="dash-future-row">
     <div id="dash-patrimonio-futuro"></div>
-    <div id="dash-metas-card"></div>
   </div>
 </div>
 
@@ -1361,7 +1363,7 @@ body { margin: 0; padding: 0; }
   <!-- Filtro por mês -->
   <div style="margin-bottom:16px">
     <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Filtrar por mês</div>
-    <div class="msel" id="entradas-filtro"></div>
+    <div id="entradas-filtro" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap"><div style="position:relative"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text3);font-size:11px">▾</span></div></div>
   </div>
   <!-- Resumo -->
   <div class="gcards mb" id="entradas-summary"></div>
@@ -1410,7 +1412,6 @@ body { margin: 0; padding: 0; }
   <div class="ebox" style="border-color:rgba(16,185,129,.2);margin-top:14px">
     <h3>🧠 Como investir este mês</h3>
     <p>Recomendação baseada nos indicadores econômicos atuais e no ciclo de juros.</p>
-    <div id="carteira-arca-rec"></div>
   </div>
 </div>
 
@@ -1540,7 +1541,7 @@ body { margin: 0; padding: 0; }
     <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">✅ Faturas</div>
     <div style="font-size:13px;color:var(--text2);margin-top:4px">Marque o que foi pago. Contas pagas não entram no cálculo de dívidas.</div>
   </div>
-  <div class="msel" id="faturas-months"></div>
+  <div id="faturas-months" style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div style="position:relative"><span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text3);font-size:11px">▾</span></div></div>
   <div id="faturas-mes-label" class="sec-label mb"></div>
   <div class="gcards" id="faturas-summary"></div>
   <div id="faturas-all-done" style="margin-bottom:14px;display:none"></div>
@@ -1660,21 +1661,19 @@ body { margin: 0; padding: 0; }
     <div style="font-size:13px;color:var(--text2);margin-top:4px">Parâmetros globais e configurações avançadas</div>
   </div>
 
-  <div class="g2 mb">
+  <div class="mb">
     <!-- Gestão de Meses -->
     <div class="ebox accent-border">
-      <h3>📅 Gestão de Meses do Planejamento</h3>
-      <p>Controle os meses disponíveis no sistema. Adicione anos inteiros ou remova períodos não utilizados.</p>
-      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Anos no planejamento</div>
-      <div id="config-anos-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
-      <div class="act">
-        <button class="btn btn-pos" onclick="addAno()">+ Adicionar ano</button>
-        <button class="btn btn-neg" id="btn-remove-ano" onclick="removerUltimoAno()">− Remover último ano</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
+        <div>
+          <h3 style="margin-bottom:4px">📅 Gestão de Meses do Planejamento</h3>
+          <p style="margin:0">Adicione anos ao planejamento ou remova meses individuais desnecessários.</p>
+        </div>
+        <button class="btn btn-pos" onclick="abrirModalAddAno()">+ Adicionar ano</button>
       </div>
+      <div id="config-meses-tabela" style="margin-top:14px"></div>
     </div>
-
-    <!-- Ciclo mensal -->
-    <div class="ebox warn-border">
+  </div>
       <h3>🔄 Ciclo Mensal</h3>
       <p>Configure o dia de corte para troca automática do mês de referência. Cada usuário pode ter seu próprio ciclo.</p>
       <div class="field">
@@ -2261,5 +2260,42 @@ auth.onAuthStateChanged(function(user){
 </div>
 
 
+
+<!-- Modal Adicionar Ano -->
+<div id="modal-add-ano" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-title">📅 Adicionar ano ao planejamento</div>
+    <div class="modal-sub">Selecione o ano e quais meses incluir</div>
+    <div class="field">
+      <label class="flabel">Ano</label>
+      <input type="number" id="maa-ano" min="2024" max="2040" style="max-width:120px">
+    </div>
+    <div class="field">
+      <label class="flabel">Meses a incluir</label>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Jan" checked> Jan</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Fev" checked> Fev</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Mar" checked> Mar</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Abr" checked> Abr</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Mai" checked> Mai</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Jun" checked> Jun</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Jul" checked> Jul</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Ago" checked> Ago</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Set" checked> Set</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Out" checked> Out</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Nov" checked> Nov</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:6px 10px;background:var(--card2);border-radius:var(--r8);border:1px solid var(--border)"><input type="checkbox" class="maa-mes-cb" value="Dez" checked> Dez</label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="document.querySelectorAll('.maa-mes-cb').forEach(cb=>cb.checked=true)">✓ Todos</button>
+        <button class="btn btn-ghost" style="height:28px;font-size:11px" onclick="document.querySelectorAll('.maa-mes-cb').forEach(cb=>cb.checked=false)">✕ Nenhum</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="fecharModalAddAno()">Cancelar</button>
+      <button class="btn btn-pri" onclick="confirmarAddAno()">📅 Adicionar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
