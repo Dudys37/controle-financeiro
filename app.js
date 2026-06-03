@@ -800,17 +800,31 @@ function getEmptyStateAlerts() {
   return alerts;
 }
 function calcPatrimonioFuturo() {
-  const yrs=getYears();
-  const tot=D.ativos.reduce((s,a)=>s+(a.valor||0),0);
-  if(tot===0) return null;
-  const txMedia=D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/Math.max(tot,1);
-  let saldo=tot;
-  return yrs.map(yr=>{
-    const meses=getMesesAno(yr);
-    const aporte=meses.reduce((s,{i})=>s+invDisp(i),0);
-    saldo=saldo*(1+txMedia)+aporte;
-    return {yr,saldo:Math.round(saldo),aporte:Math.round(aporte)};
+  const meses = D.meses;
+  if(!meses.length) return null;
+  const totalAtivos = D.ativos.reduce((s,a)=>s+(a.valor||0),0);
+  if(totalAtivos===0 && meses.every((_,i)=>invDisp(i)===0)) return null;
+
+  // Taxa média mensal ponderada pelos ativos existentes
+  const txAnual = totalAtivos>0
+    ? D.ativos.reduce((s,a)=>s+taxaAnual(a)*(a.valor||0),0)/totalAtivos
+    : (D.cdi12||14.65)/100;
+  const txMensal = Math.pow(1+txAnual,1/12)-1;
+
+  let saldoAcum = totalAtivos; // patrimônio acumulado (ativos atuais + aportes futuros)
+  const rows = meses.map((mes,i)=>{
+    const entradas = totalEMes(i);
+    const saidas   = totalDivBruto(i);
+    const aporte   = invDisp(i);  // P/ investir = Sobra − Meta CC
+    const sobra    = entradas - saidas;
+
+    // Rendimento sobre o saldo acumulado (juros compostos mensais)
+    const rendimento = Math.round(saldoAcum * txMensal);
+    saldoAcum = Math.round(saldoAcum + aporte + rendimento);
+
+    return { mes, i, entradas, saidas, sobra, aporte, rendimento, saldoAcum };
   });
+  return { rows, txAnual, txMensal };
 }
 
 // ── DASHBOARD ─────────────────────────────────────
@@ -1169,19 +1183,102 @@ function renderDashboard() {
   // ── PROJEÇÃO FUTURA ──
   const pf = calcPatrimonioFuturo();
   const pfEl = document.getElementById('dash-patrimonio-futuro');
-  if(pfEl && pf && pf.length) {
+  if(pfEl && pf && pf.rows.length) {
+    const { rows, txAnual } = pf;
+    const anos = [...new Set(rows.map(r=>r.mes.split('/')[1]))];
+    const totAportes = rows.reduce((s,r)=>s+r.aporte,0);
+    const totRendimento = rows.reduce((s,r)=>s+r.rendimento,0);
+    const ultimoSaldo = rows[rows.length-1].saldoAcum;
+    const mesAtualIdx = getMesRefIdx();
+
+    // Summary cards
+    const summaryHtml = `
+      <div class="gcards" style="margin-bottom:14px">
+        <div class="mcard mcard-teal"><div class="mlabel">💎 Patrimônio final</div><div class="mval mval-teal">${fmtK(ultimoSaldo)}</div><div class="msub">em ${rows[rows.length-1].mes}</div></div>
+        <div class="mcard mcard-pos"><div class="mlabel">🚀 Total aportado</div><div class="mval mval-pos">${fmtK(totAportes)}</div><div class="msub">${rows.length} meses</div></div>
+        <div class="mcard mcard-accent"><div class="mlabel">📈 Total rendimentos</div><div class="mval mval-accent">${fmtK(totRendimento)}</div><div class="msub">${(txAnual*100).toFixed(1)}% a.a.</div></div>
+      </div>`;
+
+    // Month table grouped by year
+    const tableByYear = anos.map(ano => {
+      const mesesAno = rows.filter(r=>r.mes.endsWith('/'+ano));
+      const totEntAno = mesesAno.reduce((s,r)=>s+r.entradas,0);
+      const totSaiAno = mesesAno.reduce((s,r)=>s+r.saidas,0);
+      const totApoAno = mesesAno.reduce((s,r)=>s+r.aporte,0);
+      const totRendAno = mesesAno.reduce((s,r)=>s+r.rendimento,0);
+      const saldoFimAno = mesesAno[mesesAno.length-1]?.saldoAcum||0;
+
+      return `
+        <div style="margin-bottom:16px">
+          <!-- Cabeçalho do ano -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--card2);border-radius:var(--r10) var(--r10) 0 0;border:1px solid var(--border);border-bottom:none">
+            <span style="font-size:13px;font-weight:700;color:var(--brand)">20${ano}</span>
+            <div style="display:flex;gap:16px;font-size:11px;color:var(--text2)">
+              <span>Entradas: <strong style="color:var(--pos)">${fmtK(totEntAno)}</strong></span>
+              <span>Saídas: <strong style="color:var(--neg)">${fmtK(totSaiAno)}</strong></span>
+              <span>Aportes: <strong style="color:var(--teal)">${fmtK(totApoAno)}</strong></span>
+              <span>Rendimento: <strong style="color:var(--brand)">${fmtK(totRendAno)}</strong></span>
+              <span>Saldo fim: <strong style="color:var(--brand)">${fmtK(saldoFimAno)}</strong></span>
+            </div>
+          </div>
+          <!-- Tabela dos meses -->
+          <div class="scroll">
+            <table style="min-width:700px;border:1px solid var(--border);border-top:none">
+              <thead>
+                <tr>
+                  <th style="width:80px">Mês</th>
+                  <th class="tr" style="color:var(--pos)">💰 Entradas</th>
+                  <th class="tr" style="color:var(--neg)">💸 Saídas</th>
+                  <th class="tr">📊 Sobra</th>
+                  <th class="tr" style="color:var(--teal)">🚀 P/ Investir</th>
+                  <th class="tr" style="color:var(--brand)">📈 Rendimento</th>
+                  <th class="tr" style="color:var(--brand)">💎 Patrimônio</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${mesesAno.map(r=>{
+                  const isRef = r.i === mesAtualIdx;
+                  const rowBg = isRef ? 'background:var(--brand-glow2)' : '';
+                  return `<tr style="${rowBg}">
+                    <td style="font-weight:${isRef?700:500}">
+                      ${r.mes.split('/')[0]}
+                      ${isRef?'<span class="badge" style="background:var(--brand);color:#0A0B0E;font-size:9px;margin-left:4px">hoje</span>':''}
+                    </td>
+                    <td class="tr tpos">${fmt(r.entradas)}</td>
+                    <td class="tr tneg">${fmt(r.saidas)}</td>
+                    <td class="tr ${r.sobra>=0?'tpos':'tneg'}">${fmt(r.sobra)}</td>
+                    <td class="tr tteal">${r.aporte>0?fmt(r.aporte):'<span style="color:var(--text3)">—</span>'}</td>
+                    <td class="tr" style="color:var(--brand);font-family:var(--font-mono)">${r.rendimento>0?fmt(r.rendimento):'<span style="color:var(--text3)">—</span>'}</td>
+                    <td class="tr" style="color:var(--brand);font-family:var(--font-head);font-weight:700">${fmtK(r.saldoAcum)}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }).join('');
+
     pfEl.innerHTML = `<div class="panel">
-      <div class="panel-head"><span class="panel-title">📈 Projeção de patrimônio</span><span style="font-size:10px;color:var(--text3)">c/ juros compostos</span></div>
-      <div style="padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
-        ${pf.map((p,i)=>`<div style="text-align:center;padding:10px 8px;background:var(--card2);border-radius:var(--r10);${i===pf.length-1?'border:1px solid var(--brand-glow);background:var(--brand-glow2)':''}">
-          <div style="font-size:10px;color:var(--text2);font-weight:700;margin-bottom:4px">${p.yr}</div>
-          <div style="font-family:var(--font-head);font-size:16px;font-weight:800;color:${i===pf.length-1?'var(--brand)':'var(--teal)'}">${fmtK(p.saldo)}</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:2px">+${fmtK(p.aporte)}</div>
-        </div>`).join('')}
+      <div class="panel-head">
+        <span class="panel-title">📈 Projeção de patrimônio</span>
+        <span style="font-size:10px;color:var(--text3)">${(txAnual*100).toFixed(2)}% a.a. · juros compostos mensais</span>
       </div>
-      <div style="padding:0 16px 10px;font-size:10px;color:var(--text3)">⚠️ Estimativa. Não constitui recomendação de investimento.</div>
+      <div style="padding:14px 16px">
+        ${summaryHtml}
+        ${tableByYear}
+        <div style="font-size:10px;color:var(--text3);padding-top:4px">⚠️ Estimativa com base nos dados cadastrados. Rendimentos calculados sobre o saldo acumulado. Não constitui recomendação de investimento.</div>
+      </div>
     </div>`;
-  } else if(pfEl) pfEl.innerHTML = '';
+  } else if(pfEl) {
+    pfEl.innerHTML = `<div class="panel">
+      <div class="panel-head"><span class="panel-title">📈 Projeção de patrimônio</span></div>
+      <div class="empty" style="padding:24px">
+        <div class="empty-icon">📈</div>
+        <div class="empty-text">Cadastre ativos na aba Investimentos para ver a projeção de patrimônio.</div>
+      </div>
+    </div>`;
+  }
+
 
 }
 
