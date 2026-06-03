@@ -683,9 +683,8 @@ function go(id, el) {
   const pg=document.getElementById('page-'+id); if(pg) pg.classList.add('on');
   const sn=document.getElementById('snav-'+id); if(sn) sn.classList.add('on');
   // Scroll to top on page change
-  window.scrollTo(0,0);
   const mc=document.getElementById('main-content');
-  if(mc) mc.scrollTop=0;
+  if(mc) mc.scrollTop=0; else window.scrollTo(0,0);
   // Update nav breadcrumb
   const meta=PAGE_META[id]||{};
   const bc=document.getElementById('nav-breadcrumb');
