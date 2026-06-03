@@ -248,7 +248,7 @@ function migrateData(d) {
     if(!e.cat) e.cat='outros';
     if(e.ativo===undefined) e.ativo=true;
     if(!e.id) e.id='e'+Date.now()+Math.random();
-    // Normaliza e.mes de anual/unico: 'Dez/26' → 'Dez'
+    // Normaliza e.mes: para anual strip o ano ('Dez/26' → 'Dez'), para único mantém com ano
     if(e.tipo==='anual' && e.mes && e.mes.includes('/')) {
       e.mes = e.mes.split('/')[0];
     }
@@ -277,16 +277,15 @@ function totalEMes(mi) {
     }
     if(e.tipo==='unico') {
       if(!e.mes) return s;
-      // Suporta "Jun" (novo) e "Jun/26" (legado)
-      const mesAbrevU = e.mes.includes('/') ? e.mes.split('/')[0] : e.mes;
-      const mesNumU = MMAP[mesAbrevU] || 0;
-      // Para único: aparece apenas no mês do ano correto se tiver ano, ou em qualquer mês com esse número
+      // Suporta "Jun/26" (com ano) e "Jun" (legado sem ano — usa o ano do mês mi)
       if(e.mes.includes('/')) {
-        // Legado com ano — restringe ao ano específico
+        // Formato com ano: restringe ao mês+ano exato
         const em = parseMes(e.mes);
         return em.m===m && em.y===y ? s+(e.valor||0) : s;
       }
-      // Novo formato: só mês — aparece em todos os anos (mesmo comportamento do anual)
+      // Legado sem ano: compara apenas mês (comportamento original preservado)
+      const mesAbrevU = e.mes;
+      const mesNumU = MMAP[mesAbrevU] || 0;
       return mesNumU===m ? s+(e.valor||0) : s;
     }
     return s;
@@ -1585,12 +1584,18 @@ function renderEntradas() {
     const visivel=!selEntradas||(e.tipo==='mensal')
       ||(e.tipo==='anual'&&(()=>{const mn=MMAP[e.mes]||0;const{m}=parseMes(selEntradas);return mn===m;})())
       ||(e.tipo==='unico'&&(()=>{
-          const mesAbrev=e.mes&&e.mes.includes('/')?e.mes.split('/')[0]:e.mes;
-          const mn=MMAP[mesAbrev]||0;const{m}=parseMes(selEntradas);return mn===m;
+          // e.mes pode ser "Jun/26" (com ano) ou "Jun" (legado sem ano)
+          if(e.mes.includes('/')) {
+            const em=parseMes(e.mes);
+            const {m,y}=parseMes(selEntradas);
+            return em.m===m && em.y===y;
+          }
+          const mesAbrev2=e.mes;const mn=MMAP[mesAbrev2]||0;const{m}=parseMes(selEntradas);return mn===m;
         })());
     if(!visivel) return '';
     const MNAMES={'Jan':'Janeiro','Fev':'Fevereiro','Mar':'Março','Abr':'Abril','Mai':'Maio','Jun':'Junho','Jul':'Julho','Ago':'Agosto','Set':'Setembro','Out':'Outubro','Nov':'Novembro','Dez':'Dezembro'};
-    const mesInfo=e.tipo!=='mensal'&&e.mes?(e.tipo==='anual'?` · todo ${MNAMES[e.mes]||e.mes}`:` · ${MNAMES[e.mes]||e.mes}`):'';;
+    const mesAbrevDisplay = e.mes&&e.mes.includes('/') ? e.mes.split('/')[0] : e.mes;
+    const mesInfo=e.tipo!=='mensal'&&e.mes?(e.tipo==='anual'?` · todo ${MNAMES[mesAbrevDisplay]||e.mes}`:` · ${MNAMES[mesAbrevDisplay]||e.mes} ${e.mes.includes('/')?'de 20'+e.mes.split('/')[1]:''}`.trim()):'';;
     return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r12);margin-bottom:8px;${!e.ativo?'opacity:.5':''}transition:all .15s" onmouseenter="this.style.borderColor='var(--border2)'" onmouseleave="this.style.borderColor='var(--border)'">
       <span style="font-size:22px">${info.icon}</span>
       <div style="flex:1;min-width:0">
@@ -1618,9 +1623,15 @@ function abrirModalEntrada(ei=-1) {
   document.getElementById('me-tipo').value=e.tipo||'mensal';
   document.getElementById('me-dia').value=e.dia||1;
   document.getElementById('me-cat').value=e.cat||'salario';
-  // Para anual/unico: e.mes é agora só o nome abreviado ("Jan","Fev"...)
-  const mesVal=e.mes&&e.mes.includes('/')?e.mes.split('/')[0]:e.mes||'';
-  document.getElementById('me-mes').value=mesVal;
+  // Para anual/unico: restaura mês
+  const mesAbrev = e.mes&&e.mes.includes('/') ? e.mes.split('/')[0] : (e.mes||'');
+  const mesAno   = e.mes&&e.mes.includes('/') ? '20'+e.mes.split('/')[1] : String(new Date().getFullYear());
+  document.getElementById('me-mes').value = mesAbrev;
+  // Popular anos no select de único
+  const anoSel = document.getElementById('me-ano-unico');
+  if(anoSel) {
+    anoSel.innerHTML = getYears().map(yr=>`<option value="${yr}" ${String(yr)===mesAno?'selected':''}>${yr}</option>`).join('');
+  }
   toggleEntradaMes();
   document.getElementById('btn-salvar-entrada').onclick=()=>salvarEntrada(ei);
 }
@@ -1628,7 +1639,15 @@ function editarEntrada(ei){abrirModalEntrada(ei);}
 function toggleEntradaMes() {
   const tipo=document.getElementById('me-tipo').value;
   const mesField=document.getElementById('me-mes-field');
-  if(mesField) mesField.style.display=(tipo!=='mensal')?'':'none';
+  if(!mesField) return;
+  mesField.style.display = tipo!=='mensal' ? '' : 'none';
+  // Mostrar/ocultar seletor de ano (só para único)
+  const anoSel = document.getElementById('me-ano-unico');
+  const label  = document.getElementById('me-mes-label');
+  const hint   = document.getElementById('me-mes-hint');
+  if(anoSel) anoSel.style.display = tipo==='unico' ? '' : 'none';
+  if(label) label.textContent = tipo==='unico' ? 'Mês e ano de ocorrência' : 'Mês de ocorrência (se repete todo ano)';
+  if(hint)  hint.textContent  = tipo==='unico' ? 'Entrada única: ocorre apenas neste mês/ano específico.' : 'Entrada anual: ocorre todo ano neste mês.';
 }
 function salvarEntrada(ei) {
   const nome=document.getElementById('me-nome').value.trim();
@@ -1636,9 +1655,18 @@ function salvarEntrada(ei) {
   const tipo=document.getElementById('me-tipo').value;
   const dia=parseInt(document.getElementById('me-dia').value)||1;
   const cat=document.getElementById('me-cat').value;
-  const mes=document.getElementById('me-mes').value;
+  const mesAbrev=document.getElementById('me-mes').value;
   if(!nome){alert('Informe o nome da entrada.');return;}
-  const obj={id:ei>=0?D.entradas[ei].id:genId('e'),nome,valor,tipo,dia,cat,mes:(tipo!=='mensal'?mes:''),ativo:true};
+  let mes = '';
+  if(tipo==='anual') {
+    mes = mesAbrev; // só mês, sem ano
+  } else if(tipo==='unico') {
+    const anoSel = document.getElementById('me-ano-unico');
+    const ano = anoSel ? anoSel.value : String(new Date().getFullYear());
+    // Guarda "Jun/26" — mês+ano para ser único
+    mes = mesAbrev ? `${mesAbrev}/${String(ano).slice(2)}` : '';
+  }
+  const obj={id:ei>=0?D.entradas[ei].id:genId('e'),nome,valor,tipo,dia,cat,mes,ativo:true};
   if(ei>=0) D.entradas[ei]=obj; else D.entradas.push(obj);
   fecharModalEntrada(); scheduleAutoSave(); renderEntradas(); renderAll();
   toast('Entrada salva!', true, '💰');

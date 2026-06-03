@@ -2139,22 +2139,27 @@ auth.onAuthStateChanged(function(user){
       </select>
     </div>
     <div class="field" id="me-mes-field" style="display:none">
-      <label class="flabel">Mês de ocorrência <span style="font-size:10px;color:var(--text3);font-weight:400">(para anual: o mês que se repete todo ano)</span></label>
-      <select id="me-mes">
-        <option value="">— selecione o mês —</option>
-        <option value="Jan">Janeiro</option>
-        <option value="Fev">Fevereiro</option>
-        <option value="Mar">Março</option>
-        <option value="Abr">Abril</option>
-        <option value="Mai">Maio</option>
-        <option value="Jun">Junho</option>
-        <option value="Jul">Julho</option>
-        <option value="Ago">Agosto</option>
-        <option value="Set">Setembro</option>
-        <option value="Out">Outubro</option>
-        <option value="Nov">Novembro</option>
-        <option value="Dez">Dezembro</option>
-      </select>
+      <label class="flabel" id="me-mes-label">Mês de ocorrência</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="me-mes" style="flex:1;min-width:140px">
+          <option value="">— selecione o mês —</option>
+          <option value="Jan">Janeiro</option>
+          <option value="Fev">Fevereiro</option>
+          <option value="Mar">Março</option>
+          <option value="Abr">Abril</option>
+          <option value="Mai">Maio</option>
+          <option value="Jun">Junho</option>
+          <option value="Jul">Julho</option>
+          <option value="Ago">Agosto</option>
+          <option value="Set">Setembro</option>
+          <option value="Out">Outubro</option>
+          <option value="Nov">Novembro</option>
+          <option value="Dez">Dezembro</option>
+        </select>
+        <!-- Ano — só aparece para tipo único -->
+        <select id="me-ano-unico" style="display:none;width:100px"></select>
+      </div>
+      <div id="me-mes-hint" style="font-size:10px;color:var(--text3);margin-top:4px"></div>
     </div>
     <div class="field"><label class="flabel">Categoria</label>
       <select id="me-cat">
