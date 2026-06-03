@@ -1657,42 +1657,7 @@ body { margin: 0; padding: 0; }
     </div>
   </div>
 
-  <!-- Modal Criar/Editar Usuário -->
-  <div class="modal-overlay" id="modal-user">
-    <div class="modal-box" style="max-width:480px">
-      <div class="modal-title" id="modal-user-title">➕ Novo Usuário</div>
-      <div class="modal-sub" id="modal-user-sub">Preencha os dados do novo usuário</div>
-      <div class="alert-inline alert-err" id="modal-user-err"></div>
-      <div class="alert-inline alert-ok" id="modal-user-ok"></div>
-      <div class="field"><label class="flabel">Nome de exibição</label><input type="text" id="mu-name" placeholder="Ex: João Silva"></div>
-      <div class="field"><label class="flabel">E-mail</label><input type="email" id="mu-email" placeholder="joao@email.com"></div>
-      <div id="mu-pass-section" class="field"><label class="flabel">Senha inicial</label><input type="password" id="mu-pass" placeholder="Mínimo 6 caracteres"></div>
-      <div class="field"><label class="flabel">Perfil de acesso</label>
-        <select id="mu-role">
-          <option value="user">👤 Usuário — acesso ao próprio painel financeiro</option>
-          <option value="superadmin">⚙️ Administrador — acesso total ao sistema</option>
-        </select>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="fecharModalUser()">Cancelar</button>
-        <button class="btn btn-pri" id="btn-salvar-user">Criar usuário</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Reset Senha -->
-  <div class="modal-overlay" id="modal-reset">
-    <div class="modal-box">
-      <div class="modal-title">🔐 Redefinir senha</div>
-      <div class="modal-sub">Usuário: <strong id="modal-reset-email">—</strong></div>
-      <div class="field"><label class="flabel">Nova senha</label><input type="password" id="modal-reset-pass" placeholder="Mínimo 6 caracteres"></div>
-      <div class="alert-inline alert-err" id="modal-err"></div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-pri" id="btn-conf-reset">Redefinir senha</button>
-      </div>
-    </div>
-  </div>
+  
 </div>
 
 <!-- ████ CONFIGURAÇÕES DO SISTEMA ████ -->
@@ -2097,141 +2062,13 @@ auth.onAuthStateChanged(function(user){
 </script>
 
 <!-- Modal nova entrada -->
-<div id="modal-entrada-overlay" class="modal-overlay"
-  <div class="modal-box">
-    <div style="font-size:20px;font-weight:700;margin-bottom:4px">💰 Entrada de renda</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Adicione uma fonte de renda ao seu planejamento</div>
-    <div class="field"><label class="flabel">Nome</label><input type="text" id="me-nome" placeholder="Ex: Salário, Freelance, 13° salário..."></div>
-    <div class="field"><label class="flabel">Valor (R$)</label><input type="number" id="me-valor" step="0.01" placeholder="0,00"></div>
-    <div class="field"><label class="flabel">Tipo de recorrência</label>
-      <select id="me-tipo" onchange="toggleEntradaMes()">
-        <option value="mensal">🔄 Mensal — todo mês</option>
-        <option value="anual">📅 Anual — uma vez por ano</option>
-        <option value="unico">1️⃣ Único — ocorrência única</option>
-      </select>
-    </div>
-    <div class="field" id="me-mes-field" style="display:none">
-      <label class="flabel">Mês de ocorrência <span style="font-size:10px;color:var(--text3);font-weight:400">(para anual: o mês que se repete todo ano)</span></label>
-      <select id="me-mes">
-        <option value="">— selecione o mês —</option>
-        <option value="Jan">Janeiro</option>
-        <option value="Fev">Fevereiro</option>
-        <option value="Mar">Março</option>
-        <option value="Abr">Abril</option>
-        <option value="Mai">Maio</option>
-        <option value="Jun">Junho</option>
-        <option value="Jul">Julho</option>
-        <option value="Ago">Agosto</option>
-        <option value="Set">Setembro</option>
-        <option value="Out">Outubro</option>
-        <option value="Nov">Novembro</option>
-        <option value="Dez">Dezembro</option>
-      </select>
-    </div>
-    <div class="field"><label class="flabel">Categoria</label>
-      <select id="me-cat">
-        <option value="salario">💼 Salário</option>
-        <option value="freelance">💻 Freelance</option>
-        <option value="investimento">📈 Investimento</option>
-        <option value="aluguel">🏠 Aluguel</option>
-        <option value="venda">🛒 Venda</option>
-        <option value="bonus">🎁 Bônus/13°</option>
-        <option value="outros">📦 Outros</option>
-      </select>
-    </div>
-    <div class="field"><label class="flabel">Dia do mês (quando recebe)</label><input type="number" id="me-dia" min="1" max="31" value="1"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="btn btn-ghost" onclick="fecharModalEntrada()">Cancelar</button>
-      <button class="btn btn-pri" id="btn-salvar-entrada">Salvar entrada</button>
-    </div>
-  </div>
-</div>
+<!-- modal modal-entrada-overlay moved -->
 
 <!-- Modal conta fixa -->
-<div id="modal-fixa-overlay" class="modal-overlay"
-  <div class="modal-box">
-    <div style="font-size:20px;font-weight:700;margin-bottom:4px">📌 Conta fixa</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Configure o valor e o período de vigência desta conta</div>
-    <div class="field"><label class="flabel">Nome</label><input type="text" id="mf-nome" placeholder="Ex: Aluguel, Internet..."></div>
-    <div class="field"><label class="flabel">Categoria</label>
-      <select id="mf-cat">
-        <option value="moradia">🏠 Moradia</option><option value="alimentacao">🍽️ Alimentação</option>
-        <option value="transporte">🚗 Transporte</option><option value="saude">💊 Saúde</option>
-        <option value="educacao">🎓 Educação</option><option value="servicos">📱 Serviços</option>
-        <option value="impostos">📋 Impostos</option><option value="lazer">🎮 Lazer</option>
-        <option value="outros">📦 Outros</option>
-      </select>
-    </div>
-    <div class="field"><label class="flabel">Valor mensal (R$)</label><input type="number" id="mf-valor" step="0.01" placeholder="0,00"></div>
-
-    <!-- Tipo de vigência -->
-    <div class="field" style="padding-top:12px;border-top:1px solid var(--border)">
-      <label class="flabel">📅 Vigência</label>
-      <select id="mf-tipo" onchange="toggleFixaPeriodo()" style="font-weight:600">
-        <option value="sempre">🔁 Permanente — sem data de término</option>
-        <option value="periodo">📆 Com período — define início e/ou fim</option>
-      </select>
-    </div>
-
-    <!-- Campos de período (visíveis só quando "periodo" selecionado) -->
-    <div id="mf-periodo-fields" style="display:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">
-        <div class="field">
-          <label class="flabel">Mês de início</label>
-          <select id="mf-inicio">
-            <option value="">— início —</option>
-          </select>
-          <div style="font-size:10px;color:var(--text3);margin-top:3px">Deixe vazio para "desde sempre"</div>
-        </div>
-        <div class="field">
-          <label class="flabel">Mês de término</label>
-          <select id="mf-fim">
-            <option value="">— fim —</option>
-          </select>
-          <div style="font-size:10px;color:var(--text3);margin-top:3px">Deixe vazio para sem data fim</div>
-        </div>
-      </div>
-      <div style="padding:8px 12px;background:var(--warn-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r8);font-size:11px;color:var(--text2);margin-bottom:4px">
-        ⚡ O sistema aplicará este valor apenas nos meses dentro do período selecionado.
-      </div>
-    </div>
-
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="btn btn-ghost" onclick="document.getElementById('modal-fixa-overlay').style.display='none'">Cancelar</button>
-      <button class="btn btn-pri" id="btn-salvar-fixa">Salvar</button>
-    </div>
-  </div>
-</div>
+<!-- modal modal-fixa-overlay moved -->
 
 <!-- Modal compra variável -->
-<div id="modal-compra-overlay" class="modal-overlay"
-  <div class="modal-box">
-    <div style="font-size:20px;font-weight:700;margin-bottom:4px">🔄 Saída variável</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Parcelamento automático baseado na data de fechamento do cartão</div>
-    <div class="field"><label class="flabel">Descrição</label><input type="text" id="mc-nome" placeholder="Ex: Compra Amazon, Viagem..."></div>
-    <div class="field"><label class="flabel">Categoria</label>
-      <select id="mc-cat">
-        <option value="cartao">💳 Cartão de Crédito</option><option value="moradia">🏠 Moradia</option>
-        <option value="alimentacao">🍽️ Alimentação</option><option value="transporte">🚗 Transporte</option>
-        <option value="saude">💊 Saúde</option><option value="educacao">🎓 Educação</option>
-        <option value="lazer">🎮 Lazer</option><option value="impostos">📋 Impostos</option>
-        <option value="outros">📦 Outros</option>
-      </select>
-    </div>
-    <div class="field"><label class="flabel">Cartão</label><select id="mc-cartao" onchange="atualizarPreviewCompra()"></select></div>
-    <div class="field"><label class="flabel">Valor total (R$) <span style="font-size:10px;color:var(--text3)">— preenchido automaticamente pela soma das parcelas</span></label><input type="number" id="mc-valor" step="0.01" placeholder="0,00" onchange="onValorChange()"></div>
-    <div class="field"><label class="flabel">Quantidade de parcelas</label><input type="number" id="mc-parcelas" min="1" max="48" value="1" onchange="onParcelasChange()"></div>
-    <div class="field"><label class="flabel">Data da compra</label><input type="date" id="mc-data" onchange="atualizarPreviewCompra()"></div>
-    <!-- Campos individuais de parcelas -->
-    <div id="mc-parcelas-fields" style="margin-bottom:10px"></div>
-    <!-- Preview automático -->
-    <div id="mc-preview" style="padding:10px 14px;background:var(--card2);border-radius:var(--r8);margin-bottom:14px;font-size:12px;min-height:36px;border:1px solid var(--border)"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="document.getElementById('modal-compra-overlay').style.display='none'">Cancelar</button>
-      <button class="btn btn-pri" id="btn-salvar-compra">Salvar</button>
-    </div>
-  </div>
-</div>
+<!-- modal modal-compra-overlay moved -->
 
 
 <!-- ████ METAS FINANCEIRAS ████ -->
@@ -2298,6 +2135,185 @@ auth.onAuthStateChanged(function(user){
 
 
 <!-- Modal Meta -->
+<!-- modal modal-meta-overlay moved -->
+
+</div><!-- /main-content -->
+</div><!-- /app-shell -->
+
+
+<!-- ████ MODALS (portaled outside main-content) ████ -->
+
+<!-- Modal Criar/Editar Usuário -->
+  <div class="modal-overlay" id="modal-user">
+    <div class="modal-box" style="max-width:480px">
+      <div class="modal-title" id="modal-user-title">➕ Novo Usuário</div>
+      <div class="modal-sub" id="modal-user-sub">Preencha os dados do novo usuário</div>
+      <div class="alert-inline alert-err" id="modal-user-err"></div>
+      <div class="alert-inline alert-ok" id="modal-user-ok"></div>
+      <div class="field"><label class="flabel">Nome de exibição</label><input type="text" id="mu-name" placeholder="Ex: João Silva"></div>
+      <div class="field"><label class="flabel">E-mail</label><input type="email" id="mu-email" placeholder="joao@email.com"></div>
+      <div id="mu-pass-section" class="field"><label class="flabel">Senha inicial</label><input type="password" id="mu-pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="field"><label class="flabel">Perfil de acesso</label>
+        <select id="mu-role">
+          <option value="user">👤 Usuário — acesso ao próprio painel financeiro</option>
+          <option value="superadmin">⚙️ Administrador — acesso total ao sistema</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="fecharModalUser()">Cancelar</button>
+        <button class="btn btn-pri" id="btn-salvar-user">Criar usuário</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Reset Senha -->
+  <div class="modal-overlay" id="modal-reset">
+    <div class="modal-box">
+      <div class="modal-title">🔐 Redefinir senha</div>
+      <div class="modal-sub">Usuário: <strong id="modal-reset-email">—</strong></div>
+      <div class="field"><label class="flabel">Nova senha</label><input type="password" id="modal-reset-pass" placeholder="Mínimo 6 caracteres"></div>
+      <div class="alert-inline alert-err" id="modal-err"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-pri" id="btn-conf-reset">Redefinir senha</button>
+      </div>
+    </div>
+  </div>
+
+<div id="modal-entrada-overlay" class="modal-overlay"
+  <div class="modal-box">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">💰 Entrada de renda</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Adicione uma fonte de renda ao seu planejamento</div>
+    <div class="field"><label class="flabel">Nome</label><input type="text" id="me-nome" placeholder="Ex: Salário, Freelance, 13° salário..."></div>
+    <div class="field"><label class="flabel">Valor (R$)</label><input type="number" id="me-valor" step="0.01" placeholder="0,00"></div>
+    <div class="field"><label class="flabel">Tipo de recorrência</label>
+      <select id="me-tipo" onchange="toggleEntradaMes()">
+        <option value="mensal">🔄 Mensal — todo mês</option>
+        <option value="anual">📅 Anual — uma vez por ano</option>
+        <option value="unico">1️⃣ Único — ocorrência única</option>
+      </select>
+    </div>
+    <div class="field" id="me-mes-field" style="display:none">
+      <label class="flabel">Mês de ocorrência <span style="font-size:10px;color:var(--text3);font-weight:400">(para anual: o mês que se repete todo ano)</span></label>
+      <select id="me-mes">
+        <option value="">— selecione o mês —</option>
+        <option value="Jan">Janeiro</option>
+        <option value="Fev">Fevereiro</option>
+        <option value="Mar">Março</option>
+        <option value="Abr">Abril</option>
+        <option value="Mai">Maio</option>
+        <option value="Jun">Junho</option>
+        <option value="Jul">Julho</option>
+        <option value="Ago">Agosto</option>
+        <option value="Set">Setembro</option>
+        <option value="Out">Outubro</option>
+        <option value="Nov">Novembro</option>
+        <option value="Dez">Dezembro</option>
+      </select>
+    </div>
+    <div class="field"><label class="flabel">Categoria</label>
+      <select id="me-cat">
+        <option value="salario">💼 Salário</option>
+        <option value="freelance">💻 Freelance</option>
+        <option value="investimento">📈 Investimento</option>
+        <option value="aluguel">🏠 Aluguel</option>
+        <option value="venda">🛒 Venda</option>
+        <option value="bonus">🎁 Bônus/13°</option>
+        <option value="outros">📦 Outros</option>
+      </select>
+    </div>
+    <div class="field"><label class="flabel">Dia do mês (quando recebe)</label><input type="number" id="me-dia" min="1" max="31" value="1"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="fecharModalEntrada()">Cancelar</button>
+      <button class="btn btn-pri" id="btn-salvar-entrada">Salvar entrada</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-fixa-overlay" class="modal-overlay"
+  <div class="modal-box">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">📌 Conta fixa</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Configure o valor e o período de vigência desta conta</div>
+    <div class="field"><label class="flabel">Nome</label><input type="text" id="mf-nome" placeholder="Ex: Aluguel, Internet..."></div>
+    <div class="field"><label class="flabel">Categoria</label>
+      <select id="mf-cat">
+        <option value="moradia">🏠 Moradia</option><option value="alimentacao">🍽️ Alimentação</option>
+        <option value="transporte">🚗 Transporte</option><option value="saude">💊 Saúde</option>
+        <option value="educacao">🎓 Educação</option><option value="servicos">📱 Serviços</option>
+        <option value="impostos">📋 Impostos</option><option value="lazer">🎮 Lazer</option>
+        <option value="outros">📦 Outros</option>
+      </select>
+    </div>
+    <div class="field"><label class="flabel">Valor mensal (R$)</label><input type="number" id="mf-valor" step="0.01" placeholder="0,00"></div>
+
+    <!-- Tipo de vigência -->
+    <div class="field" style="padding-top:12px;border-top:1px solid var(--border)">
+      <label class="flabel">📅 Vigência</label>
+      <select id="mf-tipo" onchange="toggleFixaPeriodo()" style="font-weight:600">
+        <option value="sempre">🔁 Permanente — sem data de término</option>
+        <option value="periodo">📆 Com período — define início e/ou fim</option>
+      </select>
+    </div>
+
+    <!-- Campos de período (visíveis só quando "periodo" selecionado) -->
+    <div id="mf-periodo-fields" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">
+        <div class="field">
+          <label class="flabel">Mês de início</label>
+          <select id="mf-inicio">
+            <option value="">— início —</option>
+          </select>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px">Deixe vazio para "desde sempre"</div>
+        </div>
+        <div class="field">
+          <label class="flabel">Mês de término</label>
+          <select id="mf-fim">
+            <option value="">— fim —</option>
+          </select>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px">Deixe vazio para sem data fim</div>
+        </div>
+      </div>
+      <div style="padding:8px 12px;background:var(--warn-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--r8);font-size:11px;color:var(--text2);margin-bottom:4px">
+        ⚡ O sistema aplicará este valor apenas nos meses dentro do período selecionado.
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-fixa-overlay').style.display='none'">Cancelar</button>
+      <button class="btn btn-pri" id="btn-salvar-fixa">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-compra-overlay" class="modal-overlay"
+  <div class="modal-box">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">🔄 Saída variável</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Parcelamento automático baseado na data de fechamento do cartão</div>
+    <div class="field"><label class="flabel">Descrição</label><input type="text" id="mc-nome" placeholder="Ex: Compra Amazon, Viagem..."></div>
+    <div class="field"><label class="flabel">Categoria</label>
+      <select id="mc-cat">
+        <option value="cartao">💳 Cartão de Crédito</option><option value="moradia">🏠 Moradia</option>
+        <option value="alimentacao">🍽️ Alimentação</option><option value="transporte">🚗 Transporte</option>
+        <option value="saude">💊 Saúde</option><option value="educacao">🎓 Educação</option>
+        <option value="lazer">🎮 Lazer</option><option value="impostos">📋 Impostos</option>
+        <option value="outros">📦 Outros</option>
+      </select>
+    </div>
+    <div class="field"><label class="flabel">Cartão</label><select id="mc-cartao" onchange="atualizarPreviewCompra()"></select></div>
+    <div class="field"><label class="flabel">Valor total (R$) <span style="font-size:10px;color:var(--text3)">— preenchido automaticamente pela soma das parcelas</span></label><input type="number" id="mc-valor" step="0.01" placeholder="0,00" onchange="onValorChange()"></div>
+    <div class="field"><label class="flabel">Quantidade de parcelas</label><input type="number" id="mc-parcelas" min="1" max="48" value="1" onchange="onParcelasChange()"></div>
+    <div class="field"><label class="flabel">Data da compra</label><input type="date" id="mc-data" onchange="atualizarPreviewCompra()"></div>
+    <!-- Campos individuais de parcelas -->
+    <div id="mc-parcelas-fields" style="margin-bottom:10px"></div>
+    <!-- Preview automático -->
+    <div id="mc-preview" style="padding:10px 14px;background:var(--card2);border-radius:var(--r8);margin-bottom:14px;font-size:12px;min-height:36px;border:1px solid var(--border)"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-compra-overlay').style.display='none'">Cancelar</button>
+      <button class="btn btn-pri" id="btn-salvar-compra">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-meta-overlay" class="modal-overlay"
   <div class="modal-box">
     <div style="font-size:20px;font-weight:700;margin-bottom:4px">🎯 Meta financeira</div>
@@ -2327,8 +2343,5 @@ auth.onAuthStateChanged(function(user){
     </div>
   </div>
 </div>
-
-</div><!-- /main-content -->
-</div><!-- /app-shell -->
 </body>
 </html>
