@@ -1189,7 +1189,6 @@ body { margin: 0; padding: 0; }
       <div class="sidebar-section-label">Análise</div>
       <button class="snav on" id="snav-dash" onclick="goSide('dash')"><span class="snav-icon">📊</span> Dashboard</button>
       <button class="snav" id="snav-invest" onclick="goSide('invest')"><span class="snav-icon">📈</span> Investimentos</button>
-      <button class="snav" id="snav-relatorio" onclick="goSide('relatorio')"><span class="snav-icon">📋</span> Relatório Mensal</button>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-section-label">Finanças</div>
@@ -1199,10 +1198,6 @@ body { margin: 0; padding: 0; }
       <button class="snav" id="snav-faturas" onclick="goSide('faturas')"><span class="snav-icon">✅</span> Faturas</button>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Planejamento</div>
-      <button class="snav" id="snav-metas" onclick="goSide('metas')"><span class="snav-icon">🎯</span> Metas Financeiras</button>
-    </div>
-    <div class="sidebar-section">
       <div class="sidebar-section-label">Pessoal</div>
       <button class="snav" id="snav-perfil" onclick="goSide('perfil')"><span class="snav-icon">👤</span> Meu Perfil</button>
     </div>
@@ -1210,8 +1205,6 @@ body { margin: 0; padding: 0; }
       <div class="sidebar-section-label">Sistema</div>
       <button class="snav" id="snav-admin" onclick="goSide('admin')"><span class="snav-icon">👥</span> Usuários</button>
       <button class="snav" id="snav-config" onclick="goSide('config')"><span class="snav-icon">⚙️</span> Configurações</button>
-      <button class="snav" id="snav-cats" onclick="goSide('cats')"><span class="snav-icon">🏷️</span> Categorias</button>
-      <button class="snav" id="snav-params" onclick="goSide('params')"><span class="snav-icon">🔧</span> Parâmetros</button>
     </div>
   </div>
   <div class="sidebar-footer">
@@ -2072,66 +2065,16 @@ auth.onAuthStateChanged(function(user){
 
 
 <!-- ████ METAS FINANCEIRAS ████ -->
-<div class="page" id="page-metas">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
-    <div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🎯 Metas Financeiras</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:4px">Defina objetivos e acompanhe seu progresso</div>
-    </div>
-    <button class="btn btn-pri" onclick="abrirModalMeta()">+ Nova meta</button>
-  </div>
-  <div class="gcards mb" id="metas-summary"></div>
-  <div id="metas-lista"></div>
-</div>
+
 
 <!-- ████ RELATÓRIO MENSAL ████ -->
-<div class="page" id="page-relatorio">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
-    <div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">📋 Relatório Mensal</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:4px">Visão consolidada das suas finanças do mês</div>
-    </div>
-  </div>
-  <div id="relatorio-content"></div>
-</div>
+
 
 <!-- ████ CATEGORIAS (admin) ████ -->
-<div class="page" id="page-cats">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
-    <div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🏷️ Categorias de Gastos</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:4px">Gerencie as categorias de Saídas e Entradas</div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-pos" onclick="adicionarCategoria()">+ Nova</button>
-      <button class="btn btn-ghost" onclick="resetarCategorias()">↺ Padrão</button>
-    </div>
-  </div>
-  <div class="g2">
-    <div class="panel">
-      <div class="panel-head"><span class="panel-title">💸 Categorias cadastradas</span></div>
-      <div id="admin-cats-list"></div>
-    </div>
-    <div class="ebox info-border">
-      <h3>ℹ️ Como funciona</h3>
-      <p>Categorias organizam seus gastos em Saídas e aparecem nos dashboards.</p>
-      <div class="pstat"><span class="pstat-label">Padrão</span><span style="font-size:12px;color:var(--text2)">Editáveis (nome/ícone), não removíveis</span></div>
-      <div class="pstat"><span class="pstat-label">Personalizadas</span><span style="font-size:12px;color:var(--text2)">Totalmente gerenciáveis</span></div>
-      <div style="margin-top:12px;padding:10px;background:var(--warn-bg);border-radius:var(--r8);font-size:11px;color:var(--warn)">⚠️ Alterações afetam todos os dados do sistema.</div>
-    </div>
-  </div>
-</div>
+
 
 <!-- ████ PARÂMETROS DO SISTEMA (admin) ████ -->
-<div class="page" id="page-params">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px">
-    <div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🔧 Parâmetros do Sistema</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:4px">Configure as regras financeiras e cálculos</div>
-    </div>
-  </div>
-  <div id="params-content"></div>
-</div>
+
 
 
 <!-- Modal Meta -->
@@ -2314,34 +2257,6 @@ auth.onAuthStateChanged(function(user){
   </div>
 </div>
 
-<div id="modal-meta-overlay" class="modal-overlay"
-  <div class="modal-box">
-    <div style="font-size:20px;font-weight:700;margin-bottom:4px">🎯 Meta financeira</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Defina um objetivo e acompanhe o progresso</div>
-    <div class="field"><label class="flabel">Nome da meta</label><input type="text" id="mm-nome" placeholder="Ex: Comprar carro, Fundo de emergência..."></div>
-    <div class="field"><label class="flabel">Tipo</label>
-      <select id="mm-tipo">
-        <option value="casa">🏠 Casa / Imóvel</option>
-        <option value="carro">🚗 Carro / Veículo</option>
-        <option value="viagem">✈️ Viagem</option>
-        <option value="educacao">🎓 Educação</option>
-        <option value="emergencia">🛡️ Reserva de emergência</option>
-        <option value="investimento">📈 Investimento</option>
-        <option value="casamento">💍 Casamento</option>
-        <option value="eletronico">💻 Eletrônico / Produto</option>
-        <option value="reforma">🔨 Reforma</option>
-        <option value="outros">🎯 Outros</option>
-      </select>
-    </div>
-    <div class="field"><label class="flabel">Valor total da meta (R$)</label><input type="number" id="mm-valor" step="100" placeholder="Ex: 50.000"></div>
-    <div class="field"><label class="flabel">Valor já guardado (R$)</label><input type="number" id="mm-atual" step="100" placeholder="0"></div>
-    <div class="field"><label class="flabel">Prazo desejado (opcional)</label><input type="month" id="mm-prazo"></div>
-    <div class="field"><label class="flabel">Descrição (opcional)</label><input type="text" id="mm-desc" placeholder="Ex: Carro para trabalho, fundo de 6 meses..."></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="btn btn-ghost" onclick="fecharModalMeta()">Cancelar</button>
-      <button class="btn btn-pri" id="btn-salvar-meta">Salvar meta</button>
-    </div>
-  </div>
-</div>
+
 </body>
 </html>
