@@ -250,7 +250,21 @@ function migrateData(d) {
     if(!e.id) e.id='e'+Date.now()+Math.random();
     // Normaliza e.mes: para anual strip o ano ('Dez/26' → 'Dez'), para único mantém com ano
     if(e.tipo==='anual' && e.mes && e.mes.includes('/')) {
-      e.mes = e.mes.split('/')[0];
+      e.mes = e.mes.split('/')[0]; // anual: strip year → "Dez"
+    }
+    // Único sem ano (legado): associa ao primeiro mês correspondente encontrado em D.meses
+    // ou ao ano atual se não encontrar
+    if(e.tipo==='unico' && e.mes && !e.mes.includes('/')) {
+      const mesAbrev = e.mes;
+      // Procura o mês correto em D.meses (ex: "Jun/26")
+      const match = (d.meses||[]).find(m => m.startsWith(mesAbrev+'/'));
+      if(match) {
+        e.mes = match; // "Jun/26"
+      } else {
+        // Fallback: usa o ano atual
+        const anoAtual = String(new Date().getFullYear()).slice(2);
+        e.mes = `${mesAbrev}/${anoAtual}`;
+      }
     }
   });
   d.fixas.forEach(f => { if(!f.cat) f.cat='outros'; if(f.ativo===undefined) f.ativo=true; if(!f.id) f.id='f'+Date.now()+Math.random(); });
@@ -496,7 +510,7 @@ function caixaAtual()     { return D.ativos.filter(a=>a.bucket==='C').reduce((s,
 // Custo fixo base = soma de TODAS as fixas ativas, independente de período
 // É o custo de vida permanente — base para a reserva de emergência
 function custoFixoMes()   { return (D.fixas||[]).filter(f=>f.ativo&&(f.valor||0)>0).reduce((s,f)=>s+(f.valor||0),0); }
-function metaEmergencia() { return custoFixoMes()*(D.reservaMult||6); }
+function metaEmergencia() { return totalEMes(getMesRefIdx())*(D.reservaMult||6); }
 function arcaBloqueado()  { return caixaAtual()<metaEmergencia(); }
 
 // Retorna o status da reserva de emergência
@@ -2709,7 +2723,7 @@ function renderInvestVisao(){
           <div style="height:8px;width:${reserva.pct}%;background:${pctCor};border-radius:99px;transition:width .6s"></div>
         </div>
         <div style="font-size:11px;color:var(--text2);line-height:1.6">
-          📋 Base de cálculo: ${D.fixas.filter(f=>f.ativo).length} contas fixas = <strong>${fmt(custoFixoMes())}/mês</strong> × 6 meses = <strong style="color:${pctCor}">${fmt(reserva.meta)}</strong>
+          📋 Base de cálculo: Entradas <strong>${fmt(totalEMes(getMesRefIdx()))}/mês</strong> × ${D.reservaMult||6} meses = <strong style="color:${pctCor}">${fmt(reserva.meta)}</strong>
           ${reserva.pct<100?`<br>🎯 Fase atual: <strong>100% do disponível vai para Caixa</strong> até completar a reserva.`
             :`<br>🎯 Reserva intocável — continua crescendo com aportes mensais em Caixa.`}
         </div>
@@ -2895,7 +2909,7 @@ function renderArca(){
         <div>
           <div style="font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px">Reserva de emergência insuficiente — ${pctE}% da meta</div>
           <div style="font-size:12px;color:var(--text2);line-height:1.7">
-            Custo fixo mensal: <strong>${fmt(custoFixoMes())}</strong> · Meta (6 meses): <strong>${fmt(metaE)}</strong><br>
+            Entradas mensais: <strong>${fmt(totalEMes(getMesRefIdx()))}</strong> · Meta (${D.reservaMult||6} meses): <strong>${fmt(metaE)}</strong><br>
             Caixa atual: <strong style="color:var(--teal)">${fmt(caixa)}</strong><br>
             <strong style="color:var(--warn)">Recomendação: invista 100% em C — Caixa até atingir a meta de emergência.</strong>
           </div>
