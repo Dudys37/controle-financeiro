@@ -510,7 +510,12 @@ function caixaAtual()     { return D.ativos.filter(a=>a.bucket==='C').reduce((s,
 // Custo fixo base = soma de TODAS as fixas ativas, independente de período
 // É o custo de vida permanente — base para a reserva de emergência
 function custoFixoMes()   { return (D.fixas||[]).filter(f=>f.ativo&&(f.valor||0)>0).reduce((s,f)=>s+(f.valor||0),0); }
-function metaEmergencia() { return totalEMes(getMesRefIdx())*(D.reservaMult||6); }
+function salarioMensal() {
+  return (D.entradas||[])
+    .filter(e => e.ativo && e.tipo==='mensal' && e.cat==='salario')
+    .reduce((s,e) => s+(e.valor||0), 0);
+}
+function metaEmergencia() { return salarioMensal()*(D.reservaMult||6); }
 function arcaBloqueado()  { return caixaAtual()<metaEmergencia(); }
 
 // Retorna o status da reserva de emergência
@@ -2723,7 +2728,7 @@ function renderInvestVisao(){
           <div style="height:8px;width:${reserva.pct}%;background:${pctCor};border-radius:99px;transition:width .6s"></div>
         </div>
         <div style="font-size:11px;color:var(--text2);line-height:1.6">
-          📋 Base de cálculo: Entradas <strong>${fmt(totalEMes(getMesRefIdx()))}/mês</strong> × ${D.reservaMult||6} meses = <strong style="color:${pctCor}">${fmt(reserva.meta)}</strong>
+          📋 Base de cálculo: Salário mensal <strong>${fmt(salarioMensal())}/mês</strong> × ${D.reservaMult||6} meses = <strong style="color:${pctCor}">${fmt(reserva.meta)}</strong>
           ${reserva.pct<100?`<br>🎯 Fase atual: <strong>100% do disponível vai para Caixa</strong> até completar a reserva.`
             :`<br>🎯 Reserva intocável — continua crescendo com aportes mensais em Caixa.`}
         </div>
@@ -2909,7 +2914,7 @@ function renderArca(){
         <div>
           <div style="font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px">Reserva de emergência insuficiente — ${pctE}% da meta</div>
           <div style="font-size:12px;color:var(--text2);line-height:1.7">
-            Entradas mensais: <strong>${fmt(totalEMes(getMesRefIdx()))}</strong> · Meta (${D.reservaMult||6} meses): <strong>${fmt(metaE)}</strong><br>
+            Salário mensal: <strong>${fmt(salarioMensal())}</strong> · Meta (${D.reservaMult||6} meses): <strong>${fmt(metaE)}</strong><br>
             Caixa atual: <strong style="color:var(--teal)">${fmt(caixa)}</strong><br>
             <strong style="color:var(--warn)">Recomendação: invista 100% em C — Caixa até atingir a meta de emergência.</strong>
           </div>
