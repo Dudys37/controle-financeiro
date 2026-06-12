@@ -1626,7 +1626,8 @@ function renderEntradas() {
         <div style="font-size:10px;color:var(--text2)">${e.tipo==='mensal'?'todo mês':e.tipo==='anual'?`todo ano em ${MNAMES[e.mes]||e.mes||'—'}`:e.mes?`em ${e.mes}`:'ocorrência única'}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
-        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="editarEntrada(${ei})">✏️</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="editarEntrada(${ei})" title="Editar">✏️</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="duplicarEntrada(${ei})" title="Duplicar">📋</button>
         <button class="btn ${e.ativo?'btn-ghost':'btn-pos'}" style="height:32px;font-size:11px" onclick="toggleEntrada(${ei})">${e.ativo?'Pausar':'Ativar'}</button>
         <button class="btn-rm" onclick="removerEntrada(${ei})">✕</button>
       </div>
@@ -1675,7 +1676,7 @@ function salvarEntrada(ei) {
   const dia=parseInt(document.getElementById('me-dia').value)||1;
   const cat=document.getElementById('me-cat').value;
   const mesAbrev=document.getElementById('me-mes').value;
-  if(!nome){alert('Informe o nome da entrada.');return;}
+  if(!nome){uiAlert('Informe o nome da entrada.',{icon:'💰'});return;}
   let mes = '';
   if(tipo==='anual') {
     mes = mesAbrev; // só mês, sem ano
@@ -1692,7 +1693,7 @@ function salvarEntrada(ei) {
 }
 function fecharModalEntrada(){document.getElementById('modal-entrada-overlay').style.display='none';}
 function toggleEntrada(ei){D.entradas[ei].ativo=!D.entradas[ei].ativo;scheduleAutoSave();renderEntradas();}
-function removerEntrada(ei){if(!confirm(`Remover "${D.entradas[ei].nome}"?`))return;D.entradas.splice(ei,1);scheduleAutoSave();renderEntradas();}
+async function removerEntrada(ei){if(!await uiConfirm(`Remover <strong>"${D.entradas[ei].nome}"</strong>?`,{icon:'💰',okText:'Remover'}))return;D.entradas.splice(ei,1);scheduleAutoSave();renderEntradas();renderAll();toast('Entrada removida',true,'🗑️');}
 
 // ── CARTÕES RENDER ────────────────────────────────
 function renderCartoesTo(el, i) {
@@ -1823,7 +1824,7 @@ function renderCarteira() {
 
 }
 function addCartao()    { D.cartoes.push({nome:'Novo Cartão',bandeira:'Mastercard',limite:0,cor:'#6B7280',diaFechamento:10,diaVencimento:17}); renderCarteira(); scheduleAutoSave(); }
-function removeCartao(i){ if(!confirm(`Remover "${D.cartoes[i].nome}"?`))return; D.cartoes.splice(i,1); renderCarteira(); scheduleAutoSave(); }
+async function removeCartao(i){ if(!await uiConfirm(`Remover o cartão <strong>"${D.cartoes[i].nome}"</strong>?`,{icon:'💳',okText:'Remover'}))return; D.cartoes.splice(i,1); renderCarteira(); scheduleAutoSave(); toast('Cartão removido',true,'🗑️'); }
 
 // ── SAÍDAS ────────────────────────────────────────
 function renderSaidas() {
@@ -1988,7 +1989,8 @@ function renderSaidasVar() {
           ${mi>=0?`<div style="font-size:10px;color:var(--text3)">total: ${fmt(total)}</div>`:''}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="editarCompra(${ci})">✏️</button>
+          <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="editarCompra(${ci})" title="Editar">✏️</button>
+          <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="duplicarCompra(${ci})" title="Duplicar">📋</button>
           <button class="btn-rm" onclick="removerCompra(${ci})">✕</button>
         </div>
       </div>
@@ -2034,7 +2036,7 @@ function salvarFixa(fi) {
   const cat=document.getElementById('mf-cat').value;
   const valor=parseFloat(document.getElementById('mf-valor').value)||0;
   const tipo=document.getElementById('mf-tipo').value;
-  if(!nome){alert('Informe o nome.');return;}
+  if(!nome){uiAlert('Informe o nome.',{icon:'✏️'});return;}
   const obj={id:fi>=0?D.fixas[fi].id:genId('f'),nome,cat,valor,ativo:true};
   if(tipo==='periodo'){
     obj.mesInicio = document.getElementById('mf-inicio').value || '';
@@ -2046,7 +2048,7 @@ function salvarFixa(fi) {
   toast('Conta fixa salva!', true, '📌');
 }
 function editarFixa(fi){abrirModalFixa(fi);}
-function removerFixa(fi){if(!confirm(`Remover "${D.fixas[fi].nome}"?`))return;D.fixas.splice(fi,1);scheduleAutoSave();renderSaidasFixas();}
+async function removerFixa(fi){if(!await uiConfirm(`Remover <strong>"${D.fixas[fi].nome}"</strong>?`,{icon:'📌',okText:'Remover'}))return;D.fixas.splice(fi,1);scheduleAutoSave();renderSaidasFixas();renderAll();toast('Conta fixa removida',true,'🗑️');}
 
 // Estado das parcelas editáveis no modal
 let _parcelasVals = []; // valores individuais de cada parcela
@@ -2242,12 +2244,12 @@ function salvarCompra(ci) {
   const cartao=document.getElementById('mc-cartao').value;
   const parcelas=parseInt(document.getElementById('mc-parcelas').value)||1;
   const dataCompra=document.getElementById('mc-data').value;
-  if(!nome){alert('Informe o nome.');return;}
+  if(!nome){uiAlert('Informe o nome.',{icon:'✏️'});return;}
   // Usa soma das parcelas individuais como valor total
   const totalParcelas=Math.round(_parcelasVals.reduce((s,v)=>s+(Math.round((v||0)*100)/100),0)*100)/100;
   const valorInput=Math.round((parseFloat(document.getElementById('mc-valor').value)||0)*100)/100;
   const valor=totalParcelas>0?totalParcelas:valorInput;
-  if(!valor){alert('Informe o valor.');return;}
+  if(!valor){uiAlert('Informe o valor.',{icon:'💵'});return;}
   // Armazena os valores individuais das parcelas se foram editados
   const parcelasCustom = parcelas>1&&_parcelasVals.some((v,i)=>Math.abs(v-(valor/parcelas))>0.01)
     ? [..._parcelasVals]
@@ -2274,7 +2276,7 @@ function editarCompra(ci){
   }
   abrirModalCompra(ci);
 }
-function removerCompra(ci){if(!confirm(`Remover "${D.compras[ci].nome}"?`))return;D.compras.splice(ci,1);scheduleAutoSave();renderSaidasVar();}
+async function removerCompra(ci){if(!await uiConfirm(`Remover <strong>"${D.compras[ci].nome}"</strong>?`,{icon:'🛒',okText:'Remover'}))return;D.compras.splice(ci,1);scheduleAutoSave();renderSaidasVar();renderAll();toast('Compra removida',true,'🗑️');}
 
 // Gestão de anos
 function renderAnosList() {
@@ -2304,12 +2306,12 @@ function fecharModalAddAno() {
 function confirmarAddAno() {
   const anoStr = document.getElementById('maa-ano').value;
   const ano = parseInt(anoStr);
-  if(isNaN(ano)||ano<2024||ano>2040){ alert('Ano inválido (2024–2040).'); return; }
+  if(isNaN(ano)||ano<2024||ano>2040){ uiAlert('Ano inválido (2024–2040).',{icon:'📅'}); return; }
   const sufixo = String(ano).slice(2);
   const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const selecionados = [];
   document.querySelectorAll('.maa-mes-cb:checked').forEach(cb => selecionados.push(cb.value));
-  if(!selecionados.length){ alert('Selecione pelo menos um mês.'); return; }
+  if(!selecionados.length){ uiAlert('Selecione pelo menos um mês.',{icon:'📅'}); return; }
   let add=0;
   // Add in order
   mesesNomes.filter(m=>selecionados.includes(m)).forEach(m=>{
@@ -2320,8 +2322,8 @@ function confirmarAddAno() {
   if(add===0){ toast(`Meses de ${ano} já existem.`,false,'ℹ️'); }
   else { scheduleAutoSave(); renderAll(); toast(`${add} meses de ${ano} adicionados!`,true,'📅'); }
 }
-function removerMesConfig(mesNome) {
-  if(!confirm(`Remover o mês "${mesNome}" do planejamento?\n\nAtenção: dados de pagamentos e investimentos deste mês serão perdidos.`)) return;
+async function removerMesConfig(mesNome) {
+  if(!await uiConfirm(`Remover o mês <strong>"${mesNome}"</strong> do planejamento?<br><br>⚠️ Dados de pagamentos e investimentos deste mês serão perdidos.`,{icon:'📅',okText:'Remover mês'})) return;
   const idx = D.meses.indexOf(mesNome);
   if(idx<0) return;
   D.meses.splice(idx,1);
@@ -2330,12 +2332,12 @@ function removerMesConfig(mesNome) {
   scheduleAutoSave(); renderAll();
   toast(`Mês ${mesNome} removido.`,true,'🗑️');
 }
-function removerAnoConfig(ano) {
+async function removerAnoConfig(ano) {
   const sufixo = String(ano).slice(2);
   const meses = D.meses.filter(m=>m.endsWith('/'+sufixo));
-  if(!confirm(`Remover todos os ${meses.length} meses de ${ano}?`)) return;
+  if(!await uiConfirm(`Remover todos os <strong>${meses.length} meses de ${ano}</strong>?`,{icon:'📅',okText:'Remover ano'})) return;
   const yrs = getYears();
-  if(yrs.length<=1){ alert('Mínimo de 1 ano no planejamento.'); return; }
+  if(yrs.length<=1){ uiAlert('Mínimo de 1 ano no planejamento.',{icon:'📅'}); return; }
   meses.forEach(mes=>{ const i=D.meses.indexOf(mes); if(i>=0){ D.meses.splice(i,1); if(D.invManual) D.invManual.splice(i,1); }});
   if(selDash>=nm()) selDash=nm()-1;
   scheduleAutoSave(); renderAll();
@@ -2505,12 +2507,6 @@ function faturaDesfazer(id,mi) {
   if(D.pagamentos[mes]) delete D.pagamentos[mes][id];
   scheduleAutoSave(); renderFaturas();
   toast('↩ Pagamento desfeito', true, '🔄');
-}
-function faturaDesfazer(id,mi) {
-  if(!D.pagamentos) return;
-  const mes=D.meses[mi];
-  if(D.pagamentos[mes]) delete D.pagamentos[mes][id];
-  scheduleAutoSave(); renderFaturas();
 }
 function getMesAtualIdx() {
   const hoje=new Date();const dia=hoje.getDate();
@@ -3077,7 +3073,7 @@ function renderAtivos(){
 }
 
 function addAtivo()    { D.ativos.push({nome:'Novo ativo',classe:'Renda Fixa',bucket:'C',valor:0,indice:'CDI',pct:100,ticker:''}); renderAtivos(); scheduleAutoSave(); }
-function removeAtivo(i){ if(!confirm(`Remover "${D.ativos[i].nome}"?`))return; D.ativos.splice(i,1); renderAtivos(); scheduleAutoSave(); }
+async function removeAtivo(i){ if(!await uiConfirm(`Remover o ativo <strong>"${D.ativos[i].nome}"</strong>?`,{icon:'📊',okText:'Remover'}))return; D.ativos.splice(i,1); renderAtivos(); scheduleAutoSave(); toast('Ativo removido',true,'🗑️'); }
 
 function renderIndicadores(){
   const fields={cdi12:'ef-cdi12',cdifev:'ef-cdifev',cdi26:'ef-cdi26',
@@ -3515,8 +3511,8 @@ function renderARCAIntelligence() {
     </div>`;
 }
 
-function applyARCARec(a, r, c, a2) {
-  if (!confirm(`Aplicar a alocação recomendada?\n\nA — Ações: ${a}%\nR — Real Estate: ${r}%\nC — Caixa: ${c}%\nA2 — Internacionais: ${a2}%\n\nIsso irá substituir suas metas atuais.`)) return;
+async function applyARCARec(a, r, c, a2) {
+  if (!await uiConfirm(`Aplicar a alocação recomendada?<br><br>A — Ações: <strong>${a}%</strong><br>R — Real Estate: <strong>${r}%</strong><br>C — Caixa: <strong>${c}%</strong><br>A2 — Internacionais: <strong>${a2}%</strong><br><br>Isso substituirá suas metas atuais.`,{icon:'🎯',okText:'Aplicar',danger:false})) return;
   D.arcaMeta = { a, r, c, a2 };
   scheduleAutoSave();
   renderIndicadores();
@@ -3602,5 +3598,228 @@ const cats = D.catsCustom || {...CATS};
 
 // ── ADMIN: PARÂMETROS DO SISTEMA ─────────────────────────────────
 
+// ═══════════════════════════════════════════════════
+//  MODAL UX — ESC fecha, clique fora fecha
+// ═══════════════════════════════════════════════════
+document.addEventListener('keydown', function(ev){
+  if(ev.key !== 'Escape') return;
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    if(m.style.display === 'flex') m.style.display = 'none';
+  });
+});
+document.addEventListener('click', function(ev){
+  const t = ev.target;
+  if(t.classList && t.classList.contains('modal-overlay') && t.style.display === 'flex') {
+    t.style.display = 'none';
+  }
+});
 
+// ═══════════════════════════════════════════════════
+//  DIÁLOGOS CUSTOMIZADOS — substituem confirm()/alert()
+// ═══════════════════════════════════════════════════
+function uiConfirm(msg, opts={}) {
+  return new Promise(resolve => {
+    const ov = document.getElementById('ui-dialog-overlay');
+    if(!ov){ resolve(window.confirm(msg)); return; }
+    document.getElementById('ui-dialog-icon').textContent = opts.icon || '⚠️';
+    document.getElementById('ui-dialog-title').textContent = opts.title || 'Confirmar ação';
+    document.getElementById('ui-dialog-msg').innerHTML = String(msg).replace(/\n/g,'<br>');
+    const btnOk = document.getElementById('ui-dialog-ok');
+    const btnCancel = document.getElementById('ui-dialog-cancel');
+    btnOk.textContent = opts.okText || 'Confirmar';
+    btnOk.className = 'btn ' + (opts.danger===false ? 'btn-pri' : 'btn-neg');
+    btnCancel.style.display = '';
+    ov.style.display = 'flex';
+    const close = (val) => { ov.style.display='none'; btnOk.onclick=null; btnCancel.onclick=null; resolve(val); };
+    btnOk.onclick = () => close(true);
+    btnCancel.onclick = () => close(false);
+  });
+}
+function uiAlert(msg, opts={}) {
+  return new Promise(resolve => {
+    const ov = document.getElementById('ui-dialog-overlay');
+    if(!ov){ window.alert(msg); resolve(); return; }
+    document.getElementById('ui-dialog-icon').textContent = opts.icon || 'ℹ️';
+    document.getElementById('ui-dialog-title').textContent = opts.title || 'Atenção';
+    document.getElementById('ui-dialog-msg').innerHTML = String(msg).replace(/\n/g,'<br>');
+    const btnOk = document.getElementById('ui-dialog-ok');
+    const btnCancel = document.getElementById('ui-dialog-cancel');
+    btnOk.textContent = 'OK';
+    btnOk.className = 'btn btn-pri';
+    btnCancel.style.display = 'none';
+    ov.style.display = 'flex';
+    const close = () => { ov.style.display='none'; btnOk.onclick=null; resolve(); };
+    btnOk.onclick = close;
+  });
+}
 
+async function resetarDadosFinanceiros() {
+  const ok = await uiConfirm('Apagar <strong>todos os dados financeiros</strong>?<br><br>⚠️ Esta ação não pode ser desfeita.',{icon:'🗑️',okText:'Apagar tudo'});
+  if(!ok) return;
+  db.collection('userData').doc(_user.uid).delete().catch(()=>{});
+  D = migrateData(null);
+  selDash = 0;
+  renderAll();
+  toast('Dados apagados.', true, '🗑️');
+}
+
+// ═══════════════════════════════════════════════════
+//  BACKUP / EXPORT / IMPORT
+// ═══════════════════════════════════════════════════
+function exportarBackupJSON() {
+  try {
+    const payload = {
+      _app: 'FinancasPRO',
+      _version: 1,
+      _exportedAt: new Date().toISOString(),
+      _user: (_user && _user.email) || '',
+      data: D
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const dt = new Date().toISOString().slice(0,10);
+    a.download = `financaspro-backup-${dt}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('Backup baixado!', true, '💾');
+  } catch(e) {
+    uiAlert('Erro ao gerar backup: ' + e.message, {icon:'❌'});
+  }
+}
+
+async function importarBackupJSON(input) {
+  const file = input.files && input.files[0];
+  input.value = ''; // reset para permitir reimportar o mesmo arquivo
+  if(!file) return;
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    const data = payload && payload._app === 'FinancasPRO' ? payload.data : payload;
+    // Validação mínima de estrutura
+    if(!data || !Array.isArray(data.meses) || !Array.isArray(data.entradas)) {
+      uiAlert('Arquivo inválido: não parece um backup do FinançasPRO.', {icon:'❌'});
+      return;
+    }
+    const ok = await uiConfirm(
+      `Restaurar backup de <strong>${payload._exportedAt ? new Date(payload._exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida'}</strong>?<br><br>` +
+      `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras<br><br>` +
+      `⚠️ Seus dados atuais serão <strong>substituídos</strong>.`,
+      {icon:'📤', okText:'Restaurar'}
+    );
+    if(!ok) return;
+    D = migrateData(data);
+    selDash = getMesRefIdx();
+    scheduleAutoSave();
+    renderAll();
+    toast('Backup restaurado!', true, '✅');
+  } catch(e) {
+    uiAlert('Erro ao ler o arquivo: ' + e.message, {icon:'❌'});
+  }
+}
+
+function exportarCSV() {
+  try {
+    const sep = ';'; // Excel pt-BR
+    const linhas = [['Mês','Entradas','Saídas','Sobra','P/ Investir'].join(sep)];
+    const fmtN = v => String((v||0).toFixed(2)).replace('.', ',');
+    D.meses.forEach((mes, i) => {
+      const e = totalEMes(i);
+      const s = totalDivBruto(i);
+      linhas.push([mes, fmtN(e), fmtN(s), fmtN(e-s), fmtN(invDisp(i))].join(sep));
+    });
+    // Detalhe de compras parceladas
+    linhas.push('');
+    linhas.push(['Compra','Categoria','Valor total','Parcelas','Início'].join(sep));
+    (D.compras||[]).filter(c=>c.ativo).forEach(c => {
+      linhas.push([c.nome, c.cat||'', fmtN(c.valor), c.parcelas||1, c.mesInicio||''].join(sep));
+    });
+    const csv = '\uFEFF' + linhas.join('\n'); // BOM para Excel reconhecer UTF-8
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const dt = new Date().toISOString().slice(0,10);
+    a.download = `financaspro-fluxo-${dt}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('CSV exportado!', true, '📊');
+  } catch(e) {
+    uiAlert('Erro ao exportar CSV: ' + e.message, {icon:'❌'});
+  }
+}
+
+// ── DUPLICAR registros (conveniência) ──
+function duplicarEntrada(ei) {
+  const orig = D.entradas[ei];
+  if(!orig) return;
+  const copia = JSON.parse(JSON.stringify(orig));
+  copia.id = genId('e');
+  copia.nome = orig.nome + ' (cópia)';
+  D.entradas.push(copia);
+  scheduleAutoSave(); renderEntradas(); renderAll();
+  toast('Entrada duplicada — edite a cópia', true, '📋');
+}
+function duplicarCompra(ci) {
+  const orig = D.compras[ci];
+  if(!orig) return;
+  const copia = JSON.parse(JSON.stringify(orig));
+  copia.id = genId('c');
+  copia.nome = orig.nome + ' (cópia)';
+  D.compras.push(copia);
+  scheduleAutoSave(); renderSaidasVar(); renderAll();
+  toast('Compra duplicada — edite a cópia', true, '📋');
+}
+
+// ═══════════════════════════════════════════════════
+//  ATALHOS DE TECLADO (g+tecla navega, n = novo)
+// ═══════════════════════════════════════════════════
+let _keySeq = '';
+let _keySeqTimer = null;
+document.addEventListener('keydown', function(ev){
+  // Ignora quando digitando em campos
+  const tag = (ev.target.tagName||'').toLowerCase();
+  if(tag==='input' || tag==='textarea' || tag==='select' || ev.target.isContentEditable) return;
+  if(ev.ctrlKey || ev.metaKey || ev.altKey) return;
+
+  const k = ev.key.toLowerCase();
+
+  // Sequência "g" + tecla → navegação
+  if(_keySeq === 'g') {
+    const map = { d:'dash', e:'entradas', c:'carteira', s:'saidas', i:'invest', f:'faturas', p:'perfil', o:'config' };
+    if(map[k]) { ev.preventDefault(); goSide(map[k]); }
+    _keySeq = '';
+    clearTimeout(_keySeqTimer);
+    return;
+  }
+  if(k === 'g') {
+    _keySeq = 'g';
+    clearTimeout(_keySeqTimer);
+    _keySeqTimer = setTimeout(()=>{ _keySeq=''; }, 1200);
+    return;
+  }
+
+  // "n" → novo registro contextual à página atual
+  if(k === 'n') {
+    const pg = document.querySelector('.page.on');
+    const id = pg ? pg.id.replace('page-','') : '';
+    if(id==='entradas' && typeof abrirModalEntrada==='function') { ev.preventDefault(); abrirModalEntrada(); }
+    else if(id==='saidas' && typeof abrirModalCompra==='function') { ev.preventDefault(); abrirModalCompra(); }
+  }
+});
+
+// ── Autofoco no primeiro campo ao abrir modal ──
+(function(){
+  const observer = new MutationObserver(muts => {
+    muts.forEach(m => {
+      if(m.target.classList && m.target.classList.contains('modal-overlay') && m.target.style.display === 'flex') {
+        const inp = m.target.querySelector('input:not([type=hidden]):not([type=file]), select, textarea');
+        if(inp) setTimeout(()=>inp.focus(), 60);
+      }
+    });
+  });
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+      observer.observe(m, { attributes: true, attributeFilter: ['style'] });
+    });
+  });
+})();
