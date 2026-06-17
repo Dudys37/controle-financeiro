@@ -1348,6 +1348,9 @@ body { margin: 0; padding: 0; }
   <div style="margin-bottom:8px" id="dash-future-row">
     <div id="dash-patrimonio-futuro"></div>
   </div>
+
+  <!-- 🎯 Rumo à Aposentadoria -->
+  <div id="dash-aposentadoria"></div>
 </div>
 
 
@@ -1457,6 +1460,7 @@ body { margin: 0; padding: 0; }
     <button class="stab" onclick="switchSub('invest','inv-arca',this)">🏛️ Método ARCA</button>
     <button class="stab" onclick="switchSub('invest','inv-carteira',this)">📊 Carteira</button>
     <button class="stab" onclick="switchSub('invest','inv-indicadores',this)">📡 Indicadores</button>
+    <button class="stab stab-apos" onclick="switchSub('invest','inv-aposentadoria',this)">🎯 Plano de Aposentadoria</button>
   </div>
   <div class="sub on" id="sub-inv-visao">
     <div id="inv-reserva-banner"></div>
@@ -1532,6 +1536,26 @@ body { margin: 0; padding: 0; }
       <div id="arca-intel-content"></div>
     </div>
     <div class="panel"><div class="panel-head"><span class="panel-title">📊 CDI vs IPCA</span></div><div class="chart-wrap" style="height:200px"><canvas id="cIndComp"></canvas></div></div>
+  </div>
+  <div class="sub" id="sub-inv-aposentadoria">
+    <div style="margin-bottom:16px">
+      <div style="font-size:20px;font-weight:800;letter-spacing:-.5px">🎯 Plano de Aposentadoria</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-top:4px">Simulação mês a mês: primeiro a reserva em caixinhas, depois o método ARCA com ações e FIIs pagadores de dividendos, rumo à renda passiva.</div>
+    </div>
+    <div class="gcards mb" id="plano-aposentadoria-cards"></div>
+    <div id="plano-aposentadoria-marcos"></div>
+    <div id="plano-aposentadoria-graficos">
+      <div class="g2 mb">
+        <div class="panel"><div class="panel-head"><span class="panel-title">📈 Evolução do patrimônio</span></div><div class="chart-wrap" style="height:260px"><canvas id="cPlanoPatrimonio"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><span class="panel-title">🧩 Evolução por classe ARCA</span></div><div class="chart-wrap" style="height:260px"><canvas id="cPlanoClasses"></canvas></div></div>
+      </div>
+      <div class="g2 mb">
+        <div class="panel"><div class="panel-head"><span class="panel-title">💸 Dividendos mensais</span></div><div class="chart-wrap" style="height:240px"><canvas id="cPlanoDividendos"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><span class="panel-title">🎯 Renda passiva vs meta</span></div><div class="chart-wrap" style="height:240px"><canvas id="cPlanoMeta"></canvas></div></div>
+      </div>
+    </div>
+    <div id="plano-aposentadoria-config"></div>
+    <div id="plano-aposentadoria-tabela"></div>
   </div>
 </div>
 

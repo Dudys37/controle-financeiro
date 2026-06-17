@@ -35,6 +35,58 @@ function mkMes(m, y) {
   return `${MMAP_R[m]}/${String(y).slice(2)}`;
 }
 
+// ── PLANO DE APOSENTADORIA (config padrão) ────────
+// Simulação de estratégia financeira real, mês a mês, rumo à renda passiva.
+const DEFAULT_PLANO = {
+  ativo: true,
+  salario: 6500,
+  metaContaCorrente: 1000,
+  metaRendaPassiva: 10000,
+  dataInicio: 'Jul/26',
+  dataFim: 'Dez/40',
+  cambioUSD: 5.50,
+  inflacaoAnual: 4,
+  taxas: { cdi100: 1.127, cdi115: 1.296, cdi120: 1.352, fiiMensal: 0.75 },
+  arca: { caixa: 70, fiis: 10, acoesBR: 5, acoesIntl: 15 },
+  caixinhas: {
+    saldoInicial115: 3742.30,
+    limite115: 5000,
+    meta100Inicial: 30000,   // ARCA ativa quando o caixa total atinge este valor
+    limite120: 10000,
+    teto100: 250000
+  },
+  // Estrutura de contas da simulação base (aditiva: permanentes + temporárias + variáveis)
+  contas: {
+    permanentes: 206.05,     // Claro 120,00 + DAS 86,05
+    temporarias: [
+      { nome:'Faculdade',        valor:240.03, ini:'Jul/26', fim:'Dez/26' },
+      { nome:'Imposto de Renda', valor:96.47,  ini:'Jun/26', fim:'Dez/26' },
+    ],
+    variaveis: {
+      'Jul/26':4660.15,'Ago/26':3102.00,'Set/26':2760.00,'Out/26':2760.00,
+      'Nov/26':2196.00,'Dez/26':1874.00,'Jan/27':1230.00,'Fev/27':986.00,
+      'Mar/27':986.00,'Abr/27':603.00,'Mai/27':372.00,'Jun/27':128.00,
+      'Jul/27':128.00,'Ago/27':128.00,'Set/27':128.00,'Out/27':128.00
+    }
+  },
+  // Ações BR — dividendo médio MENSAL por ação/unit (R$)
+  acoesBR: [
+    {ticker:'TAEE11',preco:39.51,div:0.273},{ticker:'BBSE3',preco:35.39,div:0.379},
+    {ticker:'ITSA4', preco:12.54,div:0.103},{ticker:'ITUB4',preco:38.83,div:0.260},
+    {ticker:'BBDC4', preco:17.26,div:0.101},{ticker:'CXSE3',preco:17.57,div:0.109},
+    {ticker:'SANB11',preco:26.73,div:0.192},{ticker:'CMIG4',preco:10.90,div:0.106},
+    {ticker:'EGIE3', preco:34.09,div:0.121},{ticker:'SAPR4',preco:7.16, div:0.033}
+  ],
+  // Ações internacionais — preço e dividendo médio MENSAL em US$
+  acoesIntl: [
+    {ticker:'JNJ',preco:232.56,div:0.447},{ticker:'PG', preco:151.34,div:0.353},
+    {ticker:'KO', preco:80.08, div:0.177},{ticker:'PEP',preco:142.30,div:0.474},
+    {ticker:'MCD',preco:283.48,div:0.620},{ticker:'WMT',preco:118.09,div:0.083},
+    {ticker:'XOM',preco:140.65,div:0.343},{ticker:'CVX',preco:177.94,div:0.593},
+    {ticker:'O',  preco:60.83, div:0.271},{ticker:'WM', preco:216.65,div:0.315}
+  ]
+};
+
 // ── DADOS PADRÃO ──────────────────────────────────
 const DEFAULT = {
   saldo:0,
@@ -80,7 +132,8 @@ const DEFAULT = {
     {nome:'FII XPML11',        classe:'FII',       bucket:'R', valor:0,indice:'CDI',  pct:90, ticker:'XPML11'},
     {nome:'IVVB11',            classe:'ETF',       bucket:'A2',valor:0,indice:'CDI',  pct:110,ticker:'IVVB11'},
     {nome:'BOVA11',            classe:'ETF',       bucket:'A', valor:0,indice:'CDI',  pct:100,ticker:'BOVA11'},
-  ]
+  ],
+  planoAposentadoria: DEFAULT_PLANO
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -93,7 +146,8 @@ const BLANK = {
          'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
          'Set/27','Out/27','Nov/27','Dez/27'],
   invManual: Array(20).fill(null),
-  entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[]
+  entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[],
+  planoAposentadoria: DEFAULT_PLANO
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -271,6 +325,29 @@ function migrateData(d) {
   d.compras.forEach(c => { if(!c.cat) c.cat='outros'; if(c.ativo===undefined) c.ativo=true; if(!c.id) c.id='c'+Date.now()+Math.random(); if(!c.parcelas) c.parcelas=1; });
   d.cartoes.forEach(c => { if(!c.cor) c.cor='#6B7280'; if(!c.diaFechamento) c.diaFechamento=10; if(!c.diaVencimento) c.diaVencimento=17; });
   d.ativos.forEach(x => { if(!x.indice) x.indice='CDI'; if(x.pct===undefined) x.pct=100; if(!x.ticker) x.ticker=''; delete x.rentab; });
+
+  // ── Plano de Aposentadoria — cria/completa com defaults (compatibilidade dados antigos) ──
+  const pd = JSON.parse(JSON.stringify(DEFAULT_PLANO));
+  if(!d.planoAposentadoria) {
+    d.planoAposentadoria = pd;
+  } else {
+    const p = d.planoAposentadoria;
+    // Campos escalares
+    ['ativo','salario','metaContaCorrente','metaRendaPassiva','dataInicio','dataFim','cambioUSD','inflacaoAnual']
+      .forEach(k => { if(p[k]===undefined) p[k]=pd[k]; });
+    // Sub-objetos
+    p.taxas     = Object.assign({}, pd.taxas,     p.taxas||{});
+    p.arca      = Object.assign({}, pd.arca,      p.arca||{});
+    p.caixinhas = Object.assign({}, pd.caixinhas, p.caixinhas||{});
+    if(!p.contas) p.contas = pd.contas;
+    else {
+      if(p.contas.permanentes===undefined) p.contas.permanentes = pd.contas.permanentes;
+      if(!p.contas.temporarias) p.contas.temporarias = pd.contas.temporarias;
+      if(!p.contas.variaveis)   p.contas.variaveis   = pd.contas.variaveis;
+    }
+    if(!Array.isArray(p.acoesBR)   || !p.acoesBR.length)   p.acoesBR   = pd.acoesBR;
+    if(!Array.isArray(p.acoesIntl) || !p.acoesIntl.length) p.acoesIntl = pd.acoesIntl;
+  }
   return d;
 }
 
@@ -804,6 +881,7 @@ function renderInvestSub(id) {
   if(id==='inv-arca')       renderArca();
   if(id==='inv-carteira')   renderAtivos();
   if(id==='inv-indicadores')renderIndicadores();
+  if(id==='inv-aposentadoria') renderPlanoAposentadoria();
 }
 
 // ── HELPERS ───────────────────────────────────────
@@ -853,6 +931,494 @@ function calcPatrimonioFuturo() {
   });
 
   return { rows, txAnual, saldoCC, totalAtivos, patrimonioInicial: totalAtivos + saldoCC };
+}
+
+/* ═══════════════════════════════════════════════════
+   🎯 PLANO DE APOSENTADORIA
+   Simulação mês a mês da estratégia: reserva em caixinhas →
+   método ARCA → ações/FIIs pagadores de dividendos → renda passiva.
+   calcularPlanoAposentadoria() é PURA: lê D, não altera D.
+═══════════════════════════════════════════════════ */
+
+// Total de contas do mês na simulação (aditivo: permanentes + temporárias + variáveis)
+function contasDoMesPlano(P, mesStr) {
+  let total = (P.contas && P.contas.permanentes) || 0;
+  const cur = parseMes(mesStr), curIdx = cur.y*12 + cur.m;
+  ((P.contas && P.contas.temporarias) || []).forEach(t => {
+    const a = parseMes(t.ini), b = parseMes(t.fim);
+    if(curIdx >= a.y*12+a.m && curIdx <= b.y*12+b.m) total += (t.valor||0);
+  });
+  total += ((P.contas && P.contas.variaveis) || {})[mesStr] || 0;
+  return total;
+}
+
+function calcularPlanoAposentadoria() {
+  const P = D.planoAposentadoria;
+  if(!P || !P.dataInicio || !P.dataFim) return null;
+  const start = parseMes(P.dataInicio), end = parseMes(P.dataFim);
+  if(end.y*12+end.m < start.y*12+start.m) return null;
+
+  const r100 = (P.taxas.cdi100||0)/100, r115 = (P.taxas.cdi115||0)/100,
+        r120 = (P.taxas.cdi120||0)/100, rFII = (P.taxas.fiiMensal||0)/100;
+  const cax = P.caixinhas;
+  const cambio = P.cambioUSD || 5.5;
+
+  let s115 = cax.saldoInicial115||0, s100 = 0, s120 = 0, s120Done = false, sFII = 0;
+  const brSh   = (P.acoesBR||[]).map(()=>0);
+  const intlSh = (P.acoesIntl||[]).map(()=>0);
+  let totalInvestido = cax.saldoInicial115||0, rendAcum = 0, arcaAtivo = false;
+
+  const rows = [], marcos = {};
+  let aposMes = null, aposMesInfl = null, metaInflNaApos = null, patrApos = null;
+
+  let m = start.m, y = start.y, guard = 0;
+  while((y < end.y || (y===end.y && m<=end.m)) && guard < 2400) {
+    guard++;
+    const mesStr = mkMes(m, y);
+
+    // 1) Rendimentos das caixinhas (compostos sobre saldo anterior)
+    const rend115 = s115*r115, rend100 = s100*r100, rend120 = s120*r120;
+    const rendRF = rend115 + rend100 + rend120;
+    s115 += rend115; s100 += rend100; s120 += rend120; rendAcum += rendRF;
+
+    // 2) Contas e aporte
+    const contas = contasDoMesPlano(P, mesStr);
+    const aporteTotal = Math.max(0, (P.salario||0) - contas - (P.metaContaCorrente||0));
+
+    // 3) Ativação do ARCA: caixa total ≥ meta inicial (R$30.000)
+    const totalCaixaAntes = s115 + s100 + s120;
+    if(!arcaAtivo && totalCaixaAntes >= cax.meta100Inicial) { arcaAtivo = true; if(!marcos.arca) marcos.arca = mesStr; }
+
+    // 4) Distribuição do aporte
+    let aCaixa, aFII, aBR, aIntl;
+    if(arcaAtivo) {
+      aCaixa = aporteTotal*(P.arca.caixa||0)/100;
+      aFII   = aporteTotal*(P.arca.fiis||0)/100;
+      aBR    = aporteTotal*(P.arca.acoesBR||0)/100;
+      aIntl  = aporteTotal*(P.arca.acoesIntl||0)/100;
+    } else { aCaixa = aporteTotal; aFII = aBR = aIntl = 0; }
+
+    // 5) Aporte de caixa segue a sequência das caixinhas
+    let rem = aCaixa;
+    if(s115 < cax.limite115) {
+      const add = Math.min(rem, cax.limite115 - s115); s115 += add; rem -= add;
+      if(s115 >= cax.limite115-0.005 && !marcos.c115) marcos.c115 = mesStr;
+    }
+    if(rem > 0 && s100 < cax.meta100Inicial && !s120Done) {
+      const add = Math.min(rem, cax.meta100Inicial - s100); s100 += add; rem -= add;
+      if(s100 >= cax.meta100Inicial-0.005 && !marcos.c100_30k) marcos.c100_30k = mesStr;
+    }
+    if(rem > 0 && s100 >= cax.meta100Inicial-0.005 && !s120Done && s120 < cax.limite120) {
+      const add = Math.min(rem, cax.limite120 - s120); s120 += add; rem -= add;
+      if(s120 >= cax.limite120-0.005) { s120Done = true; if(!marcos.c120) marcos.c120 = mesStr; }
+    }
+    if(rem > 0 && (s120Done || s120 >= cax.limite120-0.005) && s100 < cax.teto100) {
+      const add = Math.min(rem, cax.teto100 - s100); s100 += add; rem -= add;
+      if(s100 >= cax.teto100-0.005 && !marcos.c100_250k) marcos.c100_250k = mesStr;
+    }
+    if(rem > 0) { s100 += rem; rem = 0; } // todas cheias → continua na 100%
+
+    // 6) FIIs — dividendo mensal sobre saldo acumulado (não reinvestido)
+    sFII += aFII;
+    const divFII = sFII * rFII;
+
+    // 7) Ações BR — aporte dividido igualmente; dividendo = nº cotas × dividendo/cota
+    (P.acoesBR||[]).forEach((st,j)=>{ if(st.preco>0) brSh[j] += (aBR/(P.acoesBR.length||1))/st.preco; });
+    let divBR = 0, sBR = 0;
+    (P.acoesBR||[]).forEach((st,j)=>{ divBR += brSh[j]*(st.div||0); sBR += brSh[j]*(st.preco||0); });
+
+    // 8) Ações internacionais — em US$, convertidas pelo câmbio
+    const aIntlUSD = aIntl / cambio;
+    (P.acoesIntl||[]).forEach((st,j)=>{ if(st.preco>0) intlSh[j] += (aIntlUSD/(P.acoesIntl.length||1))/st.preco; });
+    let divIntlUSD = 0, sIntlUSD = 0;
+    (P.acoesIntl||[]).forEach((st,j)=>{ divIntlUSD += intlSh[j]*(st.div||0); sIntlUSD += intlSh[j]*(st.preco||0); });
+    const divIntl = divIntlUSD*cambio, sIntl = sIntlUSD*cambio;
+
+    // 9) Totais do mês
+    totalInvestido += aporteTotal;
+    const totalCaixa  = s115 + s100 + s120;
+    const divTotal    = divFII + divBR + divIntl;
+    const patrimonio  = totalCaixa + sFII + sBR + sIntl + (P.metaContaCorrente||0);
+    const rendaPassiva = rendRF + divTotal;
+
+    if(!marcos.caixa30k && totalCaixa >= cax.meta100Inicial) marcos.caixa30k = mesStr;
+    if(!aposMes && rendaPassiva >= (P.metaRendaPassiva||Infinity)) { aposMes = mesStr; marcos.aposentadoria = mesStr; patrApos = patrimonio; }
+    const yearsEl = (y-start.y) + (m-start.m)/12;
+    const metaInfl = (P.metaRendaPassiva||0) * Math.pow(1 + (P.inflacaoAnual||0)/100, yearsEl);
+    if(!aposMesInfl && rendaPassiva >= metaInfl) { aposMesInfl = mesStr; metaInflNaApos = metaInfl; }
+
+    rows.push({ mes:mesStr, salario:P.salario||0, contas, cc:P.metaContaCorrente||0,
+      aporteTotal, aCaixa, aFII, aBR, aIntl, s115, s100, s120, sFII, sBR, sIntl,
+      totalCaixa, totalInvestido, rendRF, rendAcum, divBR, divIntl, divFII, divTotal,
+      patrimonio, rendaPassiva, arcaAtivo, metaInfl });
+
+    m++; if(m>12){ m=1; y++; }
+  }
+  if(!rows.length) return null;
+
+  // Linha "atual" = mês de hoje (clamp ao horizonte) — senão, primeiro mês
+  const hoje = new Date(), hojeIdx = hoje.getFullYear()*12 + (hoje.getMonth()+1);
+  let atual = rows.find(r=>{ const p=parseMes(r.mes); return p.y*12+p.m === hojeIdx; })
+            || rows.find(r=>{ const p=parseMes(r.mes); return p.y*12+p.m >= hojeIdx; })
+            || rows[0];
+  const last = rows[rows.length-1];
+  const ref  = aposMes ? rows.find(r=>r.mes===aposMes) : last; // estado na meta (ou fim)
+
+  // Valor necessário para gerar a renda-meta
+  const blendMensal = last.patrimonio>0 ? last.rendaPassiva/last.patrimonio : 0;
+  const valorNecessario = aposMes ? patrApos
+                        : (blendMensal>0 ? (P.metaRendaPassiva||0)/blendMensal : 0);
+
+  const pctMeta = (P.metaRendaPassiva>0) ? Math.min(100, (atual.rendaPassiva/P.metaRendaPassiva)*100) : 0;
+
+  const resumo = {
+    patrimonioAtual: atual.patrimonio,
+    totalInvestido:  atual.totalInvestido,
+    rendimentos:     atual.rendAcum,
+    dividendosMes:   atual.divTotal,
+    rendaPassivaAtual: atual.rendaPassiva,
+    metaRenda:       P.metaRendaPassiva||0,
+    pctMeta,
+    dataApos:        aposMes,
+    valorNecessario,
+    patrimonioMeta:  ref.patrimonio,
+    mesAtual:        atual.mes
+  };
+
+  return { rows, resumo, marcos, aposentadoria:{ mes:aposMes, mesInfl:aposMesInfl, metaInflNaApos, valorNecessario }, atual, last };
+}
+
+// Lista ordenada de marcos para timeline / próximo marco
+function _marcosOrdenados(marcos) {
+  const defs = [
+    { key:'c115',      icon:'🏦', label:'Caixinha 115% CDI atinge R$ 5.000' },
+    { key:'caixa30k',  icon:'💰', label:'Patrimônio em caixa atinge R$ 30.000' },
+    { key:'arca',      icon:'🏛️', label:'Início da metodologia ARCA' },
+    { key:'c100_30k',  icon:'📦', label:'Caixinha 100% CDI atinge R$ 30.000' },
+    { key:'c120',      icon:'⚡', label:'Caixinha 120% CDI atinge R$ 10.000' },
+    { key:'c100_250k', icon:'🏆', label:'Caixinha 100% CDI atinge R$ 250.000' },
+    { key:'aposentadoria', icon:'🎯', label:'Renda passiva atinge a meta mensal' },
+  ];
+  return defs.map(d => ({ ...d, mes: marcos[d.key] || null }));
+}
+
+let _planoYrCollapsed = null; // null = ainda não inicializado
+
+function _planoChanged() {
+  scheduleAutoSave();
+  renderPlanoAposentadoria();
+  renderDashAposentadoria();
+}
+// Atualiza um mês variável de contas da simulação
+function setPlanoVar(mes, val) {
+  if(!D.planoAposentadoria.contas) D.planoAposentadoria.contas = {permanentes:0,temporarias:[],variaveis:{}};
+  const v = parseFloat(val);
+  if(isNaN(v) || v===0) delete D.planoAposentadoria.contas.variaveis[mes];
+  else D.planoAposentadoria.contas.variaveis[mes] = v;
+  _planoChanged();
+}
+function togglePlanoYear(yr) {
+  if(!_planoYrCollapsed) _planoYrCollapsed = {};
+  _planoYrCollapsed[yr] = !_planoYrCollapsed[yr];
+  renderPlanoAposentadoria();
+}
+
+function renderDashAposentadoria() {
+  const el = document.getElementById('dash-aposentadoria');
+  if(!el) return;
+  const P = D.planoAposentadoria;
+  if(!P || P.ativo === false) { el.innerHTML = ''; return; }
+  const plano = calcularPlanoAposentadoria();
+  if(!plano) { el.innerHTML = ''; return; }
+  const { resumo, marcos, atual } = plano;
+
+  const pct = Math.round(resumo.pctMeta);
+  const pctCor = pct>=100?'var(--pos)':pct>=50?'var(--warn)':'var(--info)';
+
+  // Próximo marco ainda não atingido (relativo ao mês atual)
+  const atualIdx = (()=>{ const p=parseMes(atual.mes); return p.y*12+p.m; })();
+  const proximos = _marcosOrdenados(marcos).filter(mo=>{
+    if(!mo.mes) return true; const p=parseMes(mo.mes); return p.y*12+p.m > atualIdx;
+  });
+  const prox = proximos.find(mo=>mo.mes) || proximos[0] || null;
+
+  const small = [
+    { icon:'💵', label:'Caixa / renda fixa', val:fmt(atual.totalCaixa), cor:'var(--text)' },
+    { icon:'🏢', label:'FIIs',                val:fmt(atual.sFII),       cor:'var(--warn)' },
+    { icon:'🇧🇷', label:'Ações brasileiras',   val:fmt(atual.sBR),        cor:'var(--info)' },
+    { icon:'🌎', label:'Ações internacionais', val:fmt(atual.sIntl),      cor:'var(--violet)' },
+    { icon:'💸', label:'Dividendos do mês',    val:fmt(atual.divTotal),   cor:'var(--brand)' },
+    { icon:'📈', label:'Rendimentos acum.',    val:fmt(atual.rendAcum),   cor:'var(--teal)' },
+  ];
+
+  el.innerHTML = `<div class="panel" style="margin-bottom:20px">
+    <div class="panel-head">
+      <span class="panel-title">🎯 Rumo à Aposentadoria</span>
+      <span class="panel-badge">Renda passiva ${fmt(resumo.rendaPassivaAtual)}/mês</span>
+    </div>
+    <div style="padding:16px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+        <div><div style="font-size:11px;color:var(--text2)">Patrimônio projetado</div>
+          <div style="font-size:20px;font-weight:800;color:var(--brand)">${fmtK(resumo.patrimonioAtual)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Renda passiva atual</div>
+          <div style="font-size:20px;font-weight:800;color:${pctCor}">${fmt(resumo.rendaPassivaAtual)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Meta mensal</div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">${fmt(resumo.metaRenda)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Aposentadoria estimada</div>
+          <div style="font-size:20px;font-weight:800;color:var(--accent)">${resumo.dataApos||'—'}</div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:6px">
+        <span>Progresso até a renda de ${fmt(resumo.metaRenda)}/mês</span>
+        <span style="font-weight:700;color:${pctCor}">${pct}%</span>
+      </div>
+      <div style="height:10px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:14px">
+        <div style="height:10px;width:${Math.min(100,pct)}%;background:linear-gradient(90deg,var(--info),${pctCor});border-radius:99px;transition:width .6s"></div>
+      </div>
+      ${prox?`<div style="font-size:12px;color:var(--text2);padding:8px 12px;background:var(--card2);border:1px solid var(--border);border-radius:var(--r8);margin-bottom:14px">
+        Próximo marco: <strong style="color:var(--text)">${prox.icon} ${prox.label}</strong>${prox.mes?` · <span style="color:var(--accent);font-weight:700">${prox.mes}</span>`:''}
+      </div>`:''}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+        ${small.map(s=>`<div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r8);padding:10px 12px">
+          <div style="font-size:10px;color:var(--text2)">${s.icon} ${s.label}</div>
+          <div style="font-size:15px;font-weight:700;color:${s.cor};margin-top:2px">${s.val}</div>
+        </div>`).join('')}
+      </div>
+      <div style="margin-top:12px;text-align:right">
+        <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px" onclick="goSide('invest');setTimeout(()=>{const t=document.querySelector('#page-invest .stab-bar .stab.stab-apos');if(t)t.click();},60)">Ver plano completo →</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderPlanoAposentadoria() {
+  const P = D.planoAposentadoria;
+  if(!P) return;
+  const plano = calcularPlanoAposentadoria();
+
+  // ── CONFIGURAÇÕES ──
+  const cfg = document.getElementById('plano-aposentadoria-config');
+  if(cfg) {
+    const somaArca = (P.arca.caixa||0)+(P.arca.fiis||0)+(P.arca.acoesBR||0)+(P.arca.acoesIntl||0);
+    const inp = (path,val,step='0.01',w='110px') =>
+      `<input type="number" step="${step}" value="${val}" style="width:${w};text-align:right"
+        onchange="${path}=parseFloat(this.value)||0;_planoChanged()">`;
+    const inpTxt = (path,val) =>
+      `<input type="text" value="${val}" placeholder="Jul/26" style="width:90px;text-align:center"
+        onchange="${path}=this.value.trim();_planoChanged()">`;
+    cfg.innerHTML = `<div class="panel mb">
+      <div class="panel-head"><span class="panel-title">⚙️ Configurações do plano</span>
+        <span class="panel-badge" style="background:${somaArca===100?'var(--pos-bg)':'var(--warn-bg)'};color:${somaArca===100?'var(--pos)':'var(--warn)'}">ARCA soma ${somaArca}%</span></div>
+      <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 18px">
+        <div class="field"><label class="flabel">Salário mensal</label>${inp('D.planoAposentadoria.salario',P.salario)}</div>
+        <div class="field"><label class="flabel">Meta conta corrente</label>${inp('D.planoAposentadoria.metaContaCorrente',P.metaContaCorrente)}</div>
+        <div class="field"><label class="flabel">Meta renda passiva /mês</label>${inp('D.planoAposentadoria.metaRendaPassiva',P.metaRendaPassiva)}</div>
+        <div class="field"><label class="flabel">Câmbio dólar (R$/US$)</label>${inp('D.planoAposentadoria.cambioUSD',P.cambioUSD)}</div>
+        <div class="field"><label class="flabel">Inflação anual (%)</label>${inp('D.planoAposentadoria.inflacaoAnual',P.inflacaoAnual)}</div>
+        <div class="field"><label class="flabel">Data inicial</label>${inpTxt('D.planoAposentadoria.dataInicio',P.dataInicio)}</div>
+        <div class="field"><label class="flabel">Data final</label>${inpTxt('D.planoAposentadoria.dataFim',P.dataFim)}</div>
+        <div class="field"><label class="flabel">Taxa 100% CDI (%/mês)</label>${inp('D.planoAposentadoria.taxas.cdi100',P.taxas.cdi100,'0.001')}</div>
+        <div class="field"><label class="flabel">Taxa 115% CDI (%/mês)</label>${inp('D.planoAposentadoria.taxas.cdi115',P.taxas.cdi115,'0.001')}</div>
+        <div class="field"><label class="flabel">Taxa 120% CDI (%/mês)</label>${inp('D.planoAposentadoria.taxas.cdi120',P.taxas.cdi120,'0.001')}</div>
+        <div class="field"><label class="flabel">Rendimento FIIs (%/mês)</label>${inp('D.planoAposentadoria.taxas.fiiMensal',P.taxas.fiiMensal,'0.01')}</div>
+        <div class="field"><label class="flabel">ARCA · Caixa (%)</label>${inp('D.planoAposentadoria.arca.caixa',P.arca.caixa,'1')}</div>
+        <div class="field"><label class="flabel">ARCA · FIIs (%)</label>${inp('D.planoAposentadoria.arca.fiis',P.arca.fiis,'1')}</div>
+        <div class="field"><label class="flabel">ARCA · Ações BR (%)</label>${inp('D.planoAposentadoria.arca.acoesBR',P.arca.acoesBR,'1')}</div>
+        <div class="field"><label class="flabel">ARCA · Ações Intl (%)</label>${inp('D.planoAposentadoria.arca.acoesIntl',P.arca.acoesIntl,'1')}</div>
+      </div>
+      <div style="padding:0 16px 14px;font-size:11px;color:var(--text3)">
+        💡 As taxas e percentuais acima alimentam a simulação. A sequência das caixinhas (115% → 100% → 120% → 100%) e os limites
+        (R$ ${fmtK(P.caixinhas.limite115)} / R$ ${fmtK(P.caixinhas.meta100Inicial)} / R$ ${fmtK(P.caixinhas.limite120)} / R$ ${fmtK(P.caixinhas.teto100)}) seguem a estratégia definida.
+      </div>
+    </div>`;
+  }
+
+  const cardsEl = document.getElementById('plano-aposentadoria-cards');
+  const marcosEl = document.getElementById('plano-aposentadoria-marcos');
+  const tblEl = document.getElementById('plano-aposentadoria-tabela');
+
+  if(!plano) {
+    if(cardsEl) cardsEl.innerHTML = `<div class="empty" style="padding:24px"><div class="empty-icon">🎯</div><div class="empty-text">Revise as datas inicial/final do plano para gerar a simulação.</div></div>`;
+    if(marcosEl) marcosEl.innerHTML = '';
+    if(tblEl) tblEl.innerHTML = '';
+    ['cPlanoPatrimonio','cPlanoClasses','cPlanoDividendos','cPlanoMeta'].forEach(dc);
+    return;
+  }
+
+  const { rows, resumo, marcos, aposentadoria } = plano;
+  const pct = Math.round(resumo.pctMeta);
+  const pctCor = pct>=100?'var(--pos)':pct>=50?'var(--warn)':'var(--info)';
+
+  // ── CARDS ──
+  if(cardsEl) cardsEl.innerHTML = `
+    <div class="mcard mcard-pos"><div class="mlabel">💎 Patrimônio projetado</div><div class="mval mval-pos">${fmtK(resumo.patrimonioAtual)}</div><div class="msub">posição atual estimada</div></div>
+    <div class="mcard mcard-teal"><div class="mlabel">🚀 Total investido</div><div class="mval mval-teal">${fmtK(resumo.totalInvestido)}</div><div class="msub">aportes acumulados</div></div>
+    <div class="mcard mcard-warn"><div class="mlabel">📈 Total de rendimentos</div><div class="mval mval-warn">${fmtK(resumo.rendimentos)}</div><div class="msub">juros da renda fixa</div></div>
+    <div class="mcard mcard-pos"><div class="mlabel">💸 Dividendos mensais</div><div class="mval mval-pos">${fmt(resumo.dividendosMes)}</div><div class="msub">BR + Intl + FIIs</div></div>
+    <div class="mcard"><div class="mlabel">🎯 Meta de aposentadoria</div><div class="mval">${fmt(resumo.metaRenda)}</div><div class="msub">renda passiva /mês</div></div>
+    <div class="mcard ${pct>=100?'mcard-pos':pct>=50?'mcard-warn':'mcard-neg'}"><div class="mlabel">📊 % da meta atingido</div><div class="mval ${pct>=100?'mval-pos':pct>=50?'mval-warn':'mval-neg'}">${pct}%</div><div class="msub">${fmt(resumo.rendaPassivaAtual)} / ${fmt(resumo.metaRenda)}</div></div>
+    <div class="mcard mcard-teal"><div class="mlabel">📅 Data estimada</div><div class="mval mval-teal" style="font-size:22px">${resumo.dataApos||'além do horizonte'}</div><div class="msub">${aposentadoria.mesInfl?'corrigida inflação: '+aposentadoria.mesInfl:'1º mês com renda ≥ meta'}</div></div>
+    <div class="mcard mcard-warn"><div class="mlabel">🏦 Valor necessário</div><div class="mval mval-warn">${fmtK(resumo.valorNecessario)}</div><div class="msub">capital p/ renda de ${fmt(resumo.metaRenda)}</div></div>
+  `;
+
+  // ── MARCOS (timeline) ──
+  if(marcosEl) {
+    const atualIdx = (()=>{ const p=parseMes(resumo.mesAtual); return p.y*12+p.m; })();
+    const list = _marcosOrdenados(marcos);
+    marcosEl.innerHTML = `<div class="panel mb">
+      <div class="panel-head"><span class="panel-title">🏁 Marcos financeiros</span></div>
+      <div style="padding:16px">
+        <div style="display:flex;flex-direction:column;gap:0">
+          ${list.map((mo,idx)=>{
+            const atingido = mo.mes && (parseMes(mo.mes).y*12+parseMes(mo.mes).m) <= atualIdx;
+            const futuro = !!mo.mes && !atingido;
+            const semData = !mo.mes;
+            const cor = atingido?'var(--pos)':futuro?'var(--accent)':'var(--text3)';
+            const dot = atingido?'✓':futuro?'◷':'·';
+            const isLast = idx===list.length-1;
+            return `<div style="display:flex;gap:12px">
+              <div style="display:flex;flex-direction:column;align-items:center">
+                <div style="width:24px;height:24px;border-radius:99px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:${atingido?'var(--pos-bg)':'var(--card2)'};border:2px solid ${cor};color:${cor}">${dot}</div>
+                ${!isLast?`<div style="width:2px;flex:1;min-height:22px;background:${atingido?'var(--pos)':'var(--border)'}"></div>`:''}
+              </div>
+              <div style="padding-bottom:${isLast?0:14}px;flex:1">
+                <div style="font-size:13px;font-weight:600;color:${semData?'var(--text3)':'var(--text)'}">${mo.icon} ${mo.label}</div>
+                <div style="font-size:11px;color:${cor};font-weight:700">${mo.mes?(atingido?'Atingido em '+mo.mes:'Previsto para '+mo.mes):'Fora do horizonte da simulação'}</div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── GRÁFICOS ──
+  renderPlanoGraficos(rows);
+
+  // ── TABELA MÊS A MÊS (agrupada por ano, colapsável) ──
+  if(tblEl) {
+    if(!_planoYrCollapsed) {
+      _planoYrCollapsed = {};
+      const anos = [...new Set(rows.map(r=>parseMes(r.mes).y))];
+      anos.forEach((a,i)=>{ _planoYrCollapsed[a] = i!==0; }); // expande só o 1º ano
+    }
+    const anos = [...new Set(rows.map(r=>parseMes(r.mes).y))].sort((a,b)=>a-b);
+    const cols = ['Mês','Salário','Contas','CC','Aporte','→Caixa','→FIIs','→Ações BR','→Ações Intl',
+      'Cx 115%','Cx 100%','Cx 120%','FIIs','Ações BR','Ações Intl','Investido','Rend. RF/mês',
+      'Rend. acum.','Div. BR','Div. Intl','Div. FIIs','Div. total','Patrimônio','Renda passiva'];
+
+    const aposIdx = resumo.dataApos;
+    const yearBlocks = anos.map(ano=>{
+      const mesesAno = rows.filter(r=>parseMes(r.mes).y===ano);
+      const collapsed = _planoYrCollapsed[ano];
+      const fim = mesesAno[mesesAno.length-1];
+      const aporteAno = mesesAno.reduce((s,r)=>s+r.aporteTotal,0);
+      const divAno = mesesAno.reduce((s,r)=>s+r.divTotal,0);
+      const arcaNoAno = mesesAno.some(r=>r.arcaAtivo);
+      const body = collapsed ? '' : `<div class="scroll">
+        <table class="tbl-wide" style="min-width:1900px;font-size:11px">
+          <thead class="thead-sticky"><tr>${cols.map((c,i)=>`<th class="${i===0?'':'tr'}" style="white-space:nowrap;font-size:10px">${c}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${mesesAno.map(r=>{
+              const isApos = r.mes===aposIdx;
+              return `<tr style="${isApos?'background:var(--brand-glow2)':''}">
+                <td style="font-weight:${isApos?700:500};white-space:nowrap">${r.mes}${isApos?' 🎯':''}${r.arcaAtivo?'<span style="font-size:9px;color:var(--accent);margin-left:3px">ARCA</span>':''}</td>
+                <td class="tr tpos">${fmt(r.salario)}</td>
+                <td class="tr tneg">${fmt(r.contas)}</td>
+                <td class="tr" style="color:var(--text3)">${fmt(r.cc)}</td>
+                <td class="tr tteal" style="font-weight:700">${fmt(r.aporteTotal)}</td>
+                <td class="tr" style="color:var(--text2)">${fmt(r.aCaixa)}</td>
+                <td class="tr" style="color:var(--text2)">${fmt(r.aFII)}</td>
+                <td class="tr" style="color:var(--text2)">${fmt(r.aBR)}</td>
+                <td class="tr" style="color:var(--text2)">${fmt(r.aIntl)}</td>
+                <td class="tr">${fmtK(r.s115)}</td>
+                <td class="tr">${fmtK(r.s100)}</td>
+                <td class="tr">${fmtK(r.s120)}</td>
+                <td class="tr" style="color:var(--warn)">${fmtK(r.sFII)}</td>
+                <td class="tr" style="color:var(--info)">${fmtK(r.sBR)}</td>
+                <td class="tr" style="color:var(--violet)">${fmtK(r.sIntl)}</td>
+                <td class="tr" style="color:var(--teal)">${fmtK(r.totalInvestido)}</td>
+                <td class="tr" style="color:var(--brand)">${fmt(r.rendRF)}</td>
+                <td class="tr" style="color:var(--brand)">${fmtK(r.rendAcum)}</td>
+                <td class="tr" style="color:var(--text2)">${fmt(r.divBR)}</td>
+                <td class="tr" style="color:var(--text2)">${fmt(r.divIntl)}</td>
+                <td class="tr" style="color:var(--text2)">${fmt(r.divFII)}</td>
+                <td class="tr tpos" style="font-weight:600">${fmt(r.divTotal)}</td>
+                <td class="tr" style="color:var(--brand);font-weight:700">${fmtK(r.patrimonio)}</td>
+                <td class="tr" style="font-weight:700;color:${r.rendaPassiva>=resumo.metaRenda?'var(--pos)':'var(--text)'}">${fmt(r.rendaPassiva)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>`;
+      return `<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:var(--r10);overflow:hidden">
+        <div onclick="togglePlanoYear(${ano})" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card2)">
+          <span style="font-size:13px;font-weight:700;color:var(--brand)">${collapsed?'▸':'▾'} ${ano} ${arcaNoAno?'<span style="font-size:9px;color:var(--accent);font-weight:600;margin-left:4px">ARCA</span>':''}</span>
+          <div style="display:flex;gap:14px;font-size:11px;color:var(--text2);flex-wrap:wrap">
+            <span>Aportes: <strong style="color:var(--teal)">${fmtK(aporteAno)}</strong></span>
+            <span>Dividendos: <strong style="color:var(--pos)">${fmtK(divAno)}</strong></span>
+            <span>Patrimônio fim: <strong style="color:var(--brand)">${fmtK(fim.patrimonio)}</strong></span>
+            <span>Renda passiva: <strong style="color:${fim.rendaPassiva>=resumo.metaRenda?'var(--pos)':'var(--text)'}">${fmt(fim.rendaPassiva)}</strong></span>
+          </div>
+        </div>
+        ${body}
+      </div>`;
+    }).join('');
+
+    tblEl.innerHTML = `<div class="panel mb">
+      <div class="panel-head"><span class="panel-title">📅 Simulação mês a mês</span>
+        <span class="panel-badge">${rows.length} meses · ${rows[0].mes} → ${rows[rows.length-1].mes}</span></div>
+      <div style="padding:14px 16px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Clique no ano para expandir/recolher. Valores em R$. Colunas roláveis horizontalmente. 🎯 marca o mês da aposentadoria.</div>
+        ${yearBlocks}
+      </div>
+    </div>`;
+  }
+}
+
+function renderPlanoGraficos(rows) {
+  if(typeof Chart === 'undefined') return;
+  applyChartDefaults();
+  const labels = rows.map(r=>r.mes);
+  const meta = D.planoAposentadoria.metaRendaPassiva || 0;
+  const thin = { pointRadius:0, borderWidth:2, tension:.25 };
+  const xTicks = { ticks:{ color:tc(), font:{size:9}, maxRotation:0, autoSkip:true, maxTicksLimit:14,
+    callback:function(v){ const l=this.getLabelForValue(v); return l&&l.startsWith('Jan')?l:''; } } };
+
+  // 1) Patrimônio total + caixinhas
+  dc('cPlanoPatrimonio');
+  const c1 = document.getElementById('cPlanoPatrimonio');
+  if(c1) CH['cPlanoPatrimonio'] = new Chart(c1,{type:'line',data:{labels,datasets:[
+    {label:'Patrimônio total', data:rows.map(r=>r.patrimonio), borderColor:'#00D4AA', backgroundColor:'rgba(0,212,170,.12)', fill:true, ...thin},
+    {label:'Caixa (renda fixa)', data:rows.map(r=>r.totalCaixa), borderColor:'#38BDF8', ...thin},
+    {label:'Total investido', data:rows.map(r=>r.totalInvestido), borderColor:'#7C6FCD', borderDash:[4,3], ...thin},
+  ]},options:chartOpts({scales:{x:{grid:{color:gc()},...xTicks},y:{grid:{color:gc()},ticks:{color:tc(),font:{size:9},callback:v=>RK(v)}}}})});
+
+  // 2) Evolução por classe ARCA (stacked area)
+  dc('cPlanoClasses');
+  const c2 = document.getElementById('cPlanoClasses');
+  if(c2) CH['cPlanoClasses'] = new Chart(c2,{type:'line',data:{labels,datasets:[
+    {label:'Caixa', data:rows.map(r=>r.totalCaixa), borderColor:'#6B7280', backgroundColor:'rgba(107,114,128,.5)', fill:true, stack:'s', ...thin},
+    {label:'FIIs', data:rows.map(r=>r.sFII), borderColor:'#F5A623', backgroundColor:'rgba(245,166,35,.5)', fill:true, stack:'s', ...thin},
+    {label:'Ações BR', data:rows.map(r=>r.sBR), borderColor:'#38BDF8', backgroundColor:'rgba(56,189,248,.5)', fill:true, stack:'s', ...thin},
+    {label:'Ações Intl', data:rows.map(r=>r.sIntl), borderColor:'#7C6FCD', backgroundColor:'rgba(124,111,205,.5)', fill:true, stack:'s', ...thin},
+  ]},options:chartOpts({scales:{x:{grid:{color:gc()},...xTicks},y:{stacked:true,grid:{color:gc()},ticks:{color:tc(),font:{size:9},callback:v=>RK(v)}}}})});
+
+  // 3) Dividendos mensais (stacked bar)
+  dc('cPlanoDividendos');
+  const c3 = document.getElementById('cPlanoDividendos');
+  if(c3) CH['cPlanoDividendos'] = new Chart(c3,{type:'bar',data:{labels,datasets:[
+    {label:'Div. BR', data:rows.map(r=>r.divBR), backgroundColor:'#38BDF8', stack:'d'},
+    {label:'Div. Intl', data:rows.map(r=>r.divIntl), backgroundColor:'#7C6FCD', stack:'d'},
+    {label:'Div. FIIs', data:rows.map(r=>r.divFII), backgroundColor:'#F5A623', stack:'d'},
+  ]},options:chartOpts({scales:{x:{stacked:true,grid:{display:false},...xTicks},y:{stacked:true,grid:{color:gc()},ticks:{color:tc(),font:{size:9},callback:v=>RK(v)}}}})});
+
+  // 4) Renda passiva vs meta (% da meta)
+  dc('cPlanoMeta');
+  const c4 = document.getElementById('cPlanoMeta');
+  if(c4) CH['cPlanoMeta'] = new Chart(c4,{type:'line',data:{labels,datasets:[
+    {label:'Renda passiva mensal', data:rows.map(r=>r.rendaPassiva), borderColor:'#00D4AA', backgroundColor:'rgba(0,212,170,.12)', fill:true, ...thin},
+    {label:'Meta', data:rows.map(()=>meta), borderColor:'#EF4444', borderDash:[5,4], ...thin},
+    {label:'Meta corrigida (inflação)', data:rows.map(r=>r.metaInfl), borderColor:'#F5A623', borderDash:[3,3], ...thin},
+  ]},options:chartOpts({scales:{x:{grid:{color:gc()},...xTicks},y:{grid:{color:gc()},ticks:{color:tc(),font:{size:9},callback:v=>RK(v)}}}})});
 }
 
 function renderDashboard() {
@@ -1406,7 +1972,8 @@ function renderDashboard() {
     </div>`;
   }
 
-
+  // 🎯 Bloco Rumo à Aposentadoria
+  renderDashAposentadoria();
 }
 
 // Renderiza lista de gastos para o dashboard

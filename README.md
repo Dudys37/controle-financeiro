@@ -60,4 +60,5 @@ Configure você mesmo no Firebase Authentication (passo 2 acima).
 - Particionamento por usuário (cada um vê só seus dados)
 - Super Admin pode criar e gerenciar usuários
 - Dashboard com fluxo de caixa, ARCA, projeções
+- 🎯 Plano de Aposentadoria: simulação mês a mês (salário → contas → aportes → caixinhas/FIIs/ações), marcos financeiros, gráficos e data estimada de independência financeira (renda passiva de R$ 10.000/mês)
 - Tema claro/escuro
