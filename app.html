@@ -1489,9 +1489,9 @@ body { margin: 0; padding: 0; }
     <div class="gcards mb" id="inv-carteira-cards"></div>
     <div class="ebox teal-border mb">
       <h3>📊 Carteira de ativos</h3>
-      <p>Cadastre seus investimentos com classe, bucket ARCA, valor atual e índice de rendimento.</p>
+      <p>Cadastre seus investimentos com classe, bucket ARCA, valor atual e índice de rendimento. Marque um item como <strong>🎯 Marco</strong> e defina a <strong>Meta (R$)</strong> para acompanhá-lo no Plano de Aposentadoria.</p>
       <div class="inv-tbl-wrap"><table class="inv-tbl" id="ativos-tbl"></table></div>
-      <div class="act"><button class="btn btn-teal" onclick="addAtivo()">+ Novo ativo</button></div>
+      <div class="act" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-teal" onclick="addAtivo()">+ Novo ativo</button><button class="btn btn-ghost" onclick="addMarco()">🎯 Novo marco</button></div>
     </div>
     <div class="panel mb"><div class="panel-head"><span class="panel-title">📦 Resumo por bucket ARCA</span></div><div class="gcards" id="ativos-resumo"></div></div>
     <div class="panel mb"><div class="panel-head"><span class="panel-title">📈 Projeções — juros compostos</span></div><div class="scroll"><table class="tbl-wide" id="proj-tbl" style="min-width:700px"></table></div></div>
