@@ -1162,6 +1162,19 @@ body { margin: 0; padding: 0; }
   #page-perfil .perfil-grid { grid-template-columns: 1fr !important; }
 }
 
+/* ── Impressão / PDF do relatório ── */
+@media print {
+  body.printing-report { background:#fff !important; }
+  body.printing-report * { visibility:hidden !important; }
+  body.printing-report #report-print, body.printing-report #report-print * { visibility:visible !important; }
+  body.printing-report #report-print {
+    position:absolute; left:0; top:0; width:100%; padding:0; margin:0;
+    color:#111 !important; background:#fff !important;
+  }
+  body.printing-report .rel-noprint { display:none !important; }
+  body.printing-report #report-print .rep-card { box-shadow:none !important; border:1px solid #ddd !important; break-inside:avoid; }
+  @page { margin:14mm; }
+}
 </style>
 </head>
 <body>
@@ -1189,6 +1202,7 @@ body { margin: 0; padding: 0; }
       <div class="sidebar-section-label">Análise</div>
       <button class="snav on" id="snav-dash" onclick="goSide('dash')"><span class="snav-icon">📊</span> Dashboard</button>
       <button class="snav" id="snav-invest" onclick="goSide('invest')"><span class="snav-icon">📈</span> Investimentos</button>
+      <button class="snav" id="snav-relatorios" onclick="goSide('relatorios')"><span class="snav-icon">📄</span> Relatórios</button>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-section-label">Finanças</div>
@@ -1196,6 +1210,7 @@ body { margin: 0; padding: 0; }
       <button class="snav" id="snav-carteira" onclick="goSide('carteira')"><span class="snav-icon">💼</span> Carteira</button>
       <button class="snav" id="snav-saidas" onclick="goSide('saidas')"><span class="snav-icon">💸</span> Saídas</button>
       <button class="snav" id="snav-faturas" onclick="goSide('faturas')"><span class="snav-icon">✅</span> Faturas</button>
+      <button class="snav" id="snav-metas" onclick="goSide('metas')"><span class="snav-icon">🎯</span> Metas</button>
     </div>
     <div class="sidebar-section">
       <div class="sidebar-section-label">Pessoal</div>
@@ -1280,6 +1295,7 @@ body { margin: 0; padding: 0; }
 
   <!-- Alertas -->
   <div id="dash-alerts"></div>
+  <div id="dash-insights"></div>
 
   <!-- HERO BANNER -->
   <div id="dash-hero" class="hero-banner mb"></div>
@@ -1678,6 +1694,32 @@ body { margin: 0; padding: 0; }
   
 </div>
 
+  <!-- ████ RELATÓRIOS ████ -->
+  <div class="page" id="page-relatorios">
+    <div style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px" class="rel-noprint">
+      <div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">📄 Relatórios</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px">Fechamento mensal e evolução — exporte em PDF pela impressão do navegador.</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select id="rel-mes" onchange="setRelMes(this.value)" style="height:38px"></select>
+        <button class="btn btn-pri" style="height:38px" onclick="printRelatorio()">🖨️ Exportar / Imprimir</button>
+      </div>
+    </div>
+    <div id="report-print"></div>
+    <div id="rel-evolucao" class="mb rel-noprint"></div>
+  </div>
+
+  <!-- ████ METAS & ORÇAMENTOS ████ -->
+  <div class="page" id="page-metas">
+    <div style="margin-bottom:24px">
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🎯 Metas &amp; Orçamentos</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Objetivos de longo prazo e limites de gasto por categoria — tudo ligado aos seus dados.</div>
+    </div>
+    <div id="metas-objetivos" class="mb"></div>
+    <div id="metas-orcamentos"></div>
+  </div>
+
 <!-- ████ CONFIGURAÇÕES DO SISTEMA ████ -->
 <div class="page" id="page-config">
   <div style="margin-bottom:24px">
@@ -1732,6 +1774,12 @@ body { margin: 0; padding: 0; }
         <input type="number" id="config-saldo" step="100"
           onchange="D.saldo=parseFloat(this.value)||0;scheduleAutoSave()">
       </div>
+      <div class="field">
+        <label class="flabel">Reserva de emergência (meses de gasto)</label>
+        <input type="number" id="config-reservamult" min="1" max="24" step="1"
+          onchange="D.reservaMult=Math.max(1,Math.min(24,parseInt(this.value)||6));scheduleAutoSave();renderAll()">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Multiplicador do salário usado como meta da reserva (padrão 6×).</div>
+      </div>
     </div>
 
     <!-- Metas ARCA -->
@@ -1744,6 +1792,13 @@ body { margin: 0; padding: 0; }
       <div class="field"><label class="flabel">A — Ativos Internacionais (%)</label><input type="number" id="config-arca-a2" step="1" min="0" max="100" onchange="D.arcaMeta.a2=parseFloat(this.value)||0;scheduleAutoSave()"></div>
       <div style="font-size:11px;color:var(--text2);padding:8px;background:var(--card2);border-radius:var(--r8)" id="config-arca-sum"></div>
     </div>
+  </div>
+
+  <!-- Categorias editáveis -->
+  <div class="ebox mb" style="border-color:rgba(236,72,153,.25)">
+    <h3>🏷️ Categorias</h3>
+    <p>Personalize as categorias de despesas e entradas — nome, ícone e cor. As alterações refletem em todo o sistema (lançamentos, gráficos e relatórios).</p>
+    <div id="config-categorias"></div>
   </div>
 
   <!-- Backup e dados -->

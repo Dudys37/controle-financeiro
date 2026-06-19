@@ -44,6 +44,7 @@ const DEFAULT_PLANO = {
   metaRendaPassiva: 10000,
   dataInicio: 'Jul/26',
   dataFim: 'Dez/40',
+  contasFonte: 'real',
   cambioUSD: 5.50,
   inflacaoAnual: 4,
   taxas: { cdi100: 1.127, cdi115: 1.296, cdi120: 1.352, fiiMensal: 0.75 },
@@ -133,7 +134,8 @@ const DEFAULT = {
     {nome:'IVVB11',            classe:'ETF',       bucket:'A2',valor:0,indice:'CDI',  pct:110,ticker:'IVVB11'},
     {nome:'BOVA11',            classe:'ETF',       bucket:'A', valor:0,indice:'CDI',  pct:100,ticker:'BOVA11'},
   ],
-  planoAposentadoria: DEFAULT_PLANO
+  planoAposentadoria: DEFAULT_PLANO,
+  metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -147,7 +149,8 @@ const BLANK = {
          'Set/27','Out/27','Nov/27','Dez/27'],
   invManual: Array(20).fill(null),
   entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[],
-  planoAposentadoria: DEFAULT_PLANO
+  planoAposentadoria: DEFAULT_PLANO,
+  metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -217,6 +220,20 @@ const CATS_ENTRADA = {
   bonus:      {label:'Bônus/13°',    icon:'🎁', cor:'#EC4899'},
   outros:     {label:'Outros',       icon:'📦', cor:'#6B7280'},
 };
+// Cópias imutáveis das categorias padrão (para reset de overrides)
+const CATS_BASE = JSON.parse(JSON.stringify(CATS));
+const CATS_ENTRADA_BASE = JSON.parse(JSON.stringify(CATS_ENTRADA));
+// Aplica as categorias custom do usuário sobre as padrão (override + adições)
+function applyCatsCustom(){
+  Object.keys(CATS).forEach(k=>{ if(!(k in CATS_BASE)) delete CATS[k]; });
+  Object.assign(CATS, JSON.parse(JSON.stringify(CATS_BASE)), (typeof D!=='undefined'&&D.catsCustom)||{});
+  Object.keys(CATS_ENTRADA).forEach(k=>{ if(!(k in CATS_ENTRADA_BASE)) delete CATS_ENTRADA[k]; });
+  Object.assign(CATS_ENTRADA, JSON.parse(JSON.stringify(CATS_ENTRADA_BASE)), (typeof D!=='undefined'&&D.catsCustomEnt)||{});
+}
+// Gera <option>s a partir de um dicionário de categorias, marcando `sel`
+function optsCats(dict, sel){
+  return Object.entries(dict).map(([k,v])=>`<option value="${k}"${k===sel?' selected':''}>${v.icon||'\ud83d\udce6'} ${v.label||k}</option>`).join('');
+}
 const ARCA = {
   colors:{A:'var(--info)',R:'var(--warn)',C:'#6B7280',A2:'var(--warn)'},
   names:{A:'A — Ações Brasileiras',R:'R — Real Estate',C:'C — Caixa',A2:'A — Ativos Internacionais'},
@@ -328,6 +345,15 @@ function migrateData(d) {
   // Atribui ordem sequencial aos marcos que ainda não têm (preserva a ordem de cadastro)
   { let o=1; d.ativos.forEach(x=>{ if(x.marco && !x.ordem) x.ordem=o++; }); }
 
+  // ── Módulos novos (Metas, Reserva configurável, Notas, Categorias custom) ──
+  if(!Array.isArray(d.metas)) d.metas = [];
+  if(d.reservaMult===undefined || d.reservaMult===null) d.reservaMult = 6;
+  if(typeof d.notasMes !== 'object' || d.notasMes===null) d.notasMes = {};
+  if(d.catsCustom===undefined) d.catsCustom = null;
+  if(d.catsCustomEnt===undefined) d.catsCustomEnt = null;
+  if(!Array.isArray(d.metas)) d.metas = [];
+  if(typeof d.orcamentos!=='object' || d.orcamentos===null) d.orcamentos = {};
+
   // ── Plano de Aposentadoria — cria/completa com defaults (compatibilidade dados antigos) ──
   const pd = JSON.parse(JSON.stringify(DEFAULT_PLANO));
   if(!d.planoAposentadoria) {
@@ -335,7 +361,7 @@ function migrateData(d) {
   } else {
     const p = d.planoAposentadoria;
     // Campos escalares
-    ['ativo','salario','metaContaCorrente','metaRendaPassiva','dataInicio','dataFim','cambioUSD','inflacaoAnual']
+    ['ativo','salario','metaContaCorrente','metaRendaPassiva','dataInicio','dataFim','contasFonte','cambioUSD','inflacaoAnual']
       .forEach(k => { if(p[k]===undefined) p[k]=pd[k]; });
     // Sub-objetos
     p.taxas     = Object.assign({}, pd.taxas,     p.taxas||{});
@@ -760,10 +786,12 @@ function scheduleAutoSave() {
 const PAGE_META = {
   dash:      { label:'Dashboard',       section:'Análise',    icon:'📊' },
   invest:    { label:'Investimentos',   section:'Análise',    icon:'📈' },
+  relatorios:{ label:'Relatórios',      section:'Análise',    icon:'📄' },
   entradas:  { label:'Entradas',        section:'Finanças',   icon:'💰' },
   carteira:  { label:'Carteira',        section:'Finanças',   icon:'💼' },
   saidas:    { label:'Saídas',          section:'Finanças',   icon:'💸' },
   faturas:   { label:'Faturas',         section:'Finanças',   icon:'✅' },
+  metas:     { label:'Metas & Orçamentos', section:'Finanças', icon:'🎯' },
   perfil:    { label:'Meu Perfil',      section:'Pessoal',    icon:'👤' },
   admin:     { label:'Usuários',        section:'Sistema',    icon:'👥' },
   config:    { label:'Configurações',   section:'Sistema',    icon:'⚙️' },
@@ -856,6 +884,8 @@ function renderPage(id) {
   if(id==='entradas')  { renderEntradas(); return; }
   if(id==='carteira')  { renderCarteira(); return; }
   if(id==='saidas')    { renderSaidas(); return; }
+  if(id==='metas')     { if(typeof renderMetas==='function') renderMetas(); return; }
+  if(id==='relatorios'){ if(typeof renderRelatorios==='function') renderRelatorios(); return; }
   // Slightly heavier — use requestAnimationFrame to let UI update first
   if(id==='invest')    { requestAnimationFrame(()=>typeof renderInvestAtiva==='function'?renderInvestAtiva():null); return; }
   if(id==='perfil')    { requestAnimationFrame(()=>{ if(window._renderPerfil) window._renderPerfil(); }); return; }
@@ -863,6 +893,7 @@ function renderPage(id) {
   if(id==='config')    { if(typeof renderConfig==='function') renderConfig(); return; }
 }
 function renderAll() {
+  applyCatsCustom();
   const a=document.querySelector('.page.on');
   const id=a?a.id.replace('page-',''):'dash';
   renderPage(id);
@@ -959,13 +990,16 @@ function _planoCfg() {
   const divBR  = (P.divBRmensal!=null)   ? P.divBRmensal   : 0.70;
   const divIntl= (P.divIntlmensal!=null) ? P.divIntlmensal : 0.24;
   const yieldFor = b => b==='R'?fii/100 : b==='A'?divBR/100 : b==='A2'?divIntl/100 : 0;
+  // Dividendos: por ativo (campo dy %/mês) quando definido; senão, padrão do bucket. RF (C) não paga dividendo.
+  const divFor = a => a.bucket==='C' ? 0
+    : ((a.dy!=null && a.dy!=='' && !isNaN(parseFloat(a.dy))) ? parseFloat(a.dy)/100 : yieldFor(a.bucket));
   // Renda fixa (bucket C) rende juros compostos pela taxa do próprio ativo (índice × %).
   const rfFor = a => a.bucket==='C' ? (Math.pow(1+taxaAnual(a), 1/12) - 1) : 0;
   // Todos os ativos da carteira (marco é apenas uma flag — o ativo é "os 2")
   const assets = (D.ativos||[]).map((a,i)=>({
     idx:i, nome:a.nome||'Ativo', bucket:a.bucket||'C', valor:a.valor||0,
     marco:!!a.marco, limite:a.limite||0, ordem:a.ordem||0, indice:a.indice, pct:a.pct,
-    rfMensal: rfFor(a), divMensal: yieldFor(a.bucket), taxaAnual: taxaAnual(a)
+    rfMensal: rfFor(a), divMensal: divFor(a), dyProprio:(a.dy!=null&&a.dy!==''), taxaAnual: taxaAnual(a)
   }));
   // Marcos = ativos com a flag marco e limite>0, na ORDEM definida pelo usuário
   const marcos = assets.filter(a=>a.marco && a.limite>0).sort((x,y)=>(x.ordem-y.ordem)||(x.idx-y.idx));
@@ -980,11 +1014,33 @@ function _planoCfg() {
     metaRendaPassiva: P.metaRendaPassiva||10000, dataInicio: P.dataInicio, dataFim: P.dataFim,
     inflacaoAnual: D.ipca12||4, cdiAnual: D.cdi12||14.8,
     fiiMensal: fii, divBRmensal: divBR, divIntlmensal: divIntl,
-    assets, marcos, carteira, carteiraTotal, contas
+    assets, marcos, carteira, carteiraTotal, contas, contasFonte: P.contasFonte || 'real'
   };
 }
 
+// Gasto real (Fixas recorrentes + parcelas de Compras) de um mês "Mmm/aa".
+// Fixas projetam para o futuro (recorrentes); Compras só dentro do horizonte cadastrado.
+function gastosReaisDoMes(mesStr) {
+  const cur = parseMes(mesStr); if(!cur) return 0;
+  const curIdx = cur.y*12 + cur.m;
+  let total = 0;
+  (D.fixas||[]).forEach(f=>{
+    if(!f.ativo || (f.valor||0)<=0) return;
+    const desde = f.mesInicio ? parseMes(f.mesInicio) : null;
+    const ate   = f.mesFim    ? parseMes(f.mesFim)    : null;
+    const okIni = !desde || curIdx >= desde.y*12+desde.m;
+    const okFim = !ate   || curIdx <= ate.y*12+ate.m;
+    if(okIni && okFim) total += f.valor;
+  });
+  const idx = D.meses.indexOf(mesStr);
+  if(idx>=0) (D.compras||[]).filter(c=>c.ativo).forEach(c=>{ total += (calcValsCompra(c)[idx])||0; });
+  return total;
+}
+
 function contasDoMesPlano(P, mesStr) {
+  // Modo automático: lê suas Fixas + Compras reais do mês
+  if(P && P.contasFonte==='real') return gastosReaisDoMes(mesStr);
+  // Modo manual: contas específicas do plano
   let total = (P.contas && P.contas.permanentes) || 0;
   const cur = parseMes(mesStr), curIdx = cur.y*12 + cur.m;
   ((P.contas && P.contas.temporarias) || []).forEach(t => {
@@ -1279,12 +1335,17 @@ function renderPlanoAposentadoria() {
         <div class="field"><label class="flabel">Meta renda passiva /mês</label>${inp('D.planoAposentadoria.metaRendaPassiva',C.metaRendaPassiva)}</div>
         <div class="field"><label class="flabel">Data inicial</label>${inpTxt('D.planoAposentadoria.dataInicio',C.dataInicio)}</div>
         <div class="field"><label class="flabel">Data final</label>${inpTxt('D.planoAposentadoria.dataFim',C.dataFim)}</div>
+        <div class="field"><label class="flabel">Fonte das contas/despesas</label>
+          <select onchange="D.planoAposentadoria.contasFonte=this.value;_planoChanged()" style="width:100%">
+            <option value="real"${C.contasFonte==='real'?' selected':''}>Automático — suas Fixas + Compras</option>
+            <option value="manual"${C.contasFonte==='manual'?' selected':''}>Manual — contas do plano</option>
+          </select></div>
         <div class="field"><label class="flabel">Rendimento FIIs (%/mês)</label>${inp('D.planoAposentadoria.taxas.fiiMensal',+C.fiiMensal.toFixed(3),'0.01')}</div>
         <div class="field"><label class="flabel">Dividendos Ações BR (%/mês)</label>${inp('D.planoAposentadoria.divBRmensal',C.divBRmensal,'0.01')}</div>
         <div class="field"><label class="flabel">Dividendos Ações Intl (%/mês)</label>${inp('D.planoAposentadoria.divIntlmensal',C.divIntlmensal,'0.01')}</div>
       </div>
       <div style="padding:0 16px 14px;font-size:11px;color:var(--text3)">
-        💡 Tudo é dinâmico: o aporte mensal (renda − contas − meta CC) preenche os marcos <strong>na ordem definida</strong>, um por vez, até cada Meta. Ativos de renda fixa (Caixa) rendem juros pela própria taxa; FIIs e ações geram dividendos pelos yields acima.
+        💡 Tudo é dinâmico: o aporte mensal (renda − contas − meta CC) preenche os marcos <strong>na ordem definida</strong>, um por vez, até cada Meta. ${C.contasFonte==='real'?`As contas vêm das suas <strong>Fixas + Compras</strong> reais (mês atual: <strong>${fmt(gastosReaisDoMes(D.meses[getMesRefIdx()]||C.dataInicio))}</strong>; as fixas recorrentes projetam para o futuro).`:'As contas usam os valores manuais do plano.'} Dividendos podem ser definidos <strong>por ativo</strong> na Carteira (coluna “Div %/mês”); vazio usa o padrão do bucket.
       </div>
     </div>`;
   }
@@ -2063,6 +2124,134 @@ function renderDashboard() {
 
   // 🎯 Bloco Rumo à Aposentadoria
   renderDashAposentadoria();
+
+  // 🩺 Saúde financeira (insights dinâmicos)
+  renderInsights(mi);
+}
+
+// ═══════════════════════════════════════════════════
+//  🩺 SAÚDE FINANCEIRA — insights dinâmicos (derivados dos seus dados)
+// ═══════════════════════════════════════════════════
+function _gastosCatMes(mi){
+  const cats={};
+  (D.fixas||[]).filter(f=>f.ativo&&(f.valor||0)>0).forEach(f=>{ cats[f.cat]=(cats[f.cat]||0)+f.valor; });
+  (D.compras||[]).filter(c=>c.ativo).forEach(c=>{ const v=(calcValsCompra(c)[mi])||0; if(v) cats[c.cat]=(cats[c.cat]||0)+v; });
+  return cats;
+}
+function _gastoMes(mi){ return (totalFixasMes(mi)||0)+(totalComprasMes(mi)||0); }
+function _mediaGastos(){
+  let t=0,n=0; (D.meses||[]).forEach((m,i)=>{ const g=_gastoMes(i); if(g>0){t+=g;n++;} });
+  return n?t/n:0;
+}
+// Calcula insights dinâmicos para o mês `mi` (função pura — sem DOM)
+function finInsights(mi){
+  const out=[]; const push=(sev,icon,titulo,msg)=>out.push({sev,icon,titulo,msg});
+  const entrada=totalEMes(mi)||0, gastos=_gastoMes(mi), caixa=caixaAtual()||0, mediaG=_mediaGastos();
+
+  // 1) Taxa de poupança do mês
+  if(entrada>0){
+    const sr=(entrada-gastos)/entrada, pc=Math.round(sr*100);
+    if(sr<0) push('bad','📉','Gastos acima da renda',`Em ${D.meses[mi]} os gastos superaram a renda em ${fmt(gastos-entrada)}. Reveja parcelamentos.`);
+    else if(sr<0.10) push('warn','💸','Taxa de poupança baixa',`Você está guardando ${pc}% da renda neste mês. Mirar 20% acelera muito suas metas.`);
+    else if(sr>=0.20) push('good','🟢','Ótima taxa de poupança',`Você guarda ${pc}% da renda — acima dos 20% recomendados. Continue assim!`);
+    else push('info','💰','Poupança na média',`Você poupa ${pc}% da renda. Subir para 20% é a próxima meta natural.`);
+  }
+  // 2) Fôlego da reserva
+  if(mediaG>0){
+    const meses=caixa/mediaG, alvo=D.reservaMult||6;
+    if(meses<3) push('bad','🛟','Reserva curta',`Seu caixa cobre ~${meses.toFixed(1)} ${meses<2?'mês':'meses'} de gastos. O ideal é ${alvo}. Priorize a reserva antes de risco.`);
+    else if(meses<alvo) push('warn','🛟','Reserva em construção',`Seu caixa cobre ~${meses.toFixed(1)} meses; a meta é ${alvo}. Faltam ~${fmt(Math.max(0,mediaG*alvo-caixa))}.`);
+    else push('good','🛟','Reserva sólida',`Seu caixa cobre ~${meses.toFixed(1)} meses de gastos — acima da meta de ${alvo}.`);
+  }
+  // 3) Comprometimento da renda
+  if(entrada>0 && gastos>0){
+    const comp=gastos/entrada, pc=Math.round(comp*100);
+    if(comp>0.70) push('bad','⚠️','Renda muito comprometida',`${pc}% da renda do mês já está em contas e parcelas.`);
+    else if(comp>0.50) push('warn','⚠️','Renda comprometida',`${pc}% da renda do mês está em contas/parcelas. Tente manter abaixo de 50%.`);
+  }
+  // 4) Concentração de categoria
+  const cm=_gastosCatMes(mi), totalCat=Object.values(cm).reduce((s,v)=>s+v,0);
+  if(totalCat>0){
+    const top=Object.entries(cm).sort(([,a],[,b])=>b-a)[0], share=top[1]/totalCat;
+    if(share>0.45 && top[0]!=='cartao') push('info','🍰','Gasto concentrado',`${(CATS[top[0]]?.icon||'📦')} ${CATS[top[0]]?.label||top[0]} representa ${Math.round(share*100)}% dos gastos do mês.`);
+  }
+  // 5) Tendência vs mês anterior
+  if(mi>0){
+    const ant=_gastoMes(mi-1);
+    if(ant>0 && gastos>0){
+      const d=(gastos-ant)/ant;
+      if(d>0.15) push('warn','📈','Gastos subindo',`Seus gastos cresceram ${Math.round(d*100)}% vs ${D.meses[mi-1]}.`);
+      else if(d<-0.10) push('good','📉','Gastos em queda',`Seus gastos caíram ${Math.round(-d*100)}% vs ${D.meses[mi-1]}. Bom controle!`);
+    }
+  }
+  // 6) Drift ARCA (carteira real vs meta)
+  const bk={A:0,R:0,C:0,A2:0}; (D.ativos||[]).forEach(a=>{ bk[a.bucket]=(bk[a.bucket]||0)+(a.valor||0); });
+  const totA=bk.A+bk.R+bk.C+bk.A2;
+  if(totA>0 && D.arcaMeta){
+    const mt=D.arcaMeta, soma=(mt.a||0)+(mt.r||0)+(mt.c||0)+(mt.a2||0)||100;
+    const alvo={A:(mt.a||0)/soma,R:(mt.r||0)/soma,C:(mt.c||0)/soma,A2:(mt.a2||0)/soma};
+    const at={A:bk.A/totA,R:bk.R/totA,C:bk.C/totA,A2:bk.A2/totA};
+    let pior=null,dmax=0; ['A','R','C','A2'].forEach(b=>{ const dd=at[b]-alvo[b]; if(Math.abs(dd)>Math.abs(dmax)){dmax=dd;pior=b;} });
+    if(pior && Math.abs(dmax)>0.10){
+      const nome={A:'Ações BR',R:'FIIs',C:'Caixa',A2:'Internacionais'}[pior];
+      push('info','⚖️','Carteira fora da meta ARCA',`${nome} está ${Math.round(Math.abs(dmax)*100)}pp ${dmax>0?'acima':'abaixo'} da meta. ${dmax>0?'Aporte nas outras classes para reequilibrar':'Reforce essa classe nos próximos aportes'}.`);
+    }
+  }
+  // 7) Ritmo da aposentadoria
+  try{
+    const plano=calcularPlanoAposentadoria();
+    if(plano && plano.resumo){
+      const pm=Math.round(plano.resumo.pctMeta||0);
+      if(plano.resumo.dataApos) push('good','🎯','Aposentadoria no radar',`No ritmo atual, sua renda passiva atinge a meta em ${plano.resumo.dataApos} (${pm}% hoje).`);
+      else if(pm>0) push('info','🎯','Rumo à independência',`Sua renda passiva está em ${pm}% da meta mensal. Ordene seus marcos para acelerar.`);
+    }
+  }catch(e){}
+
+  // 8) Orçamentos estourados no mês
+  try{
+    const O=orcamentoInfo(mi); const estouro=O.linhas.filter(l=>l.over);
+    if(estouro.length===1) push('warn','📊','Orçamento estourado',`${estouro[0].icon} ${estouro[0].label} passou do limite: ${fmt(estouro[0].gasto)} de ${fmt(estouro[0].limite)}.`);
+    else if(estouro.length>1) push('warn','📊','Orçamentos estourados',`${estouro.length} categorias passaram do limite do mês: ${estouro.slice(0,3).map(l=>l.label).join(', ')}${estouro.length>3?'…':''}.`);
+  }catch(e){}
+  // 9) Objetivo perto de ser concluído
+  try{
+    (D.metas||[]).forEach(m=>{ const mi2=metaInfo(m); if(mi2.pct>=80 && !mi2.concluida) push('info','🎯',`Objetivo quase lá: ${m.nome}`,`${Math.round(mi2.pct)}% concluído — faltam ${fmt(mi2.faltam)}.`); });
+  }catch(e){}
+
+  const rank={bad:0,warn:1,info:2,good:3};
+  out.sort((a,b)=>rank[a.sev]-rank[b.sev]);
+  return { score:(typeof scoreFinanceiro==='function'?scoreFinanceiro():0), insights:out,
+    metricas:{entrada,gastos,caixa,mediaGastos:mediaG} };
+}
+function renderInsights(mi){
+  const el=document.getElementById('dash-insights'); if(!el) return;
+  const R=finInsights(mi);
+  const cor={bad:'var(--neg)',warn:'var(--warn)',info:'var(--info)',good:'var(--pos)'};
+  const bg ={bad:'var(--neg-bg)',warn:'var(--warn-bg)',info:'var(--card2)',good:'var(--pos-bg)'};
+  const score=Math.round(R.score||0), scCor=score>=70?'var(--brand)':score>=40?'var(--warn)':'var(--neg)';
+  const cards=R.insights.length? R.insights.map(it=>`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:11px 13px;background:${bg[it.sev]};border:1px solid ${cor[it.sev]}33;border-left:3px solid ${cor[it.sev]};border-radius:var(--r10)">
+      <span style="font-size:17px;flex-shrink:0;line-height:1.2">${it.icon}</span>
+      <div style="min-width:0"><div style="font-size:12.5px;font-weight:700;color:${cor[it.sev]}">${it.titulo}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:1px">${it.msg}</div></div>
+    </div>`).join('') :
+    `<div style="font-size:12px;color:var(--text3);padding:14px;text-align:center">Cadastre entradas, contas e investimentos para receber análises automáticas aqui.</div>`;
+  el.innerHTML=`<div class="panel" style="margin-bottom:20px">
+    <div class="panel-head"><span class="panel-title">🩺 Saúde financeira</span>
+      <span class="panel-badge" style="background:${scCor}22;color:${scCor}">Score ${score}/100</span></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:${R.insights.length?14:0}px;font-size:11px;color:var(--text3)">
+        <span>Análise de <strong style="color:var(--text2)">${D.meses[mi]}</strong> · atualiza com seus dados.</span>
+        <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">Reserva-alvo:
+          <input type="number" min="1" max="24" step="1" value="${D.reservaMult||6}" onchange="setReservaMult(this.value)" style="width:54px;text-align:center;height:26px"> meses</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:9px">${cards}</div>
+    </div>
+  </div>`;
+}
+function setReservaMult(v){
+  const n=Math.max(1,Math.min(24,parseInt(v)||6));
+  D.reservaMult=n; scheduleAutoSave(); renderDashboard();
 }
 
 // Renderiza lista de gastos para o dashboard
@@ -2298,6 +2487,7 @@ function abrirModalEntrada(ei=-1) {
   document.getElementById('me-valor').value=e.valor||'';
   document.getElementById('me-tipo').value=e.tipo||'mensal';
   document.getElementById('me-dia').value=e.dia||1;
+  { const _s=document.getElementById('me-cat'); if(_s) _s.innerHTML=optsCats(CATS_ENTRADA, e.cat||'salario'); }
   document.getElementById('me-cat').value=e.cat||'salario';
   // Para anual/unico: restaura mês
   const mesAbrev = e.mes&&e.mes.includes('/') ? e.mes.split('/')[0] : (e.mes||'');
@@ -2665,6 +2855,7 @@ function abrirModalFixa(fi=-1) {
   const f=fi>=0?D.fixas[fi]:{nome:'',cat:'outros',valor:0,ativo:true,mesInicio:'',mesFim:''};
   document.getElementById('modal-fixa-overlay').style.display='flex';
   document.getElementById('mf-nome').value=f.nome;
+  { const _s=document.getElementById('mf-cat'); if(_s) _s.innerHTML=optsCats(CATS, f.cat||'outros'); }
   document.getElementById('mf-cat').value=f.cat||'outros';
   document.getElementById('mf-valor').value=f.valor||'';
   // Período
@@ -2716,6 +2907,7 @@ function abrirModalCompra(ci=-1) {
   const c=ci>=0?D.compras[ci]:{nome:'',cat:'cartao',cartao:'',valor:0,parcelas:1,dataCompra:new Date().toISOString().slice(0,10),ativo:true};
   document.getElementById('modal-compra-overlay').style.display='flex';
   document.getElementById('mc-nome').value=c.nome;
+  { const _s=document.getElementById('mc-cat'); if(_s) _s.innerHTML=optsCats(CATS, c.cat||'cartao'); }
   document.getElementById('mc-cat').value=c.cat||'cartao';
   document.getElementById('mc-cartao').innerHTML='<option value="">— Sem cartão (débito/pix) —</option>'+D.cartoes.map(ct=>`<option value="${ct.nome}"${c.cartao===ct.nome?' selected':''}>${ct.nome}</option>`).join('');
   document.getElementById('mc-cartao').value=c.cartao||'';
@@ -3174,6 +3366,404 @@ function getMesAtualIdx() {
 }
 
 // ── CONFIG PAGE ─────────────────────────────────
+// ═══════════════════════════════════════════════════
+//  📄 RELATÓRIOS (Onda 4)
+// ═══════════════════════════════════════════════════
+let selRelMes = null; // índice do mês do relatório (null = mês de referência)
+let selRelAno = null;
+
+// Relatório mensal completo (puro)
+function relatorioMensal(mi){
+  const entradas=totalEMes(mi)||0;
+  const saidas=(totalFixasMes(mi)||0)+(totalComprasMes(mi)||0);
+  const sobra=entradas-saidas;
+  const taxaPoupanca=entradas>0?(sobra/entradas)*100:0;
+  // categorias
+  const cm=_gastosCatMes(mi); const totCat=Object.values(cm).reduce((s,v)=>s+v,0);
+  const categorias=Object.entries(cm).filter(([,v])=>v>0).sort(([,a],[,b])=>b-a)
+    .map(([k,v])=>({cat:k,icon:CATS[k]?.icon||'📦',label:CATS[k]?.label||k,cor:catColor(k),valor:v,pct:totCat>0?(v/totCat)*100:0}));
+  // orçamentos (somente os definidos)
+  const O=orcamentoInfo(mi); const orcamentos=O.linhas.filter(l=>l.limite>0);
+  // patrimônio e buckets
+  const pat=patrimonioLiquido();
+  const buckets={C:0,R:0,A:0,A2:0}; (D.ativos||[]).forEach(a=>{buckets[a.bucket]=(buckets[a.bucket]||0)+(a.valor||0);});
+  // renda passiva (do plano, snapshot atual)
+  let rendaPassiva=0; try{ const p=calcularPlanoAposentadoria(); if(p&&p.atual) rendaPassiva=p.atual.rendaPassiva||0; }catch(e){}
+  // metas
+  const metas=(D.metas||[]).map(m=>{const I=metaInfo(m);return {nome:m.nome,icon:m.icon||'🎯',pct:I.pct,atual:I.atual,alvo:I.alvo,concluida:I.concluida};});
+  // saúde
+  let score=0, insights=[]; try{ const F=finInsights(mi); score=F.score; insights=F.insights.slice(0,5); }catch(e){}
+  return { mi, mes:D.meses[mi]||'', entradas, saidas, sobra, taxaPoupanca, categorias,
+    orcamentos, totalOrcado:O.totalOrcado, totalGastoOrc:O.totalGasto,
+    patrimonio:pat, buckets, rendaPassiva, metas, score, insights };
+}
+
+// Evolução anual (puro)
+function relatorioAnual(ano){
+  const meses=getMesesAno(String(ano)).map(({m,i})=>{
+    const entrada=totalEMes(i)||0, saida=(totalFixasMes(i)||0)+(totalComprasMes(i)||0);
+    return {mes:m, entrada, saida, sobra:entrada-saida};
+  });
+  const totEntrada=meses.reduce((s,r)=>s+r.entrada,0);
+  const totSaida=meses.reduce((s,r)=>s+r.saida,0);
+  return { ano, meses, totEntrada, totSaida, totSobra:totEntrada-totSaida };
+}
+
+function setRelMes(v){ selRelMes=parseInt(v); renderRelatorios(); }
+function setRelAno(v){ selRelAno=v; renderRelEvolucao(); }
+function printRelatorio(){
+  document.body.classList.add('printing-report');
+  setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('printing-report'),300); },80);
+}
+
+function renderRelatorios(){
+  // popula seletor de mês
+  const sel=document.getElementById('rel-mes');
+  if(sel){
+    const ref=(selRelMes==null)?getMesRefIdx():selRelMes;
+    sel.innerHTML=D.meses.map((m,i)=>`<option value="${i}"${i===ref?' selected':''}>${m}${i===getMesRefIdx()?' (atual)':''}</option>`).join('');
+  }
+  renderRelMensal();
+  renderRelEvolucao();
+}
+
+function renderRelMensal(){
+  const el=document.getElementById('report-print'); if(!el) return;
+  const mi=(selRelMes==null)?getMesRefIdx():selRelMes;
+  const R=relatorioMensal(mi);
+  const hoje=new Date().toLocaleDateString('pt-BR');
+  const scCor=R.score>=70?'var(--brand)':R.score>=40?'var(--warn)':'var(--neg)';
+  const srCor=R.taxaPoupanca<0?'var(--neg)':R.taxaPoupanca<10?'var(--warn)':'var(--pos)';
+  const card=(inner)=>`<div class="rep-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r14);padding:16px;margin-bottom:14px">${inner}</div>`;
+  const kpi=(label,val,cor)=>`<div style="flex:1;min-width:130px"><div style="font-size:11px;color:var(--text2)">${label}</div><div style="font-size:20px;font-weight:800;color:${cor||'var(--text)'}">${val}</div></div>`;
+  const sevCor={bad:'var(--neg)',warn:'var(--warn)',info:'var(--info)',good:'var(--pos)'};
+
+  const resumo=card(`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div><div style="font-size:18px;font-weight:800">Relatório de ${R.mes}</div>
+        <div style="font-size:11px;color:var(--text3)">Gerado em ${hoje} · FinançasPRO</div></div>
+      <div style="text-align:right"><div style="font-size:11px;color:var(--text2)">Score de saúde</div>
+        <div style="font-size:22px;font-weight:800;color:${scCor}">${Math.round(R.score)}/100</div></div>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border)">
+      ${kpi('Entradas',fmt(R.entradas),'var(--pos)')}
+      ${kpi('Saídas',fmt(R.saidas),'var(--neg)')}
+      ${kpi('Sobra do mês',fmt(R.sobra),R.sobra>=0?'var(--brand)':'var(--neg)')}
+      ${kpi('Taxa de poupança',`${Math.round(R.taxaPoupanca)}%`,srCor)}
+    </div>`);
+
+  const catRows=R.categorias.length?R.categorias.map(c=>`<tr>
+      <td style="white-space:nowrap"><span style="font-size:14px">${c.icon}</span> ${c.label}</td>
+      <td class="tr" style="font-weight:600">${fmt(c.valor)}</td>
+      <td class="tr" style="color:var(--text2)">${Math.round(c.pct)}%</td>
+      <td style="width:120px"><div style="height:7px;background:var(--card3);border-radius:99px;overflow:hidden"><div style="height:7px;width:${Math.min(100,c.pct)}%;background:${c.cor};border-radius:99px"></div></div></td>
+    </tr>`).join(''):`<tr><td colspan="4" style="color:var(--text3);font-size:12px">Sem gastos registrados neste mês.</td></tr>`;
+  const categorias=card(`<div style="font-size:14px;font-weight:700;margin-bottom:10px">💸 Gastos por categoria</div>
+    <table style="width:100%"><thead><tr><th>Categoria</th><th class="tr">Valor</th><th class="tr">%</th><th></th></tr></thead><tbody>${catRows}</tbody></table>`);
+
+  const orcamentos=R.orcamentos.length?card(`<div style="font-size:14px;font-weight:700;margin-bottom:10px">📊 Orçamentos · ${fmt(R.totalGastoOrc)} de ${fmt(R.totalOrcado)}</div>
+    <table style="width:100%"><thead><tr><th>Categoria</th><th class="tr">Gasto</th><th class="tr">Limite</th><th class="tr">Uso</th></tr></thead><tbody>
+    ${R.orcamentos.map(l=>{const cor=l.over?'var(--neg)':l.pct>=80?'var(--warn)':'var(--pos)';return `<tr>
+      <td>${l.icon} ${l.label}</td><td class="tr">${fmt(l.gasto)}</td><td class="tr">${fmt(l.limite)}</td>
+      <td class="tr" style="color:${cor};font-weight:700">${Math.round(l.pct)}%${l.over?' ⚠️':''}</td></tr>`;}).join('')}
+    </tbody></table>`):'';
+
+  const patrimonio=card(`<div style="font-size:14px;font-weight:700;margin-bottom:10px">📈 Patrimônio & investimentos</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+      ${kpi('Ativos',fmt(R.patrimonio.ativos))}
+      ${kpi('Em aberto (compras)',fmt(R.patrimonio.passivos),'var(--warn)')}
+      ${kpi('Patrimônio líquido',fmt(R.patrimonio.liquido),'var(--brand)')}
+      ${kpi('Renda passiva/mês',fmt(R.rendaPassiva),'var(--pos)')}
+    </div>
+    <div style="font-size:12px;color:var(--text2)">Distribuição: 💵 Caixa ${fmtK(R.buckets.C)} · 🏢 FIIs ${fmtK(R.buckets.R)} · 🇧🇷 Ações BR ${fmtK(R.buckets.A)} · 🌎 Intl ${fmtK(R.buckets.A2)}</div>`);
+
+  const metas=R.metas.length?card(`<div style="font-size:14px;font-weight:700;margin-bottom:10px">🎯 Objetivos</div>
+    ${R.metas.map(m=>`<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>${m.icon} ${m.nome}</span><span style="font-weight:700;color:${m.concluida?'var(--pos)':'var(--text)'}">${fmtK(m.atual)} / ${fmtK(m.alvo)} · ${Math.round(m.pct)}%</span></div>
+      <div style="height:7px;background:var(--card3);border-radius:99px;overflow:hidden"><div style="height:7px;width:${Math.min(100,m.pct)}%;background:${m.concluida?'var(--pos)':'var(--brand)'};border-radius:99px"></div></div>
+    </div>`).join('')}`):'';
+
+  const insights=R.insights.length?card(`<div style="font-size:14px;font-weight:700;margin-bottom:10px">🩺 Destaques</div>
+    ${R.insights.map(it=>`<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:7px">
+      <span>${it.icon}</span><div><strong style="font-size:12px;color:${sevCor[it.sev]}">${it.titulo}.</strong> <span style="font-size:12px;color:var(--text2)">${it.msg}</span></div></div>`).join('')}`):'';
+
+  el.innerHTML=resumo+categorias+orcamentos+patrimonio+metas+insights;
+}
+
+function renderRelEvolucao(){
+  const el=document.getElementById('rel-evolucao'); if(!el) return;
+  const anos=getYears(); if(!anos.length){ el.innerHTML=''; return; }
+  const ano=selRelAno&&anos.includes(selRelAno)?selRelAno:anos[0];
+  const A=relatorioAnual(ano);
+  const maxAbs=Math.max(1,...A.meses.map(r=>Math.max(r.entrada,r.saida)));
+  el.innerHTML=`<div class="panel">
+    <div class="panel-head"><span class="panel-title">📅 Evolução ${ano}</span>
+      <select onchange="setRelAno(this.value)" style="height:30px;font-size:12px">${anos.map(y=>`<option value="${y}"${y===ano?' selected':''}>${y}</option>`).join('')}</select></div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+        <div><div style="font-size:11px;color:var(--text2)">Entradas no ano</div><div style="font-size:18px;font-weight:800;color:var(--pos)">${fmt(A.totEntrada)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Saídas no ano</div><div style="font-size:18px;font-weight:800;color:var(--neg)">${fmt(A.totSaida)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Sobra no ano</div><div style="font-size:18px;font-weight:800;color:${A.totSobra>=0?'var(--brand)':'var(--neg)'}">${fmt(A.totSobra)}</div></div>
+      </div>
+      <div class="scroll"><table style="width:100%"><thead><tr><th>Mês</th><th class="tr">Entradas</th><th class="tr">Saídas</th><th class="tr">Sobra</th><th style="width:160px">Balanço</th></tr></thead><tbody>
+      ${A.meses.map(r=>`<tr>
+        <td style="white-space:nowrap;font-weight:600">${r.mes}</td>
+        <td class="tr" style="color:var(--pos)">${fmt(r.entrada)}</td>
+        <td class="tr" style="color:var(--neg)">${fmt(r.saida)}</td>
+        <td class="tr" style="font-weight:700;color:${r.sobra>=0?'var(--brand)':'var(--neg)'}">${fmt(r.sobra)}</td>
+        <td><div style="display:flex;gap:2px;align-items:center;height:14px">
+          <div style="flex:1;display:flex;justify-content:flex-end"><div style="height:9px;width:${(r.entrada/maxAbs)*100}%;background:var(--pos);border-radius:2px"></div></div>
+          <div style="flex:1"><div style="height:9px;width:${(r.saida/maxAbs)*100}%;background:var(--neg);border-radius:2px"></div></div>
+        </div></td>
+      </tr>`).join('')}
+      </tbody></table></div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  🎯 METAS & ORÇAMENTOS (Onda 3)
+// ═══════════════════════════════════════════════════
+
+// Valor atual de uma meta conforme a fonte escolhida
+function metaValorAtual(meta){
+  switch(meta.fonte){
+    case 'caixa':      return caixaAtual();
+    case 'patrimonio': { const p=patrimonioLiquido(); return (p&&typeof p==='object')?p.liquido:(p||0); }
+    case 'ativo':      { const a=(D.ativos||[]).find(x=>x.nome===meta.ativoNome); return a?(a.valor||0):0; }
+    default:           return meta.valorAtual||0; // manual
+  }
+}
+// Resumo calculado de uma meta (puro)
+function metaInfo(meta){
+  const atual=metaValorAtual(meta), alvo=meta.valorAlvo||0;
+  const pct=alvo>0?Math.min(100,(atual/alvo)*100):0;
+  const faltam=Math.max(0,alvo-atual);
+  const concluida=alvo>0 && atual>=alvo;
+  let mesesRest=null, porMes=null, atrasada=false;
+  const pz=meta.prazo?parseMes(meta.prazo):null;
+  if(pz){
+    const hoje=new Date(), hojeIdx=hoje.getFullYear()*12+(hoje.getMonth()+1);
+    mesesRest=(pz.y*12+pz.m)-hojeIdx;
+    if(!concluida){
+      if(mesesRest>0) porMes=faltam/mesesRest;
+      else { atrasada=true; porMes=faltam; }
+    }
+  }
+  return { atual, alvo, pct, faltam, concluida, mesesRest, porMes, atrasada };
+}
+// Resumo de orçamentos para o mês `mi` (puro)
+function orcamentoInfo(mi){
+  const gastos=_gastosCatMes(mi); // {cat: valor}
+  const orc=D.orcamentos||{};
+  const linhas=[]; let totalOrcado=0, totalGasto=0;
+  Object.keys(CATS).forEach(cat=>{
+    const limite=orc[cat]||0, gasto=gastos[cat]||0;
+    if(limite>0){ totalOrcado+=limite; totalGasto+=gasto; }
+    linhas.push({ cat, icon:CATS[cat]?.icon||'📦', label:CATS[cat]?.label||cat,
+      cor:catColor(cat), limite, gasto,
+      pct: limite>0?Math.min(999,(gasto/limite)*100):0, over: limite>0 && gasto>limite });
+  });
+  // categorias com orçamento primeiro, depois maior gasto
+  linhas.sort((a,b)=> (b.limite>0)-(a.limite>0) || b.gasto-a.gasto);
+  return { linhas, totalOrcado, totalGasto, mes:D.meses[mi]||'' };
+}
+
+// ── CRUD Metas ──
+function addMeta(){
+  if(!Array.isArray(D.metas)) D.metas=[];
+  const mesAtual=D.meses[getMesRefIdx()]||'';
+  D.metas.push({ id:'m'+Date.now().toString(36), nome:'Novo objetivo', icon:'🎯',
+    valorAlvo:10000, valorAtual:0, prazo:'', fonte:'manual', ativoNome:'', cor:'#00D4AA', criadaEm:mesAtual });
+  scheduleAutoSave(); renderObjetivos();
+}
+function setMetaField(id, field, val){
+  const m=(D.metas||[]).find(x=>x.id===id); if(!m) return;
+  if(['valorAlvo','valorAtual'].includes(field)) val=parseFloat(val)||0;
+  m[field]=val;
+  scheduleAutoSave(); renderObjetivos();
+}
+async function removeMeta(id){
+  const m=(D.metas||[]).find(x=>x.id===id);
+  if(!await uiConfirm(`Remover o objetivo <strong>"${m?m.nome:''}"</strong>?`,{icon:'🎯',okText:'Remover'})) return;
+  D.metas=(D.metas||[]).filter(x=>x.id!==id);
+  scheduleAutoSave(); renderObjetivos(); toast('Objetivo removido',true,'🗑️');
+}
+// ── Orçamentos ──
+function setOrcamento(cat, val){
+  if(!D.orcamentos || typeof D.orcamentos!=='object') D.orcamentos={};
+  const v=parseFloat(val)||0;
+  if(v>0) D.orcamentos[cat]=v; else delete D.orcamentos[cat];
+  scheduleAutoSave(); renderOrcamentos();
+}
+
+// ── RENDER ──
+function renderMetas(){ renderObjetivos(); renderOrcamentos(); }
+
+function renderObjetivos(){
+  const el=document.getElementById('metas-objetivos'); if(!el) return;
+  const metas=D.metas||[];
+  const fontes=[['manual','✍️ Manual'],['caixa','💵 Caixa/Reserva'],['patrimonio','📊 Patrimônio total'],['ativo','💼 Ativo específico']];
+  const cards=metas.map(m=>{
+    const I=metaInfo(m);
+    const barCor=I.concluida?'var(--pos)':I.atrasada?'var(--neg)':'var(--brand)';
+    const ativoOpts=(D.ativos||[]).map(a=>`<option value="${(a.nome||'').replace(/"/g,'&quot;')}"${a.nome===m.ativoNome?' selected':''}>${a.nome||'(sem nome)'}</option>`).join('');
+    const rodape = I.concluida
+      ? `<div style="font-size:12px;font-weight:700;color:var(--pos)">✅ Objetivo concluído!</div>`
+      : `<div style="font-size:11px;color:var(--text2)">Faltam <strong style="color:var(--text)">${fmt(I.faltam)}</strong>${
+          I.porMes!=null?` · guardar <strong style="color:${I.atrasada?'var(--neg)':'var(--accent)'}">${fmt(I.porMes)}/mês</strong>${I.mesesRest!=null?(I.atrasada?` (prazo vencido)`:` por ${I.mesesRest} ${I.mesesRest===1?'mês':'meses'}`):''}`:''}</div>`;
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r14);padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input type="text" value="${(m.icon||'🎯').replace(/"/g,'&quot;')}" maxlength="2" onchange="setMetaField('${m.id}','icon',this.value)" style="width:42px;text-align:center;font-size:18px">
+        <input type="text" value="${(m.nome||'').replace(/"/g,'&quot;')}" onchange="setMetaField('${m.id}','nome',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:14px">
+        <button class="btn-rm" title="Remover" onclick="removeMeta('${m.id}')">✕</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <span style="font-size:18px;font-weight:800;color:${barCor}">${fmtK(I.atual)}</span>
+        <span style="font-size:12px;color:var(--text2)">de ${fmtK(I.alvo)} · ${Math.round(I.pct)}%</span>
+      </div>
+      <div style="height:9px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:10px">
+        <div style="height:9px;width:${Math.min(100,I.pct)}%;background:${barCor};border-radius:99px;transition:width .5s"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-bottom:10px">
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Valor-alvo (R$)</label>
+          <input type="number" step="100" value="${m.valorAlvo||0}" onchange="setMetaField('${m.id}','valorAlvo',this.value)"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prazo (Mmm/aa)</label>
+          <input type="text" placeholder="Dez/27" value="${m.prazo||''}" onchange="setMetaField('${m.id}','prazo',this.value.trim())"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Fonte do valor atual</label>
+          <select onchange="setMetaField('${m.id}','fonte',this.value)">${fontes.map(([v,l])=>`<option value="${v}"${m.fonte===v?' selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="field" style="margin:0">${
+          m.fonte==='manual'
+            ? `<label class="flabel" style="font-size:10px">Valor atual (R$)</label><input type="number" step="100" value="${m.valorAtual||0}" onchange="setMetaField('${m.id}','valorAtual',this.value)">`
+            : m.fonte==='ativo'
+              ? `<label class="flabel" style="font-size:10px">Ativo</label><select onchange="setMetaField('${m.id}','ativoNome',this.value)"><option value="">— escolher —</option>${ativoOpts}</select>`
+              : `<label class="flabel" style="font-size:10px">Cor</label><input type="color" value="${m.cor||'#00D4AA'}" onchange="setMetaField('${m.id}','cor',this.value)" style="width:46px;height:32px;padding:2px;background:transparent;border:1px solid var(--border);border-radius:6px;cursor:pointer">`
+        }</div>
+      </div>
+      ${rodape}
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="panel">
+    <div class="panel-head"><span class="panel-title">🎯 Objetivos</span>
+      <button class="btn btn-pri" style="height:32px;font-size:13px" onclick="addMeta()">+ Novo objetivo</button></div>
+    <div style="padding:16px">
+      ${metas.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px">${cards}</div>`
+        :`<div class="empty" style="padding:24px"><div class="empty-icon">🎯</div><div class="empty-text">Crie seu primeiro objetivo: uma viagem, um carro, a entrada de um imóvel, a independência financeira. Acompanhe o progresso ligado ao seu caixa, patrimônio ou um ativo.</div></div>`}
+    </div>
+  </div>`;
+}
+
+function renderOrcamentos(){
+  const el=document.getElementById('metas-orcamentos'); if(!el) return;
+  const mi=getMesRefIdx();
+  const O=orcamentoInfo(mi);
+  const pctTotal=O.totalOrcado>0?Math.min(999,(O.totalGasto/O.totalOrcado)*100):0;
+  const corTot=pctTotal>100?'var(--neg)':pctTotal>=80?'var(--warn)':'var(--pos)';
+  const linhas=O.linhas.map(l=>{
+    const ativo=l.limite>0;
+    const cor=l.over?'var(--neg)':l.pct>=80?'var(--warn)':'var(--pos)';
+    return `<tr>
+      <td style="white-space:nowrap"><span style="font-size:15px">${l.icon}</span> <strong style="font-size:13px">${l.label}</strong></td>
+      <td class="tr" style="color:${l.gasto>0?'var(--text)':'var(--text3)'}">${fmt(l.gasto)}</td>
+      <td style="width:130px"><input type="number" step="50" min="0" placeholder="sem limite" value="${l.limite||''}" onchange="setOrcamento('${l.cat}',this.value)" style="width:120px;text-align:right"></td>
+      <td style="min-width:160px">${ativo?`
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:8px;background:var(--card3);border-radius:99px;overflow:hidden">
+            <div style="height:8px;width:${Math.min(100,l.pct)}%;background:${cor};border-radius:99px"></div></div>
+          <span style="font-size:11px;font-weight:700;color:${cor};min-width:54px;text-align:right">${Math.round(l.pct)}%${l.over?' ⚠️':''}</span>
+        </div>`:`<span style="font-size:11px;color:var(--text3)">defina um limite para acompanhar</span>`}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<div class="panel">
+    <div class="panel-head"><span class="panel-title">📊 Orçamentos por categoria</span>
+      <span class="panel-badge">${O.mes}</span></div>
+    <div style="padding:14px 16px">
+      ${O.totalOrcado>0?`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;background:var(--card2);border-radius:var(--r10)">
+        <div><div style="font-size:11px;color:var(--text2)">Total orçado</div><div style="font-size:18px;font-weight:800">${fmt(O.totalOrcado)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2)">Total gasto</div><div style="font-size:18px;font-weight:800;color:${corTot}">${fmt(O.totalGasto)}</div></div>
+        <div style="flex:1;min-width:160px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px"><span>Uso do orçamento</span><span style="font-weight:700;color:${corTot}">${Math.round(pctTotal)}%</span></div>
+          <div style="height:9px;background:var(--card3);border-radius:99px;overflow:hidden"><div style="height:9px;width:${Math.min(100,pctTotal)}%;background:${corTot};border-radius:99px"></div></div>
+        </div>
+      </div>`:`<div style="font-size:12px;color:var(--text2);margin-bottom:12px">Defina um limite mensal nas categorias abaixo para acompanhar seus gastos do mês de referência (<strong>${O.mes}</strong>) e receber alertas de estouro.</div>`}
+      <div class="scroll"><table style="width:100%">
+        <thead><tr><th>Categoria</th><th class="tr">Gasto no mês</th><th class="tr">Limite/mês</th><th>Uso</th></tr></thead>
+        <tbody>${linhas}</tbody>
+      </table></div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  🏷️ CATEGORIAS EDITÁVEIS (Onda 2)
+// ═══════════════════════════════════════════════════
+function _resolveCor(cor){
+  const map={'var(--neg)':'#EF4444','var(--pos)':'#10B981','var(--warn)':'#F5A623','var(--info)':'#38BDF8',
+    'var(--brand)':'#00D4AA','var(--violet)':'#7C6FCD','var(--teal)':'#06B6D4','var(--rose)':'#F0516B','var(--amber)':'#F5A623'};
+  return map[cor] || (/^#/.test(cor||'')?cor:'#6B7280');
+}
+function _storeFor(tipo){ return tipo==='ent' ? 'catsCustomEnt' : 'catsCustom'; }
+function _baseFor(tipo){ return tipo==='ent' ? CATS_ENTRADA_BASE : CATS_BASE; }
+function _dictFor(tipo){ return tipo==='ent' ? CATS_ENTRADA : CATS; }
+
+function setCatField(tipo, key, field, val){
+  const store=_storeFor(tipo), base=_baseFor(tipo), dict=_dictFor(tipo);
+  if(!D[store] || typeof D[store]!=='object') D[store]={};
+  if(!D[store][key]){ // primeira edição de uma padrão → cria override a partir do atual
+    const cur=dict[key]||base[key]||{label:key,icon:'🏷️',cor:'#6B7280'};
+    D[store][key]={label:cur.label,icon:cur.icon,cor:cur.cor};
+  }
+  D[store][key][field]=val;
+  applyCatsCustom(); scheduleAutoSave(); renderCategorias();
+}
+function addCategoria(tipo){
+  const store=_storeFor(tipo);
+  if(!D[store] || typeof D[store]!=='object') D[store]={};
+  const key='c_'+Date.now().toString(36);
+  D[store][key]={label:'Nova categoria', icon:'🏷️', cor:'#EC4899'};
+  applyCatsCustom(); scheduleAutoSave(); renderCategorias();
+}
+async function removeCategoria(tipo,key){
+  const store=_storeFor(tipo);
+  if(!await uiConfirm('Remover esta categoria? Lançamentos que a usavam passam a exibir o código da categoria até serem reclassificados.',{icon:'🏷️',okText:'Remover'})) return;
+  if(D[store]) delete D[store][key];
+  applyCatsCustom(); scheduleAutoSave(); renderAll();
+}
+function resetCategoria(tipo,key){
+  const store=_storeFor(tipo);
+  if(D[store]) delete D[store][key];
+  applyCatsCustom(); scheduleAutoSave(); renderCategorias();
+}
+function renderCategorias(){
+  const el=document.getElementById('config-categorias'); if(!el) return;
+  applyCatsCustom();
+  const linha=(tipo,key,v)=>{
+    const base=_baseFor(tipo); const isDefault=(key in base);
+    const store=_storeFor(tipo); const overridden=isDefault && D[store] && D[store][key];
+    const acao = !isDefault
+      ? `<button class="btn-rm" title="Remover" onclick="removeCategoria('${tipo}','${key}')">✕</button>`
+      : (overridden ? `<button class="btn btn-ghost" style="height:26px;font-size:11px;padding:2px 8px" title="Voltar ao padrão" onclick="resetCategoria('${tipo}','${key}')">↺</button>` : `<span style="font-size:10px;color:var(--text3)">padrão</span>`);
+    return `<tr>
+      <td><input type="text" value="${(v.icon||'🏷️').replace(/"/g,'&quot;')}" onchange="setCatField('${tipo}','${key}','icon',this.value)" style="width:46px;text-align:center;font-size:16px" maxlength="2"></td>
+      <td><input type="text" value="${(v.label||key).replace(/"/g,'&quot;')}" onchange="setCatField('${tipo}','${key}','label',this.value)" style="min-width:150px;font-weight:600"></td>
+      <td><input type="color" value="${_resolveCor(v.cor)}" onchange="setCatField('${tipo}','${key}','cor',this.value)" style="width:42px;height:28px;padding:2px;cursor:pointer;background:transparent;border:1px solid var(--border);border-radius:6px"></td>
+      <td style="font-family:monospace;font-size:11px;color:var(--text3)">${key}</td>
+      <td style="text-align:right">${acao}</td>
+    </tr>`;
+  };
+  const tabela=(tipo,dict,titulo,icon)=>`
+    <div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--text2)">${icon} ${titulo} <span style="color:var(--text3);font-weight:500">(${Object.keys(dict).length})</span></div>
+    <div class="scroll" style="margin-bottom:8px"><table style="width:100%">
+      <thead><tr><th style="width:46px">Ícone</th><th>Nome</th><th style="width:50px">Cor</th><th>Código</th><th></th></tr></thead>
+      <tbody>${Object.entries(dict).map(([k,v])=>linha(tipo,k,v)).join('')}</tbody>
+    </table></div>
+    <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="addCategoria('${tipo}')">+ Nova categoria</button>`;
+  el.innerHTML=`<div class="g2" style="gap:24px;align-items:start">
+    <div>${tabela('exp',CATS,'Despesas','💸')}</div>
+    <div>${tabela('ent',CATS_ENTRADA,'Entradas','💰')}</div>
+  </div>`;
+}
+
 function renderConfig() {
   // Dias de corte
   const dc=document.getElementById('config-diacorte');if(dc)dc.value=D.diaCorte||20;
@@ -3183,6 +3773,9 @@ function renderConfig() {
   // Parâmetros
   const mcc=document.getElementById('config-metaCC');if(mcc)mcc.value=D.metaCC||2000;
   const sal=document.getElementById('config-saldo');if(sal)sal.value=D.saldo||0;
+  const rm=document.getElementById('config-reservamult');if(rm)rm.value=D.reservaMult||6;
+  // Categorias editáveis
+  renderCategorias();
   // ARCA
   const arcaMap={a:'config-arca-a',r:'config-arca-r',c:'config-arca-c',a2:'config-arca-a2'};
   Object.entries(arcaMap).forEach(([k,id])=>{ const el=document.getElementById(id);if(el)el.value=D.arcaMeta[k]||0; });
@@ -3660,12 +4253,13 @@ function renderAtivos(){
       <td><select onchange="D.ativos[${ai}].indice=this.value;scheduleAutoSave();renderAtivos()" style="width:80px">${indices.map(ind=>`<option${a.indice===ind?' selected':''}>${ind}</option>`).join('')}</select></td>
       <td><input type="number" step="0.1" value="${a.pct||100}" placeholder="100" onchange="D.ativos[${ai}].pct=parseFloat(this.value)||100;scheduleAutoSave();renderAtivos()" style="width:72px;text-align:right"></td>
       <td style="color:var(--text2);font-size:12px;white-space:nowrap">${P(taxaAnual(a)*100)}/ano</td>
+      <td><input type="number" step="0.01" min="0" value="${a.dy!=null&&a.dy!==''?a.dy:''}" placeholder="${a.bucket==='C'?'—':'auto'}" ${a.bucket==='C'?'disabled':''} onchange="D.ativos[${ai}].dy=(this.value===''?undefined:parseFloat(this.value));scheduleAutoSave();renderAtivos()" style="width:72px;text-align:right;${a.bucket==='C'?'opacity:.35':''}" title="Dividend yield mensal deste ativo. Vazio = usa o padrão do bucket (FII 0,75% · Ações BR 0,70% · Intl 0,24%). Renda fixa não paga dividendo."></td>
       <td><input type="text" value="${a.ticker||''}" onchange="D.ativos[${ai}].ticker=this.value;scheduleAutoSave()" placeholder="TICKER" style="width:90px;font-family:monospace;font-size:12px"></td>
       <td style="text-align:center"><input type="checkbox" ${a.marco?'checked':''} onchange="toggleAtivoMarco(${ai},this.checked)" title="Também é um marco financeiro (meta) no Plano de Aposentadoria" style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent)"></td>
       <td><input type="number" step="0.01" min="0" value="${a.limite||''}" placeholder="${a.marco?'meta R$':'—'}" ${a.marco?'':'disabled'} onchange="D.ativos[${ai}].limite=parseFloat(this.value)||0;scheduleAutoSave();renderAtivos()" style="width:120px;text-align:right;${a.marco?'font-weight:600;color:var(--accent)':'opacity:.35'}" title="Patrimônio-alvo para atingir este marco"></td>
       <td><button class="btn-rm" onclick="removeAtivo(${ai})">✕</button></td>
     </tr>`).join('');
-    el.innerHTML=`<thead class="thead-sticky"><tr><th>Ativo</th><th>Classe</th><th>Bucket ARCA</th><th class="tr">Valor (R$)</th><th>Índice</th><th class="tr">%</th><th>Taxa anual</th><th>Ticker</th><th title="Exibe este item como marco financeiro no Plano de Aposentadoria">🎯 Marco</th><th class="tr">Meta (R$)</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+    el.innerHTML=`<thead class="thead-sticky"><tr><th>Ativo</th><th>Classe</th><th>Bucket ARCA</th><th class="tr">Valor (R$)</th><th>Índice</th><th class="tr">%</th><th>Taxa anual</th><th class="tr" title="Dividend yield mensal por ativo — sobrescreve o padrão do bucket no Plano de Aposentadoria">Div %/mês</th><th>Ticker</th><th title="Exibe este item como marco financeiro no Plano de Aposentadoria">🎯 Marco</th><th class="tr">Meta (R$)</th><th></th></tr></thead><tbody>${rows}</tbody>`;
   }
 
   const res=document.getElementById('ativos-resumo');
@@ -4246,7 +4840,6 @@ const BLANK_EXTRA = {
 
 
 
-const cats = D.catsCustom || {...CATS};
 
 
 
