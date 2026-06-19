@@ -1,64 +1,55 @@
-# 💰 Controle Financeiro — Firebase
+# 💰 FinançasPRO — Controle Financeiro Pessoal
 
-Sistema de controle financeiro pessoal com autenticação Firebase, banco de dados Firestore e hospedagem no GitHub Pages.
+Aplicação web de finanças pessoais com autenticação Firebase, banco Firestore e hospedagem no GitHub Pages. Arquitetura single-file em JavaScript vanilla, sem build.
 
-## 📁 Arquivos
+**Acesso:** https://dudys37.github.io/controle-financeiro
+
+## 🧱 Stack
+
+- HTML/CSS/JS vanilla (sem framework, sem build)
+- Firebase Authentication (login)
+- Cloud Firestore (dados por usuário, em tempo real)
+- Chart.js (gráficos)
+- GitHub Pages (hospedagem estática)
+
+## 📁 Arquivos versionados
 
 ```
-├── index.html         — Login + Painel de administração
-├── app.html           — Dashboard financeiro completo
-├── firestore.rules    — Regras de segurança do Firestore
+├── index.html        — Login + carregamento do app
+├── app.html          — Interface principal (markup + estilos)
+├── app.js            — Lógica da aplicação
+├── auth.js           — Sessão / autenticação
+├── firestore.rules   — Regras de segurança do Firestore
 └── README.md
 ```
 
-## 🚀 Setup completo (faça uma vez)
-
-### 1. Configurar regras do Firestore
-
-1. Acesse o [Firebase Console](https://console.firebase.google.com)
-2. Vá em **Firestore → Regras**
-3. Substitua todo o conteúdo pelo conteúdo do arquivo `firestore.rules`
-4. Clique em **Publicar**
-
-### 2. Criar o usuário admin no Firestore
-
-1. Vá em **Authentication → Usuários** no Firebase Console
-2. Clique em **Adicionar usuário**
-5. Copie o **UID** gerado
-
-6. Vá em **Firestore → Dados**
-7. Clique em **Iniciar coleção** → nome: `users`
-8. ID do documento: cole o **UID** copiado
-9. Adicione os campos:
-   - `email` (string): `admin@controle.local`
-   - `displayName` (string): `Administrador`
-   - `role` (string): `superadmin`
-   - `createdAt` (string): data atual
-   - `uid` (string): o mesmo UID
-
-### 3. Fazer upload para o GitHub
-
-1. Acesse seu repositório: https://github.com/Dudys37/controle-financeiro
-2. Clique em **Add file → Upload files**
-3. Faça upload de `index.html` e `app.html`
-4. Clique em **Commit changes**
-
-### 4. Acessar o sistema
-
-URL: **https://dudys37.github.io/controle-financeiro**
-
-Login: e-mail e senha do admin criado no passo 2.
-
-## 🔐 Credenciais padrão
-
-Configure você mesmo no Firebase Authentication (passo 2 acima).
+> ⚠️ **Nunca versione segredos.** Scripts de deploy, tokens de acesso, chaves privadas
+> ou arquivos `.env` **não** devem ir para o repositório. Mantenha-os fora do Git
+> (`.gitignore`) e use variáveis de ambiente. A configuração *web* do Firebase
+> (`apiKey`, `projectId`) pode ficar no cliente — ela não autoriza acesso; quem
+> protege os dados são as `firestore.rules`.
 
 ## ✨ Funcionalidades
 
-- Login seguro via Firebase Authentication
-- Dados salvos no Firestore (nuvem, tempo real)
-- Particionamento por usuário (cada um vê só seus dados)
-- Super Admin pode criar e gerenciar usuários
-- Dashboard com fluxo de caixa, ARCA, projeções
-- 🎯 Plano de Aposentadoria: simulação mês a mês (salário → contas → aportes → caixinhas/FIIs/ações), marcos financeiros, gráficos e data estimada de independência financeira (renda passiva de R$ 10.000/mês)
-- Tema claro/escuro
+- **Autenticação** via Firebase; dados particionados por usuário (cada um vê só os seus)
+- **Dashboard** com fluxo de caixa, distribuição ARCA e projeções
+- **🩺 Saúde financeira** — insights dinâmicos (taxa de poupança, fôlego da reserva, comprometimento da renda, concentração de gastos, tendência, drift ARCA, ritmo da aposentadoria) com score
+- **Entradas / Saídas (fixas e variáveis) / Compras parceladas / Faturas de cartão**
+- **🎯 Metas & Orçamentos** — objetivos com progresso (ligados a caixa, patrimônio ou um ativo) e limites de gasto por categoria com alerta de estouro
+- **📄 Relatórios** — fechamento mensal e evolução anual, exportáveis em PDF (impressão)
+- **🏷️ Categorias editáveis** — nome, ícone e cor personalizáveis, refletindo em todo o sistema
+- **📈 Investimentos** — carteira por bucket ARCA, indicadores e dividend yield por ativo
+- **🎯 Plano de Aposentadoria** — simulação mês a mês totalmente dinâmica: aporte (renda − contas − meta CC) preenche marcos financeiros ordenados; contas lidas das suas Fixas/Compras; renda fixa rende juros e FII/ações geram dividendos; estimativa da data de independência financeira
+- **Backup/exportação** (JSON e CSV) e **tema claro/escuro**
+
+## 🔐 Segurança
+
+- Acesso aos dados controlado server-side pelas `firestore.rules` (somente o dono lê/escreve seu `userData`; gestão de usuários restrita a `superadmin`).
+- Nenhuma credencial de usuário fica no código: contas e senhas são gerenciadas no Firebase Authentication.
+- A configuração do projeto Firebase no cliente é pública por design e não substitui as regras de acesso.
+
+## ⚙️ Configuração (uma vez)
+
+1. Publicar o conteúdo de `firestore.rules` no Firebase Console (Firestore → Regras).
+2. Criar os usuários no Firebase Authentication e seus perfis na coleção de usuários do Firestore (papéis e estrutura conforme as regras). Mantenha esse procedimento em documentação privada, fora do repositório público.
+3. Publicar `index.html`, `app.html`, `app.js` e `auth.js` no GitHub Pages.

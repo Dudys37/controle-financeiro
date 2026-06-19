@@ -811,12 +811,35 @@ function go(id, el) {
   const meta=PAGE_META[id]||{};
   const bc=document.getElementById('nav-breadcrumb');
   if(bc) bc.textContent=`/ ${meta.section||''} / ${meta.label||id}`;
+  if(typeof _syncBotnav==='function') _syncBotnav(id);
+  if(typeof toggleQuickAdd==='function') toggleQuickAdd(false);
   renderPage(id);
 }
 
 function goSide(id) {
   go(id, null);
   closeSidebar();
+}
+
+// ── Onda 5: navegação inferior mobile + lançamento rápido ──
+function _syncBotnav(id){
+  document.querySelectorAll('.botnav-item').forEach(b=>b.classList.toggle('active', b.getAttribute('data-page')===id));
+}
+function toggleQuickAdd(force){
+  const sheet=document.getElementById('quickadd-sheet');
+  const ov=document.getElementById('quickadd-overlay');
+  const fab=document.getElementById('botnav-fab');
+  if(!sheet) return;
+  const open = (force!==undefined) ? !!force : !sheet.classList.contains('show');
+  sheet.classList.toggle('show', open);
+  if(ov) ov.classList.toggle('show', open);
+  if(fab) fab.classList.toggle('open', open);
+}
+function quickAdd(tipo){
+  toggleQuickAdd(false);
+  if(tipo==='entrada' && typeof abrirModalEntrada==='function') abrirModalEntrada();
+  else if(tipo==='compra' && typeof abrirModalCompra==='function') abrirModalCompra();
+  else if(tipo==='fixa' && typeof abrirModalFixa==='function') abrirModalFixa();
 }
 
 function openSidebar() {

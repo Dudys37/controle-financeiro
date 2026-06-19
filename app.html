@@ -1175,6 +1175,56 @@ body { margin: 0; padding: 0; }
   body.printing-report #report-print .rep-card { box-shadow:none !important; border:1px solid #ddd !important; break-inside:avoid; }
   @page { margin:14mm; }
 }
+/* ════ Onda 5 — micro-interações & mobile ════ */
+@media (prefers-reduced-motion: no-preference){
+  .btn, .snav, .botnav-item, .panel, .card, .ebox { transition: transform .12s ease, background .15s ease, box-shadow .18s ease, border-color .15s ease, color .15s ease; }
+  .btn:active, .botnav-item:active, .quickadd-sheet button:active { transform: scale(.96); }
+  .page.on { animation: pageIn .24s ease both; }
+  @keyframes pageIn { from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:none} }
+}
+
+/* Bottom navigation (mobile) */
+.botnav{ display:none; }
+.quickadd-sheet, .quickadd-overlay{ display:none; }
+@media (max-width:900px){
+  .botnav{
+    display:flex; position:fixed; left:0; right:0; bottom:0; z-index:120;
+    align-items:center; justify-content:space-around;
+    background:var(--card); border-top:1px solid var(--border);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -4px 22px rgba(0,0,0,.20);
+  }
+  .botnav-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:none; border:none; cursor:pointer; color:var(--text3);
+    font-size:17px; padding:4px 0; line-height:1;
+  }
+  .botnav-item span{ font-size:10px; font-weight:600; }
+  .botnav-item.active{ color:var(--brand); }
+  .botnav-fab{
+    flex:0 0 auto; width:52px; height:52px; margin-top:-24px; border-radius:99px;
+    background:var(--brand); color:#04231d; border:none;
+    font-size:30px; font-weight:300; line-height:1; cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,212,170,.45);
+    display:flex; align-items:center; justify-content:center; transition:transform .18s ease;
+  }
+  .botnav-fab.open{ transform:rotate(45deg); }
+  #main-content{ padding-bottom:80px !important; }
+
+  .quickadd-overlay{ display:block; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:121; opacity:0; pointer-events:none; transition:opacity .2s; }
+  .quickadd-overlay.show{ opacity:1; pointer-events:auto; }
+  .quickadd-sheet{
+    display:flex; flex-direction:column; gap:8px; position:fixed; z-index:122;
+    left:12px; right:12px; bottom:86px;
+    transform:translateY(22px) scale(.98); opacity:0; pointer-events:none; transition:transform .22s ease, opacity .22s ease;
+  }
+  .quickadd-sheet.show{ transform:none; opacity:1; pointer-events:auto; }
+  .quickadd-sheet button{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--r12);
+    padding:15px 18px; font-size:15px; font-weight:600; color:var(--text); text-align:left; cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,.22);
+  }
+}
 </style>
 </head>
 <body>
@@ -1829,6 +1879,21 @@ body { margin: 0; padding: 0; }
 
 <!-- TOAST -->
 <div id="toast"></div>
+
+<!-- ════ Onda 5: navegação inferior mobile + lançamento rápido ════ -->
+<div class="quickadd-overlay" id="quickadd-overlay" onclick="toggleQuickAdd(false)"></div>
+<div class="quickadd-sheet" id="quickadd-sheet">
+  <button onclick="quickAdd('entrada')">💰 Nova entrada</button>
+  <button onclick="quickAdd('compra')">🛒 Nova compra</button>
+  <button onclick="quickAdd('fixa')">🏠 Nova conta fixa</button>
+</div>
+<nav class="botnav" id="botnav">
+  <button class="botnav-item" data-page="dash" onclick="goSide('dash')">📊<span>Início</span></button>
+  <button class="botnav-item" data-page="invest" onclick="goSide('invest')">📈<span>Investir</span></button>
+  <button class="botnav-fab" id="botnav-fab" onclick="toggleQuickAdd()" aria-label="Adicionar lançamento">+</button>
+  <button class="botnav-item" data-page="metas" onclick="goSide('metas')">🎯<span>Metas</span></button>
+  <button class="botnav-item" data-page="relatorios" onclick="goSide('relatorios')">📄<span>Relatórios</span></button>
+</nav>
 
 <!-- ════════ SCRIPTS ════════ -->
 <script src="app.js"></script>
