@@ -322,6 +322,37 @@ function migrateData(d) {
   if(!Array.isArray(d.metas)) d.metas = [];
   if(typeof d.orcamentos!=='object' || d.orcamentos===null) d.orcamentos = {};
 
+  // ── Metas Integradas (multiárea) — compatibilidade total com metas financeiras antigas ──
+  d.metas.forEach(m=>{
+    if(!m.id) m.id = 'meta_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    // Mapeia nomes antigos (alvo/atual) preservando ambos
+    if(m.valorAlvo==null && m.alvo!=null) m.valorAlvo = m.alvo;
+    if(m.valorAtual==null && m.atual!=null) m.valorAtual = m.atual;
+    if(m.valorAlvo==null || isNaN(m.valorAlvo)) m.valorAlvo = 0;
+    if(m.valorAtual==null || isNaN(m.valorAtual)) m.valorAtual = 0;
+    if(!m.icon) m.icon = '🎯';
+    if(!m.fonte) m.fonte = 'manual';
+    if(m.ativoNome==null) m.ativoNome = '';
+    if(!m.cor) m.cor = '#00D4AA';
+    if(m.prazo==null) m.prazo = '';
+    // Campos novos da fase de Metas Integradas
+    if(!m.dominio) m.dominio = 'financeiro';            // metas antigas → financeiro
+    if(m.categoria==null) m.categoria = '';
+    if(!m.status) m.status = 'em_andamento';
+    if(!m.prioridade) m.prioridade = 'media';
+    if(!m.unidade) m.unidade = 'dinheiro';             // metas antigas são financeiras
+    if(m.progressoManual===undefined) m.progressoManual = null;
+    if(!m.impactoFinanceiro) m.impactoFinanceiro = 'medio';
+    if(m.descricao==null) m.descricao = '';
+    if(m.proximosPassos==null) m.proximosPassos = '';
+    if(m.observacoes==null) m.observacoes = '';
+    if(m.relacionadaADecisaoId==null) m.relacionadaADecisaoId = '';
+    if(m.relacionadaACompraId==null) m.relacionadaACompraId = '';
+    if(!m.dataCriacao) m.dataCriacao = new Date().toISOString();
+    if(m.dataAtualizacao==null) m.dataAtualizacao = m.dataCriacao;
+    if(m.ativa==null) m.ativa = true;
+  });
+
   // ── Preferências individuais do usuário (isoladas em userData/{uid}) ──
   // Distintas das configurações GLOBAIS (systemConfig). Nunca contêm dados de outros usuários.
   if(typeof d.prefs!=='object' || d.prefs===null) d.prefs = {};
@@ -2285,7 +2316,7 @@ function finInsights(mi){
   }catch(e){}
   // 9) Objetivo perto de ser concluído
   try{
-    (D.metas||[]).forEach(m=>{ const mi2=metaInfo(m); if(mi2.pct>=80 && !mi2.concluida) push('info','🎯',`Objetivo quase lá: ${escapeHTML(m.nome)}`,`${Math.round(mi2.pct)}% concluído — faltam ${fmt(mi2.faltam)}.`); });
+    (D.metas||[]).filter(m=>(m.dominio||'financeiro')==='financeiro' && (m.unidade||'dinheiro')==='dinheiro').forEach(m=>{ const mi2=metaInfo(m); if(mi2.pct>=80 && !mi2.concluida) push('info','🎯',`Objetivo quase lá: ${escapeHTML(m.nome)}`,`${Math.round(mi2.pct)}% concluído — faltam ${fmt(mi2.faltam)}.`); });
   }catch(e){}
 
   const rank={bad:0,warn:1,info:2,good:3};
@@ -3460,7 +3491,7 @@ function relatorioMensal(mi){
   // renda passiva (do plano, snapshot atual)
   let rendaPassiva=0; try{ const p=calcularPlanoAposentadoria(); if(p&&p.atual) rendaPassiva=p.atual.rendaPassiva||0; }catch(e){}
   // metas
-  const metas=(D.metas||[]).map(m=>{const I=metaInfo(m);return {nome:m.nome,icon:m.icon||'🎯',pct:I.pct,atual:I.atual,alvo:I.alvo,concluida:I.concluida};});
+  const metas=(D.metas||[]).filter(m=>(m.dominio||'financeiro')==='financeiro' && (m.unidade||'dinheiro')==='dinheiro').map(m=>{const I=metaInfo(m);return {nome:m.nome,icon:m.icon||'🎯',pct:I.pct,atual:I.atual,alvo:I.alvo,concluida:I.concluida};});
   // saúde
   let score=0, insights=[]; try{ const F=finInsights(mi); score=F.score; insights=F.insights.slice(0,5); }catch(e){}
   return { mi, mes:D.meses[mi]||'', entradas, saidas, sobra, taxaPoupanca, categorias,
@@ -3639,26 +3670,7 @@ function orcamentoInfo(mi){
   return { linhas, totalOrcado, totalGasto, mes:D.meses[mi]||'' };
 }
 
-// ── CRUD Metas ──
-function addMeta(){
-  if(!Array.isArray(D.metas)) D.metas=[];
-  const mesAtual=D.meses[getMesRefIdx()]||'';
-  D.metas.push({ id:'m'+Date.now().toString(36), nome:'Novo objetivo', icon:'🎯',
-    valorAlvo:10000, valorAtual:0, prazo:'', fonte:'manual', ativoNome:'', cor:'#00D4AA', criadaEm:mesAtual });
-  scheduleAutoSave(); renderObjetivos();
-}
-function setMetaField(id, field, val){
-  const m=(D.metas||[]).find(x=>x.id===id); if(!m) return;
-  if(['valorAlvo','valorAtual'].includes(field)) val=parseFloat(val)||0;
-  m[field]=val;
-  scheduleAutoSave(); renderObjetivos();
-}
-async function removeMeta(id){
-  const m=(D.metas||[]).find(x=>x.id===id);
-  if(!await uiConfirm(`Remover o objetivo <strong>"${m?m.nome:''}"</strong>?`,{icon:'🎯',okText:'Remover'})) return;
-  D.metas=(D.metas||[]).filter(x=>x.id!==id);
-  scheduleAutoSave(); renderObjetivos(); toast('Objetivo removido',true,'🗑️');
-}
+// ── CRUD Metas + render: ver bloco "🎯 METAS INTEGRADAS" acima ──
 // ── Orçamentos ──
 function setOrcamento(cat, val){
   if(!D.orcamentos || typeof D.orcamentos!=='object') D.orcamentos={};
@@ -3670,57 +3682,233 @@ function setOrcamento(cat, val){
 // ── RENDER ──
 function renderMetas(){ renderObjetivos(); renderOrcamentos(); }
 
+function addMeta(){
+  if(!Array.isArray(D.metas)) D.metas=[];
+  const m={ id:'meta_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Nova meta', descricao:'', icon:'🎯',
+    dominio:'financeiro', categoria:'', status:'em_andamento', prioridade:'media',
+    unidade:'dinheiro', prazo:'', valorAlvo:10000, valorAtual:0, progressoManual:null,
+    fonte:'manual', ativoNome:'', cor:'#00D4AA', impactoFinanceiro:'medio',
+    proximosPassos:'', observacoes:'', relacionadaADecisaoId:'', relacionadaACompraId:'',
+    dataCriacao:new Date().toISOString(), dataAtualizacao:new Date().toISOString(), ativa:true };
+  D.metas.unshift(m);
+  _metaExpanded[m.id]=true;
+  scheduleAutoSave(); renderObjetivos();
+}
+function setMetaField(id, field, val){
+  const m=(D.metas||[]).find(x=>x.id===id); if(!m) return;
+  if(['valorAlvo','valorAtual'].includes(field)) val=parseFloat(val)||0;
+  if(field==='progressoManual') val = (val===''||val==null) ? null : Math.max(0,Math.min(100,parseFloat(val)||0));
+  m[field]=val;
+  m.dataAtualizacao=new Date().toISOString();
+  scheduleAutoSave(); renderObjetivos();
+}
+async function removeMeta(id){
+  const m=(D.metas||[]).find(x=>x.id===id);
+  if(!await uiConfirm(`Remover a meta <strong>"${escapeHTML(m&&m.nome||'')}"</strong>?`,{icon:'🎯',okText:'Remover'})) return;
+  D.metas=(D.metas||[]).filter(x=>x.id!==id);
+  delete _metaExpanded[id];
+  scheduleAutoSave(); renderObjetivos(); toast('Meta removida',true,'🗑️');
+}
+
+// ── Resumo (cards do topo) ──
+function _metaResumoData(){
+  const ms=_metas().filter(m=>m.ativa!==false);
+  let emAndamento=0, concluidas=0, atrasadas=0, criticas=0;
+  const porDom={};
+  ms.forEach(m=>{
+    const p=metaProgress(m);
+    if(p.concluida) concluidas++;
+    else { emAndamento++; if(p.atrasada) atrasadas++; }
+    if(m.prioridade==='critica' && !p.concluida) criticas++;
+    porDom[m.dominio]=(porDom[m.dominio]||0)+1;
+  });
+  // próximo prazo (meses restantes)
+  let prox=null; const hoje=new Date(), hojeIdx=hoje.getFullYear()*12+(hoje.getMonth()+1);
+  ms.forEach(m=>{ const p=metaProgress(m); if(p.concluida) return; const pz=m.prazo?parseMes(m.prazo):null;
+    if(pz){ const rest=(pz.y*12+pz.m)-hojeIdx; if(rest>=0 && (!prox||rest<prox.rest)) prox={m,rest}; } });
+  const domsAtivos=Object.keys(porDom).length;
+  return { total:ms.length, emAndamento, concluidas, atrasadas, criticas, porDom, domsAtivos, prox };
+}
+
 function renderObjetivos(){
   const el=document.getElementById('metas-objetivos'); if(!el) return;
-  const metas=D.metas||[];
-  const fontes=[['manual','✍️ Manual'],['caixa','💵 Caixa/Reserva'],['patrimonio','📊 Patrimônio total'],['ativo','💼 Ativo específico']];
-  const cards=metas.map(m=>{
-    const I=metaInfo(m);
-    const barCor=I.concluida?'var(--pos)':I.atrasada?'var(--neg)':'var(--brand)';
+  const r=_metaResumoData();
+
+  const selOpts=(obj,sel)=>{
+    if(Array.isArray(obj)) return obj.map(c=>`<option value="${attr(c.id)}"${c.id===sel?' selected':''}>${escapeHTML(c.icon||'')} ${escapeHTML(c.label)}</option>`).join('');
+    return Object.keys(obj).map(k=>`<option value="${attr(k)}"${k===sel?' selected':''}>${escapeHTML(obj[k].label||obj[k])}</option>`).join('');
+  };
+
+  // Resumo
+  const rc=(icon,label,valor,cor)=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:11px 13px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">${icon} ${label}</div>
+    <div style="font-size:18px;font-weight:800;color:${cor||'var(--text)'};margin-top:2px">${valor}</div></div>`;
+  const domsTop=Object.entries(r.porDom).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([d,n])=>`${metaDom(d).icon} ${n}`).join('  ');
+  const resumo=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:14px">
+    ${rc('🎯','Em andamento',r.emAndamento,'var(--info)')}
+    ${rc('✅','Concluídas',r.concluidas,'var(--pos)')}
+    ${rc('⏰','Atrasadas',r.atrasadas,r.atrasadas>0?'var(--neg)':'var(--text)')}
+    ${rc('🚨','Críticas',r.criticas,r.criticas>0?'var(--neg)':'var(--text)')}
+    ${rc('🗂️','Domínios',r.domsAtivos,'var(--text)')}
+    ${rc('📅','Próximo prazo',r.prox?(r.prox.rest===0?'este mês':`${r.prox.rest}m`):'—',r.prox&&r.prox.rest<=1?'var(--warn)':'var(--text)')}
+  </div>${r.domsAtivos?`<div style="font-size:11px;color:var(--text3);margin:-6px 0 12px">Distribuição: ${domsTop}</div>`:''}`;
+
+  // Filtros
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(_metaBusca)}" oninput="setMetaFiltro('busca',this.value)" placeholder="🔍 Buscar nome, descrição, passos…" style="flex:1;min-width:160px;height:34px">
+    <select onchange="setMetaFiltro('dom',this.value)" style="height:34px;font-size:12px"><option value="">Domínio: todos</option>${selOpts(META_DOMINIOS,_metaFiltroDom)}</select>
+    <select onchange="setMetaFiltro('status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${selOpts(META_STATUS,_metaFiltroStatus)}</select>
+    <select onchange="setMetaFiltro('prio',this.value)" style="height:34px;font-size:12px"><option value="">Prioridade: todas</option>${selOpts(META_PRIOS,_metaFiltroPrio)}</select>
+    <select onchange="setMetaFiltro('unidade',this.value)" style="height:34px;font-size:12px"><option value="">Unidade: todas</option>${selOpts(META_UNIDADES,_metaFiltroUnidade)}</select>
+    <select onchange="setMetaFiltro('ord',this.value)" style="height:34px;font-size:12px">
+      <option value="prioridade"${_metaOrdenar==='prioridade'?' selected':''}>Ordenar: prioridade</option>
+      <option value="prazo"${_metaOrdenar==='prazo'?' selected':''}>Ordenar: prazo</option>
+      <option value="progresso"${_metaOrdenar==='progresso'?' selected':''}>Ordenar: progresso</option>
+      <option value="criacao"${_metaOrdenar==='criacao'?' selected':''}>Ordenar: mais recentes</option>
+      <option value="dominio"${_metaOrdenar==='dominio'?' selected':''}>Ordenar: domínio</option>
+    </select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addMeta()">+ Nova meta</button>
+  </div>`;
+
+  // Filtro + busca + ordenação
+  let lista=_metas().slice();
+  if(_metaFiltroDom)     lista=lista.filter(m=>m.dominio===_metaFiltroDom);
+  if(_metaFiltroStatus)  lista=lista.filter(m=>m.status===_metaFiltroStatus);
+  if(_metaFiltroPrio)    lista=lista.filter(m=>m.prioridade===_metaFiltroPrio);
+  if(_metaFiltroUnidade) lista=lista.filter(m=>(m.unidade||'dinheiro')===_metaFiltroUnidade);
+  if(_metaBusca){ const q=_metaBusca.toLowerCase(); lista=lista.filter(m=>['nome','descricao','proximosPassos','observacoes'].some(k=>(m[k]||'').toLowerCase().includes(q))); }
+  const ord={
+    prioridade:(a,b)=>(META_PRIOS[b.prioridade]?.ord||0)-(META_PRIOS[a.prioridade]?.ord||0),
+    prazo:(a,b)=>(a.prazo||'~').localeCompare(b.prazo||'~'),
+    progresso:(a,b)=>metaProgress(b).pct-metaProgress(a).pct,
+    criacao:(a,b)=>(b.dataCriacao||'').localeCompare(a.dataCriacao||''),
+    dominio:(a,b)=>(a.dominio||'').localeCompare(b.dominio||''),
+  };
+  lista.sort(ord[_metaOrdenar]||ord.prioridade);
+
+  if(!_metas().length){
+    el.innerHTML=`<div class="panel"><div class="panel-head"><span class="panel-title">🎯 Metas</span>
+      <button class="btn btn-pri" style="height:32px;font-size:13px" onclick="addMeta()">+ Nova meta</button></div>
+      <div class="empty" style="padding:28px"><div class="empty-icon">🎯</div>
+      <div class="empty-text">Suas metas agora são multiárea: finanças, carreira, saúde, viagem, estudo, projetos e mais. Crie a primeira — pode ser a reserva de emergência, uma certificação ou treinar 4x na semana — e acompanhe o progresso no formato certo para cada uma.</div>
+      <button class="btn btn-pri" style="margin-top:14px" onclick="addMeta()">+ Criar primeira meta</button></div></div>`;
+    return;
+  }
+
+  const cards=lista.map(m=>{
+    const dom=metaDom(m.dominio), st=META_STATUS[m.status]||META_STATUS.em_andamento, pr=META_PRIOS[m.prioridade]||META_PRIOS.media;
+    const p=metaProgress(m);
+    const barCor = p.concluida?'var(--pos)':p.atrasada?'var(--neg)':dom.cor;
+    const exp=_metaExpanded[m.id];
+    const dec=metaDecisoesVinculadas(m.id);
+    const un=m.unidade||'dinheiro';
     const ativoOpts=(D.ativos||[]).map(a=>`<option value="${attr(a.nome||'')}"${a.nome===m.ativoNome?' selected':''}>${escapeHTML(a.nome||'(sem nome)')}</option>`).join('');
-    const rodape = I.concluida
-      ? `<div style="font-size:12px;font-weight:700;color:var(--pos)">✅ Objetivo concluído!</div>`
-      : `<div style="font-size:11px;color:var(--text2)">Faltam <strong style="color:var(--text)">${fmt(I.faltam)}</strong>${
-          I.porMes!=null?` · guardar <strong style="color:${I.atrasada?'var(--neg)':'var(--accent)'}">${fmt(I.porMes)}/mês</strong>${I.mesesRest!=null?(I.atrasada?` (prazo vencido)`:` por ${I.mesesRest} ${I.mesesRest===1?'mês':'meses'}`):''}`:''}</div>`;
-    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r14);padding:14px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <input type="text" value="${(m.icon||'🎯').replace(/"/g,'&quot;')}" maxlength="2" onchange="setMetaField('${m.id}','icon',this.value)" style="width:42px;text-align:center;font-size:18px">
-        <input type="text" value="${attr(m.nome||'')}" onchange="setMetaField('${m.id}','nome',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:14px">
-        <button class="btn-rm" title="Remover" onclick="removeMeta('${m.id}')">✕</button>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
-        <span style="font-size:18px;font-weight:800;color:${barCor}">${fmtK(I.atual)}</span>
-        <span style="font-size:12px;color:var(--text2)">de ${fmtK(I.alvo)} · ${Math.round(I.pct)}%</span>
-      </div>
-      <div style="height:9px;background:var(--card3);border-radius:99px;overflow:hidden;margin-bottom:10px">
-        <div style="height:9px;width:${Math.min(100,I.pct)}%;background:${barCor};border-radius:99px;transition:width .5s"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-bottom:10px">
+
+    // Campos de valor por unidade
+    let valorFields='';
+    if(un==='dinheiro'){
+      valorFields=`
         <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Valor-alvo (R$)</label>
           <input type="number" step="100" value="${m.valorAlvo||0}" onchange="setMetaField('${m.id}','valorAlvo',this.value)"></div>
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prazo (Mmm/aa)</label>
-          <input type="text" placeholder="Dez/27" value="${m.prazo||''}" onchange="setMetaField('${m.id}','prazo',this.value.trim())"></div>
         <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Fonte do valor atual</label>
-          <select onchange="setMetaField('${m.id}','fonte',this.value)">${fontes.map(([v,l])=>`<option value="${v}"${m.fonte===v?' selected':''}>${l}</option>`).join('')}</select></div>
+          <select onchange="setMetaField('${m.id}','fonte',this.value)">
+            ${[['manual','✍️ Manual'],['caixa','💵 Caixa/Reserva'],['patrimonio','📊 Patrimônio'],['ativo','💼 Ativo']].map(([v,l])=>`<option value="${v}"${m.fonte===v?' selected':''}>${l}</option>`).join('')}</select></div>
         <div class="field" style="margin:0">${
-          m.fonte==='manual'
-            ? `<label class="flabel" style="font-size:10px">Valor atual (R$)</label><input type="number" step="100" value="${m.valorAtual||0}" onchange="setMetaField('${m.id}','valorAtual',this.value)">`
-            : m.fonte==='ativo'
-              ? `<label class="flabel" style="font-size:10px">Ativo</label><select onchange="setMetaField('${m.id}','ativoNome',this.value)"><option value="">— escolher —</option>${ativoOpts}</select>`
-              : `<label class="flabel" style="font-size:10px">Cor</label><input type="color" value="${m.cor||'#00D4AA'}" onchange="setMetaField('${m.id}','cor',this.value)" style="width:46px;height:32px;padding:2px;background:transparent;border:1px solid var(--border);border-radius:6px;cursor:pointer">`
-        }</div>
+          m.fonte==='manual' ? `<label class="flabel" style="font-size:10px">Valor atual (R$)</label><input type="number" step="100" value="${m.valorAtual||0}" onchange="setMetaField('${m.id}','valorAtual',this.value)">`
+          : m.fonte==='ativo' ? `<label class="flabel" style="font-size:10px">Ativo</label><select onchange="setMetaField('${m.id}','ativoNome',this.value)"><option value="">— escolher —</option>${ativoOpts}</select>`
+          : `<label class="flabel" style="font-size:10px">Valor atual</label><input type="text" disabled value="${attr(fmt(p.atual||0))}" style="opacity:.7">`
+        }</div>`;
+    } else if(un==='quantidade'){
+      valorFields=`
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Quantidade-alvo</label>
+          <input type="number" step="1" value="${m.valorAlvo||0}" onchange="setMetaField('${m.id}','valorAlvo',this.value)"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Quantidade atual</label>
+          <input type="number" step="1" value="${m.valorAtual||0}" onchange="setMetaField('${m.id}','valorAtual',this.value)"></div>`;
+    } else if(un==='percentual'||un==='checklist'){
+      valorFields=`
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Progresso (%)</label>
+          <input type="number" step="5" min="0" max="100" value="${m.progressoManual!=null?m.progressoManual:(m.valorAtual||0)}" onchange="setMetaField('${m.id}','progressoManual',this.value)"></div>`;
+    } else if(un==='manual'){
+      valorFields=`
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Progresso manual (%) — opcional</label>
+          <input type="number" step="5" min="0" max="100" value="${m.progressoManual!=null?m.progressoManual:''}" placeholder="deixe vazio se não medir" onchange="setMetaField('${m.id}','progressoManual',this.value)"></div>`;
+    } else { // sim_nao
+      valorFields=`<div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Conclusão</label>
+        <div style="font-size:12px;color:var(--text2);padding-top:6px">Marque o status como <strong>Concluída</strong> quando atingir.</div></div>`;
+    }
+
+    const decBadge = dec.total ? `<span style="font-size:10px;color:var(--text3)">🧭 ${dec.total} decisão(ões)${dec.emAnalise?` · ${dec.emAnalise} em análise`:''}</span>` : '';
+    const passos = m.proximosPassos ? `<div style="font-size:11.5px;color:var(--text2);margin-top:6px">→ ${escapeHTML(m.proximosPassos.length>90?m.proximosPassos.slice(0,90)+'…':m.proximosPassos)}</div>` : '';
+
+    const editor = exp ? `
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Descrição</label>
+          <textarea oninput="setMetaField('${m.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(m.descricao)}</textarea></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Domínio</label>
+            <select onchange="setMetaField('${m.id}','dominio',this.value)">${selOpts(META_DOMINIOS,m.dominio)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Unidade / progresso</label>
+            <select onchange="setMetaField('${m.id}','unidade',this.value)">${selOpts(META_UNIDADES,un)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Status</label>
+            <select onchange="setMetaField('${m.id}','status',this.value)">${selOpts(META_STATUS,m.status)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prioridade</label>
+            <select onchange="setMetaField('${m.id}','prioridade',this.value)">${selOpts(META_PRIOS,m.prioridade)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prazo (Mmm/aa)</label>
+            <input type="text" placeholder="Dez/27" value="${attr(m.prazo)}" onchange="setMetaField('${m.id}','prazo',this.value.trim())"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Categoria (livre)</label>
+            <input type="text" value="${attr(m.categoria)}" onchange="setMetaField('${m.id}','categoria',this.value)"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">${valorFields}</div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Próximos passos</label>
+          <textarea oninput="setMetaField('${m.id}','proximosPassos',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(m.proximosPassos)}</textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Vincular a decisão (opcional)</label>
+            <select onchange="setMetaField('${m.id}','relacionadaADecisaoId',this.value)">
+              <option value="">— nenhuma —</option>
+              ${((D.decisoes||[]).map(dd=>`<option value="${attr(dd.id)}"${dd.id===m.relacionadaADecisaoId?' selected':''}>${escapeHTML(dd.titulo||'(sem título)')}</option>`)).join('')}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Vincular a compra/desejo (opcional)</label>
+            <select onchange="setMetaField('${m.id}','relacionadaACompraId',this.value)">
+              <option value="">— nenhuma —</option>
+              ${(((typeof _hob==='function'&&_hob().itens)||[]).map(it=>`<option value="${attr(it.id)}"${it.id===m.relacionadaACompraId?' selected':''}>${escapeHTML(it.nome||'')}</option>`)).join('')}</select></div>
+        </div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Observações</label>
+          <textarea oninput="setMetaField('${m.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(m.observacoes)}</textarea></div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeMeta('${m.id}')">🗑️ Excluir meta</button>
+        </div>
+      </div>` : '';
+
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${barCor};border-radius:var(--r14);padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <input type="text" value="${(m.icon||'🎯').replace(/"/g,'&quot;')}" maxlength="2" onchange="setMetaField('${m.id}','icon',this.value)" style="width:40px;text-align:center;font-size:18px;flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(m.nome||'')}" onchange="setMetaField('${m.id}','nome',this.value)" placeholder="Nome da meta" style="font-weight:700;font-size:14px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            <span class="badge" style="background:var(--card3);color:${dom.cor};font-size:10px">${escapeHTML(dom.icon)} ${escapeHTML(dom.label)}</span>
+            <span class="badge" style="background:var(--card3);color:${st.cor};font-size:10px">${escapeHTML(st.label)}</span>
+            <span class="badge" style="background:var(--card3);color:${pr.cor};font-size:10px">${escapeHTML(pr.label)}</span>
+            ${m.prazo?`<span style="font-size:11px;color:${p.atrasada?'var(--neg)':'var(--text3)'}">${p.atrasada?'⚠ ':''}prazo ${escapeHTML(m.prazo)}</span>`:''}
+            ${decBadge}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" onclick="toggleMetaExpand('${m.id}')">${exp?'▴ fechar':'▾ detalhes'}</button>
       </div>
-      ${rodape}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 4px">
+        <span style="font-size:13px;font-weight:700;color:${barCor}">${p.defined?escapeHTML(p.label):'<span style=\"color:var(--text3);font-weight:500\">'+escapeHTML(p.label)+'</span>'}</span>
+        <span style="font-size:12px;color:var(--text2)">${p.defined?Math.round(p.pct)+'%':''}${p.concluida?' ✅':''}</span>
+      </div>
+      <div style="height:8px;background:var(--card3);border-radius:99px;overflow:hidden">
+        <div style="height:8px;width:${p.pctVis}%;background:${barCor};border-radius:99px;transition:width .5s"></div>
+      </div>
+      ${passos}
+      ${editor}
     </div>`;
   }).join('');
-  el.innerHTML=`<div class="panel">
-    <div class="panel-head"><span class="panel-title">🎯 Objetivos</span>
-      <button class="btn btn-pri" style="height:32px;font-size:13px" onclick="addMeta()">+ Novo objetivo</button></div>
-    <div style="padding:16px">
-      ${metas.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px">${cards}</div>`
-        :`<div class="empty" style="padding:24px"><div class="empty-icon">🎯</div><div class="empty-text">Crie seu primeiro objetivo: uma viagem, um carro, a entrada de um imóvel, a independência financeira. Acompanhe o progresso ligado ao seu caixa, patrimônio ou um ativo.</div></div>`}
-    </div>
-  </div>`;
+
+  el.innerHTML=`<div class="panel"><div style="padding:16px">
+    ${resumo}${filtros}${cards}
+  </div></div>`;
 }
 
 function renderOrcamentos(){
@@ -4540,10 +4728,11 @@ function renderGeralDash(){
   let reserva={pct:0,caixa:0,meta:0,falta:0};
   try { reserva=statusReserva(); } catch(e){}
   // Metas em andamento
-  let metasAtivas=[], metaTop=null;
+  let metasAtivas=[], metaTop=null, metaDoms=0;
   try {
-    metasAtivas=(D.metas||[]).map(m=>{ try{return {m, info:metaInfo(m)};}catch(e){return null;} }).filter(Boolean).filter(x=>!x.info.concluida);
+    metasAtivas=(D.metas||[]).filter(m=>m.ativa!==false).map(m=>{ try{return {m, info:metaProgress(m)};}catch(e){return null;} }).filter(Boolean).filter(x=>!x.info.concluida);
     metaTop=metasAtivas.slice().sort((a,b)=>b.info.pct-a.info.pct)[0];
+    metaDoms=new Set(metasAtivas.map(x=>x.m.dominio||'financeiro')).size;
   } catch(e){}
   // Hobbies/compras prioritários
   let hobAbertos=[], hobAlvo=null, hobTotal=0;
@@ -4567,7 +4756,7 @@ function renderGeralDash(){
     _gcard({icon:'🚀', label:'Disponível p/ investir', valor:fmt(investir), cor:'var(--teal)', page:'carteira',
       sub:cp.pendente>0?`${fmt(cp.pendente)} ainda pendente no mês`:'Contas do mês em dia'}),
     _gcard({icon:'🎯', label:'Metas em andamento', valor:String(metasAtivas.length), cor:'var(--text)', page:'metas',
-      sub:metaTop?`Mais perto: ${escapeHTML(metaTop.m.nome||'')} (${Math.round(metaTop.info.pct)}%)`:'Nenhuma meta ativa'}),
+      sub:metaTop?`${metaDoms} domínio(s) · mais perto: ${escapeHTML((typeof metaDom==='function'?metaDom(metaTop.m.dominio).icon:'')+' '+(metaTop.m.nome||''))} (${Math.round(metaTop.info.pct)}%)`:'Nenhuma meta ativa'}),
     _gcard({icon:'🛒', label:'Compras & desejos', valor:fmt(hobTotal), cor:'var(--violet)', page:'hobbies',
       sub:hobAlvo?`Próximo: ${escapeHTML(hobAlvo.nome||'')}${hobCusto(hobAlvo)>0?' · '+fmt(hobCusto(hobAlvo)):''}`:`${hobAbertos.length} item(ns) em aberto`}),
     _gcard({icon:'🧭', label:'Decisões', valor:(typeof _decResumoData==='function'?String(_decResumoData().emAnalise):'0'), cor:'var(--info)', page:'decisoes',
@@ -4837,7 +5026,8 @@ function renderDecisoes(){
     const an=analiseDecisao(dec);
     const exp=_decExpanded[dec.id];
     const compraNome = dec.relacionadaACompraId ? ((( _hob&&_hob().itens)||[]).find(i=>i.id===dec.relacionadaACompraId)||{}).nome : '';
-    const metaNome = dec.relacionadaAMetaId ? ((D.metas||[]).find(m=>m.id===dec.relacionadaAMetaId)||{}).nome : '';
+    const metaRel = dec.relacionadaAMetaId ? (D.metas||[]).find(m=>m.id===dec.relacionadaAMetaId) : null;
+    const metaNome = metaRel ? ((typeof metaDom==='function'?metaDom(metaRel.dominio).icon+' ':'')+(metaRel.nome||'')+(typeof metaProgress==='function'?` (${Math.round(metaProgress(metaRel).pct)}%)`:'')) : '';
 
     const editor = exp ? `
       <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
@@ -4885,7 +5075,7 @@ function renderDecisoes(){
           <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Relacionar a meta (opcional)</label>
             <select onchange="setDecField('${dec.id}','relacionadaAMetaId',this.value)">
               <option value="">— nenhuma —</option>
-              ${((D.metas||[]).map(m=>`<option value="${attr(m.id)}"${m.id===dec.relacionadaAMetaId?' selected':''}>${escapeHTML(m.nome||'')}</option>`)).join('')}</select></div>
+              ${((D.metas||[]).map(m=>`<option value="${attr(m.id)}"${m.id===dec.relacionadaAMetaId?' selected':''}>${escapeHTML((typeof metaDom==='function'?metaDom(m.dominio).icon+' ':'')+(m.nome||''))}</option>`)).join('')}</select></div>
         </div>
         <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Decisão final</label>
           <input type="text" value="${attr(dec.decisaoFinal)}" onchange="setDecField('${dec.id}','decisaoFinal',this.value)" placeholder="o que você decidiu?"></div>
@@ -4930,6 +5120,91 @@ function decDashResumo(){
   const r=_decResumoData();
   return r;
 }
+// ═══════════════════════════════════════════════════
+//  🎯 METAS INTEGRADAS (multiárea) — constantes + progresso central
+//  Compatível com metas financeiras antigas (unidade 'dinheiro' delega a metaInfo).
+// ═══════════════════════════════════════════════════
+const META_DOMINIOS = [
+  {id:'financeiro',label:'Financeiro',icon:'💰',cor:'#00D4AA',desc:'Reserva, investimentos, dívidas, patrimônio financeiro'},
+  {id:'carreira',label:'Carreira',icon:'🚀',cor:'#6366f1',desc:'Promoções, transições, posicionamento'},
+  {id:'trabalho',label:'Trabalho',icon:'💼',cor:'#3b82f6',desc:'Projetos e entregas profissionais'},
+  {id:'pessoal',label:'Pessoal',icon:'🧠',cor:'#a855f7',desc:'Desenvolvimento e hábitos pessoais'},
+  {id:'lazer',label:'Lazer',icon:'🎮',cor:'#ec4899',desc:'Diversão, hobbies, qualidade de vida'},
+  {id:'patrimonio',label:'Patrimônio',icon:'📦',cor:'#f59e0b',desc:'Bens, equipamentos, imóveis'},
+  {id:'estudo',label:'Estudo',icon:'🎓',cor:'#0ea5e9',desc:'Cursos, certificações, aprendizado'},
+  {id:'saude',label:'Saúde',icon:'🩺',cor:'#10b981',desc:'Saúde física e mental'},
+  {id:'compra',label:'Compra',icon:'🛒',cor:'#f97316',desc:'Aquisições planejadas'},
+  {id:'viagem',label:'Viagem',icon:'✈️',cor:'#14b8a6',desc:'Viagens e experiências'},
+  {id:'projeto',label:'Projeto',icon:'🛠️',cor:'#8b5cf6',desc:'Projetos pessoais e paralelos'},
+  {id:'relacionamento',label:'Relacionamento',icon:'❤️',cor:'#ef4444',desc:'Família, amigos, vínculos'},
+  {id:'tecnologia',label:'Tecnologia/Setup',icon:'🖥️',cor:'#64748b',desc:'Setup, ferramentas, tecnologia'},
+  {id:'outro',label:'Outro',icon:'•',cor:'#94a3b8',desc:'Outros objetivos'},
+];
+const META_STATUS = {
+  em_andamento:{label:'Em andamento',cor:'var(--info)'}, planejada:{label:'Planejada',cor:'var(--text3)'},
+  pausada:{label:'Pausada',cor:'var(--warn)'}, concluida:{label:'Concluída',cor:'var(--pos)'},
+  cancelada:{label:'Cancelada',cor:'var(--text3)'}, atrasada:{label:'Atrasada',cor:'var(--neg)'},
+};
+const META_PRIOS = {
+  baixa:{label:'Baixa',cor:'var(--text3)',ord:0}, media:{label:'Média',cor:'var(--info)',ord:1},
+  alta:{label:'Alta',cor:'var(--warn)',ord:2}, critica:{label:'Crítica',cor:'var(--neg)',ord:3},
+};
+const META_UNIDADES = { dinheiro:'Dinheiro (R$)', percentual:'Percentual (%)', quantidade:'Quantidade', sim_nao:'Sim / Não', checklist:'Checklist (%)', manual:'Manual / Texto' };
+
+function metaDom(id){ return META_DOMINIOS.find(d=>d.id===id) || META_DOMINIOS.find(d=>d.id==='outro'); }
+function _metas(){ if(!Array.isArray(D.metas)) D.metas=[]; return D.metas; }
+
+// ── Cálculo central de progresso (todas as unidades) ──
+function metaProgress(meta){
+  const un = meta.unidade || 'dinheiro';
+  let pct=0, atual=null, alvo=null, defined=true, label='';
+  if(un==='dinheiro'){
+    const I=metaInfo(meta); atual=I.atual; alvo=I.alvo;
+    pct = I.alvo>0 ? (I.atual/I.alvo)*100 : 0;
+    label = `${fmtK(I.atual)} de ${fmtK(I.alvo)}`;
+  } else if(un==='quantidade'){
+    atual=meta.valorAtual||0; alvo=meta.valorAlvo||0;
+    pct = alvo>0 ? (atual/alvo)*100 : 0;
+    label = `${atual} de ${alvo}`;
+  } else if(un==='percentual' || un==='checklist'){
+    const v = (meta.progressoManual!=null) ? meta.progressoManual : (meta.valorAtual||0);
+    pct = v; label = `${Math.round(v)}%`;
+  } else if(un==='sim_nao'){
+    const done = meta.status==='concluida';
+    pct = done?100:0; label = done?'Concluída':'Pendente';
+  } else { // manual
+    if(meta.progressoManual!=null){ pct=meta.progressoManual; label=`${Math.round(pct)}%`; }
+    else { defined=false; pct=0; label='progresso manual não definido'; }
+  }
+  const concluida = (meta.status==='concluida') || (defined && un!=='manual' && pct>=100);
+  let atrasada=false;
+  const pz = meta.prazo ? parseMes(meta.prazo) : null;
+  if(pz && !concluida && meta.status!=='cancelada'){
+    const hoje=new Date(), hojeIdx=hoje.getFullYear()*12+(hoje.getMonth()+1);
+    if((pz.y*12+pz.m) < hojeIdx) atrasada=true;
+  }
+  return { pct, pctVis:Math.max(0,Math.min(100,pct)), label, concluida, atrasada, atual, alvo, defined, unidade:un };
+}
+
+// ── Decisões vinculadas a uma meta ──
+function metaDecisoesVinculadas(metaId){
+  const ds=(D.decisoes||[]).filter(d=>d.relacionadaAMetaId===metaId);
+  return { total:ds.length,
+    emAnalise:ds.filter(d=>d.status==='em_analise').length,
+    aprovadas:ds.filter(d=>d.status==='aprovada').length };
+}
+
+// ── Estado de UI (filtros/busca/ordenação/expansão) ──
+let _metaFiltroDom='', _metaFiltroStatus='', _metaFiltroPrio='', _metaFiltroUnidade='', _metaBusca='', _metaOrdenar='prioridade';
+let _metaExpanded = {};
+function setMetaFiltro(campo,val){
+  if(campo==='dom') _metaFiltroDom=val; else if(campo==='status') _metaFiltroStatus=val;
+  else if(campo==='prio') _metaFiltroPrio=val; else if(campo==='unidade') _metaFiltroUnidade=val;
+  else if(campo==='busca') _metaBusca=val; else if(campo==='ord') _metaOrdenar=val;
+  renderObjetivos();
+}
+function toggleMetaExpand(id){ _metaExpanded[id]=!_metaExpanded[id]; renderObjetivos(); }
+
 // ═══════════════════════════════════════════════════
 //  🏷️ CATEGORIAS EDITÁVEIS (Onda 2)
 // ═══════════════════════════════════════════════════
@@ -6188,7 +6463,7 @@ async function importarBackupJSON(input) {
     }
     const ok = await uiConfirm(
       `Restaurar backup de <strong>${payload._exportedAt ? new Date(payload._exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida'}</strong>?<br><br>` +
-      `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras · 🧭 ${(data.decisoes||[]).length} decisões<br><br>` +
+      `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras · 🎯 ${(data.metas||[]).length} metas · 🧭 ${(data.decisoes||[]).length} decisões<br><br>` +
       `⚠️ Seus dados atuais serão <strong>substituídos</strong>.`,
       {icon:'📤', okText:'Restaurar'}
     );
