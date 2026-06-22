@@ -99,7 +99,8 @@ const DEFAULT = {
   planoAposentadoria: DEFAULT_PLANO,
   metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null,
   hobbies: DEFAULT_HOBBIES,
-  prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] }
+  prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
+  decisoes: []
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -116,7 +117,8 @@ const BLANK = {
   planoAposentadoria: DEFAULT_PLANO,
   metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null,
   hobbies: { aporteMensal:0, saldoFundo:0, cats: JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT)), itens: [] },
-  prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] }
+  prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
+  decisoes: []
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -327,6 +329,28 @@ function migrateData(d) {
   if(d.prefs.sidebarRecolhida==null)d.prefs.sidebarRecolhida = false;
   if(d.prefs.dashInicial==null)     d.prefs.dashInicial = 'dash';
   if(!Array.isArray(d.prefs.modulosFavoritos)) d.prefs.modulosFavoritos = [];
+
+  // ── Módulo de Decisões (primeiro módulo fora de finanças) ──
+  if(!Array.isArray(d.decisoes)) d.decisoes = [];
+  d.decisoes.forEach(dec=>{
+    if(!dec.id) dec.id = 'dec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    if(dec.titulo==null) dec.titulo = '';
+    if(dec.descricao==null) dec.descricao = '';
+    if(!dec.categoria) dec.categoria = 'outro';
+    if(!dec.status) dec.status = 'em_analise';
+    if(!dec.prioridade) dec.prioridade = 'media';
+    if(dec.prazo==null) dec.prazo = '';
+    if(!dec.dataCriacao) dec.dataCriacao = new Date().toISOString();
+    if(dec.dataAtualizacao==null) dec.dataAtualizacao = dec.dataCriacao;
+    if(dec.dataDecisao==null) dec.dataDecisao = '';
+    if(dec.custoEstimado==null || isNaN(dec.custoEstimado)) dec.custoEstimado = 0;
+    if(!dec.recorrencia) dec.recorrencia = 'nenhuma';
+    if(dec.valorRecorrente==null || isNaN(dec.valorRecorrente)) dec.valorRecorrente = 0;
+    ['impactoFinanceiro','impactoProfissional','impactoPessoal','impactoLazer'].forEach(k=>{ if(!dec[k]) dec[k]='medio'; });
+    ['beneficios','riscos','alternativas','decisaoFinal','observacoes','relacionadaACompraId','relacionadaAMetaId'].forEach(k=>{ if(dec[k]==null) dec[k]=''; });
+    if(dec.ativa==null) dec.ativa = true;
+  });
+
   if(typeof d.hobbies!=='object' || d.hobbies===null) d.hobbies = JSON.parse(JSON.stringify(DEFAULT_HOBBIES));
   if(typeof d.hobbies.aporteMensal!=='number') d.hobbies.aporteMensal = 0;
   if(typeof d.hobbies.saldoFundo!=='number')   d.hobbies.saldoFundo = 0;
@@ -799,6 +823,7 @@ const PAGE_META = {
   metas:     { label:'Metas & Orçamentos', section:'Finanças', icon:'🎯' },
   perfil:    { label:'Meu Perfil',      section:'Pessoal',    icon:'👤' },
   hobbies:   { label:'Hobbies & Aquisições', section:'Pessoal', icon:'🎮' },
+  decisoes:  { label:'Decisões',         section:'Decisões',  icon:'🧭' },
   admin:     { label:'Usuários',        section:'Sistema',    icon:'👥' },
   config:    { label:'Configurações',   section:'Sistema',    icon:'⚙️' },
   sysconfig: { label:'Sistema',          section:'Sistema',    icon:'🎨' },
@@ -915,6 +940,7 @@ function switchRole(role) {
 function renderPage(id) {
   // Visão Geral e módulos planejados (placeholders)
   if(id==='geral')     { if(typeof renderGeralDash==='function') renderGeralDash(); return; }
+  if(id==='decisoes')  { if(typeof renderDecisoes==='function') renderDecisoes(); return; }
   if(typeof PLACEHOLDER_MODULES==='object' && PLACEHOLDER_MODULES[id]) { if(typeof renderPlaceholder==='function') renderPlaceholder(id); return; }
   // Fast renders — synchronous
   if(id==='dash')      { renderDashboard(); return; }
@@ -4439,9 +4465,6 @@ const PLACEHOLDER_MODULES = {
   compras: { icon:'🛒', titulo:'Compras & Desejos', section:'Compras & Desejos',
     desc:'Evolução do módulo Hobbies & Aquisições: cada desejo com análise de impacto na reserva e nas metas, melhor momento de compra e alternativas.',
     futuras:['Análise de impacto financeiro','Melhor momento para comprar','Comparador de alternativas','Relação com metas e reserva'] },
-  decisoes: { icon:'🧭', titulo:'Decisões', section:'Decisões',
-    desc:'Avalie decisões importantes antes de agir — impacto financeiro, profissional, pessoal e de qualidade de vida — para evitar escolhas impulsivas.',
-    futuras:['Impacto financeiro/profissional/pessoal','Prós, contras e riscos','Alternativas e critérios','Decisão final e revisão'] },
   'relatorios-gerais': { icon:'📑', titulo:'Relatório Geral da Vida', section:'Relatórios',
     desc:'Um relatório consolidado de finanças, metas, patrimônio, lazer, decisões e próximos passos — exportável em PDF.',
     futuras:['Consolidação multi-domínio','Exportação em PDF','Indicadores e gráficos','Observações e próximos passos'] },
@@ -4547,8 +4570,8 @@ function renderGeralDash(){
       sub:metaTop?`Mais perto: ${escapeHTML(metaTop.m.nome||'')} (${Math.round(metaTop.info.pct)}%)`:'Nenhuma meta ativa'}),
     _gcard({icon:'🛒', label:'Compras & desejos', valor:fmt(hobTotal), cor:'var(--violet)', page:'hobbies',
       sub:hobAlvo?`Próximo: ${escapeHTML(hobAlvo.nome||'')}${hobCusto(hobAlvo)>0?' · '+fmt(hobCusto(hobAlvo)):''}`:`${hobAbertos.length} item(ns) em aberto`}),
-    _gcard({icon:'🧭', label:'Decisões', valor:'—', cor:'var(--text3)', page:'decisoes',
-      sub:'Módulo em construção — avalie decisões antes de agir'}),
+    _gcard({icon:'🧭', label:'Decisões', valor:(typeof _decResumoData==='function'?String(_decResumoData().emAnalise):'0'), cor:'var(--info)', page:'decisoes',
+      sub:(()=>{ try{ const r=_decResumoData(); const parts=[]; if(r.emAnalise) parts.push(`${r.emAnalise} em análise`); if(r.criticas) parts.push(`${r.criticas} crítica(s)`); if(r.prazoProx) parts.push(`prazo em ${r.prazoProx.dias}d`); return parts.length?parts.join(' · '):'Nenhuma decisão pendente'; }catch(e){ return 'Avalie decisões antes de agir'; } })()}),
   ].join('');
 
   // Alertas
@@ -4589,6 +4612,324 @@ function renderGeralDash(){
     ${passosHtml}`;
 }
 
+// ═══════════════════════════════════════════════════
+//  🧭 MÓDULO DE DECISÕES (primeiro módulo fora de finanças)
+//  Ajuda a avaliar decisões antes de agir. Dados em D.decisoes,
+//  isolados por usuário (userData/{uid}). Texto livre escapado.
+// ═══════════════════════════════════════════════════
+const DEC_CATS = [
+  {id:'compra',label:'Compra',icon:'🛒'}, {id:'carreira',label:'Carreira',icon:'🚀'},
+  {id:'trabalho',label:'Trabalho',icon:'💼'}, {id:'lazer',label:'Lazer',icon:'🎮'},
+  {id:'patrimonio',label:'Patrimônio',icon:'📦'}, {id:'investimento',label:'Investimento',icon:'📈'},
+  {id:'estudo',label:'Estudo',icon:'🎓'}, {id:'viagem',label:'Viagem',icon:'✈️'},
+  {id:'saude',label:'Saúde',icon:'🩺'}, {id:'pessoal',label:'Pessoal',icon:'🧠'},
+  {id:'tecnologia',label:'Tecnologia/Setup',icon:'🖥️'}, {id:'relacionamento',label:'Relacionamento',icon:'❤️'},
+  {id:'outro',label:'Outro',icon:'•'},
+];
+const DEC_STATUS = {
+  em_analise:{label:'Em análise',cor:'var(--info)'}, aguardando:{label:'Aguardando',cor:'var(--warn)'},
+  aprovada:{label:'Aprovada',cor:'var(--pos)'}, recusada:{label:'Recusada',cor:'var(--neg)'},
+  adiada:{label:'Adiada',cor:'var(--violet)'}, concluida:{label:'Concluída',cor:'var(--brand)'},
+  cancelada:{label:'Cancelada',cor:'var(--text3)'},
+};
+const DEC_PRIOS = {
+  baixa:{label:'Baixa',cor:'var(--text3)',ord:0}, media:{label:'Média',cor:'var(--info)',ord:1},
+  alta:{label:'Alta',cor:'var(--warn)',ord:2}, critica:{label:'Crítica',cor:'var(--neg)',ord:3},
+};
+const DEC_IMPACTOS = { nenhum:'Nenhum', baixo:'Baixo', medio:'Médio', alto:'Alto', critico:'Crítico' };
+const _IMP_ORD = { nenhum:0, baixo:1, medio:2, alto:3, critico:4 };
+
+let _decFiltroStatus='', _decFiltroCat='', _decFiltroPrio='', _decFiltroImpacto='', _decBusca='', _decOrdenar='prioridade';
+let _decExpanded = {};
+
+function _decs(){ if(!Array.isArray(D.decisoes)) D.decisoes=[]; return D.decisoes; }
+function decCat(id){ return DEC_CATS.find(c=>c.id===id) || {id:'outro',label:'Outro',icon:'•'}; }
+function decGet(id){ return _decs().find(d=>d.id===id); }
+function _decCustoTotal(custo){ return (custo||0); }
+
+// ── Análise estratégica automática (regras locais, sem IA externa) ──
+function analiseDecisao(dec){
+  const custo = dec.custoEstimado||0;
+  const flags = [];
+  let nivel = 'ok'; // ok | atencao | adiar | critico
+  if(custo>0){
+    let exced=0, caixa=0, metaE=0;
+    try { exced=invDisp(getMesRefIdx()); caixa=caixaAtual(); metaE=metaEmergencia(); } catch(e){}
+    const hasFin = caixa>0 || metaE>0 || exced>0;
+    if(!hasFin){
+      flags.push('sem dados financeiros suficientes para avaliar o impacto — preencha entradas e reserva');
+    } else {
+      const cabeNoMes = exced>0 && custo<=exced;
+      const quebraReserva = metaE>0 && caixa>=metaE && (caixa-custo)<metaE;
+      if(quebraReserva){ flags.push(`pode derrubar sua reserva abaixo de ${fmt(metaE)}`); nivel='critico'; }
+      else if(exced>0 && !cabeNoMes){ flags.push(`custo acima do que sobraria para investir no mês (${fmt(exced)})`); if(nivel==='ok')nivel='atencao'; }
+      else if(cabeNoMes){ flags.push('cabe no excedente do mês sem mexer na reserva'); }
+      if((dec.recorrencia==='mensal'||dec.recorrencia==='anual') && dec.valorRecorrente>0){
+        flags.push(`gera custo recorrente de ${fmt(dec.valorRecorrente)}/${dec.recorrencia==='mensal'?'mês':'ano'}`);
+        if(nivel!=='critico') nivel = (nivel==='ok')?'atencao':nivel;
+      }
+      const impF = _IMP_ORD[dec.impactoFinanceiro]||0;
+      const prioBaixa = (dec.prioridade==='baixa'||dec.prioridade==='media');
+      if(prioBaixa && impF>=3){ flags.push('impacto financeiro alto para uma prioridade não tão alta'); if(nivel==='ok'||nivel==='atencao') nivel='adiar'; }
+    }
+  } else {
+    flags.push('sem custo estimado informado');
+  }
+  // Tipo (heurística essencial/recomendada/luxo)
+  let tipo='recomendada';
+  const impPess=_IMP_ORD[dec.impactoPessoal]||0, impProf=_IMP_ORD[dec.impactoProfissional]||0, impFin=_IMP_ORD[dec.impactoFinanceiro]||0;
+  if((dec.prioridade==='critica'||dec.prioridade==='alta') && (impPess>=3||impProf>=3)) tipo='essencial';
+  else if(impFin>=3 && impPess<=1) tipo='luxo';
+
+  const head = nivel==='critico' ? 'Decisão crítica'
+             : nivel==='adiar'   ? 'Recomenda-se adiar'
+             : nivel==='atencao' ? 'Atenção'
+             : 'Boa decisão';
+  const texto = `${head}: ${flags.join('; ')}. Classificação: ${tipo}.`;
+  const cor = nivel==='critico'?'var(--neg)':nivel==='adiar'?'var(--violet)':nivel==='atencao'?'var(--warn)':'var(--pos)';
+  return { nivel, tipo, texto, cor };
+}
+
+// ── CRUD ──
+function _decSetupDelegation(){
+  const host=document.getElementById('dec-list'); if(!host || host._deleg) return;
+  host.addEventListener('click', e=>{
+    const b=e.target.closest('[data-dec-act]'); if(!b) return;
+    const act=b.getAttribute('data-dec-act'), id=b.getAttribute('data-dec-id');
+    if(act==='toggle') toggleDecExpand(id);
+    else if(act==='remove') removeDecisao(id);
+  });
+  host._deleg=true;
+}
+function toggleDecExpand(id){ _decExpanded[id]=!_decExpanded[id]; renderDecisoes(); }
+function addDecisao(){
+  const dec={ id:'dec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:'', descricao:'', categoria:'compra', status:'em_analise', prioridade:'media',
+    prazo:'', dataCriacao:new Date().toISOString(), dataAtualizacao:new Date().toISOString(), dataDecisao:'',
+    custoEstimado:0, recorrencia:'nenhuma', valorRecorrente:0,
+    impactoFinanceiro:'medio', impactoProfissional:'baixo', impactoPessoal:'medio', impactoLazer:'baixo',
+    beneficios:'', riscos:'', alternativas:'', decisaoFinal:'', observacoes:'',
+    relacionadaACompraId:'', relacionadaAMetaId:'', ativa:true };
+  _decs().unshift(dec);
+  _decExpanded[dec.id]=true;
+  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
+  renderDecisoes();
+}
+function setDecField(id, field, val){
+  const dec=decGet(id); if(!dec) return;
+  if(field==='custoEstimado'||field==='valorRecorrente') val=Math.max(0, parseFloat(val)||0);
+  dec[field]=val;
+  dec.dataAtualizacao=new Date().toISOString();
+  if(field==='status' && (val==='aprovada'||val==='recusada'||val==='concluida') && !dec.dataDecisao) dec.dataDecisao=new Date().toISOString();
+  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
+  // Atualiza só os reflexos leves sem perder foco do campo em edição:
+  renderDecResumo(); renderDecCardMeta(id);
+}
+async function removeDecisao(id){
+  const dec=decGet(id);
+  if(!await uiConfirm(`Remover a decisão <strong>"${escapeHTML(dec&&dec.titulo||'(sem título)')}"</strong>?`,{icon:'🧭',okText:'Remover'})) return;
+  D.decisoes=_decs().filter(d=>d.id!==id);
+  delete _decExpanded[id];
+  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
+  renderDecisoes(); if(typeof toast==='function') toast('Decisão removida',true,'🗑️');
+}
+function setDecFiltro(campo,val){
+  if(campo==='status') _decFiltroStatus=val; else if(campo==='cat') _decFiltroCat=val;
+  else if(campo==='prio') _decFiltroPrio=val; else if(campo==='imp') _decFiltroImpacto=val;
+  else if(campo==='busca') _decBusca=val; else if(campo==='ord') _decOrdenar=val;
+  renderDecisoes();
+}
+
+// ── Resumo (cards do topo) ──
+function _decResumoData(){
+  const ds=_decs().filter(d=>d.ativa!==false);
+  const emAnalise=ds.filter(d=>d.status==='em_analise').length;
+  const aprovadas=ds.filter(d=>d.status==='aprovada').length;
+  const adiadas=ds.filter(d=>d.status==='adiada').length;
+  const criticas=ds.filter(d=>d.prioridade==='critica' && !['concluida','cancelada','recusada'].includes(d.status)).length;
+  const custoTotal=ds.filter(d=>['em_analise','aprovada','aguardando'].includes(d.status)).reduce((s,d)=>s+(d.custoEstimado||0),0);
+  // prazo próximo (<=14 dias)
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  let prazoProx=null;
+  ds.filter(d=>d.prazo && !['concluida','cancelada','recusada'].includes(d.status)).forEach(d=>{
+    const p=new Date(d.prazo+'T00:00:00'); const dias=Math.round((p-hoje)/86400000);
+    if(dias>=0 && dias<=60 && (!prazoProx||dias<prazoProx.dias)) prazoProx={dec:d,dias};
+  });
+  return {emAnalise,aprovadas,adiadas,criticas,custoTotal,prazoProx,total:ds.length};
+}
+function renderDecResumo(){
+  const el=document.getElementById('dec-resumo'); if(!el) return;
+  const r=_decResumoData();
+  const card=(icon,label,valor,cor)=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:12px 14px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">${icon} ${label}</div>
+    <div style="font-size:19px;font-weight:800;color:${cor||'var(--text)'};margin-top:3px">${valor}</div></div>`;
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+    ${card('🔍','Em análise',r.emAnalise,'var(--info)')}
+    ${card('✅','Aprovadas',r.aprovadas,'var(--pos)')}
+    ${card('⏸️','Adiadas',r.adiadas,'var(--violet)')}
+    ${card('🚨','Críticas',r.criticas,r.criticas>0?'var(--neg)':'var(--text)')}
+    ${card('💰','Custo estimado',fmt(r.custoTotal),'var(--text)')}
+    ${card('⏰','Prazo próximo',r.prazoProx?`${r.prazoProx.dias}d`:'—',r.prazoProx&&r.prazoProx.dias<=7?'var(--warn)':'var(--text)')}
+  </div>`;
+}
+
+// Atualiza badges/análise de um card sem re-render total (mantém foco em edição)
+function renderDecCardMeta(id){
+  const dec=decGet(id); if(!dec) return;
+  const an=analiseDecisao(dec);
+  const a=document.getElementById('dec-analise-'+id);
+  if(a){ a.style.borderLeftColor=an.cor; a.querySelector('[data-an-text]').innerHTML=escapeHTML(an.texto); }
+}
+
+function renderDecisoes(){
+  renderDecResumo();
+  const el=document.getElementById('dec-list'); if(!el) return;
+  _decSetupDelegation();
+
+  // Filtro + busca
+  let lista=_decs().slice();
+  if(_decFiltroStatus) lista=lista.filter(d=>d.status===_decFiltroStatus);
+  if(_decFiltroCat)    lista=lista.filter(d=>d.categoria===_decFiltroCat);
+  if(_decFiltroPrio)   lista=lista.filter(d=>d.prioridade===_decFiltroPrio);
+  if(_decFiltroImpacto)lista=lista.filter(d=>d.impactoFinanceiro===_decFiltroImpacto);
+  if(_decBusca){ const q=_decBusca.toLowerCase(); lista=lista.filter(d=>(d.titulo||'').toLowerCase().includes(q)||(d.descricao||'').toLowerCase().includes(q)); }
+  const ord={
+    prioridade:(a,b)=>(DEC_PRIOS[b.prioridade]?.ord||0)-(DEC_PRIOS[a.prioridade]?.ord||0),
+    prazo:(a,b)=>(a.prazo||'9999').localeCompare(b.prazo||'9999'),
+    criacao:(a,b)=>(b.dataCriacao||'').localeCompare(a.dataCriacao||''),
+    custo:(a,b)=>(b.custoEstimado||0)-(a.custoEstimado||0),
+  };
+  lista.sort(ord[_decOrdenar]||ord.prioridade);
+
+  const selOpts=(obj,sel,withEmpty,emptyLabel)=>{
+    let o = withEmpty?`<option value="">${emptyLabel||'Todos'}</option>`:'';
+    if(Array.isArray(obj)) o+=obj.map(c=>`<option value="${attr(c.id)}"${c.id===sel?' selected':''}>${escapeHTML(c.icon||'')} ${escapeHTML(c.label)}</option>`).join('');
+    else o+=Object.keys(obj).map(k=>`<option value="${attr(k)}"${k===sel?' selected':''}>${escapeHTML(obj[k].label||obj[k])}</option>`).join('');
+    return o;
+  };
+
+  // Barra de filtros
+  const filtros=`<div class="panel mb"><div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <input type="text" value="${attr(_decBusca)}" oninput="setDecFiltro('busca',this.value)" placeholder="🔍 Buscar título/descrição" style="flex:1;min-width:160px;height:34px">
+    <select onchange="setDecFiltro('status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${selOpts(DEC_STATUS,_decFiltroStatus,false)}</select>
+    <select onchange="setDecFiltro('cat',this.value)" style="height:34px;font-size:12px"><option value="">Categoria: todas</option>${selOpts(DEC_CATS,_decFiltroCat,false)}</select>
+    <select onchange="setDecFiltro('prio',this.value)" style="height:34px;font-size:12px"><option value="">Prioridade: todas</option>${selOpts(DEC_PRIOS,_decFiltroPrio,false)}</select>
+    <select onchange="setDecFiltro('ord',this.value)" style="height:34px;font-size:12px">
+      <option value="prioridade"${_decOrdenar==='prioridade'?' selected':''}>Ordenar: prioridade</option>
+      <option value="prazo"${_decOrdenar==='prazo'?' selected':''}>Ordenar: prazo</option>
+      <option value="criacao"${_decOrdenar==='criacao'?' selected':''}>Ordenar: mais recentes</option>
+      <option value="custo"${_decOrdenar==='custo'?' selected':''}>Ordenar: maior custo</option>
+    </select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addDecisao()">+ Nova decisão</button>
+  </div></div>`;
+
+  if(!_decs().length){
+    el.innerHTML=`<div class="panel"><div class="empty" style="padding:32px">
+      <div class="empty-icon">🧭</div>
+      <div class="empty-text">Nenhuma decisão registrada ainda. Antes de uma escolha importante — uma compra cara, trocar de carro, aceitar um trabalho — registre aqui e deixe o sistema avaliar o impacto na sua reserva e nas suas metas.</div>
+      <button class="btn btn-pri" style="margin-top:14px" onclick="addDecisao()">+ Registrar primeira decisão</button>
+    </div></div>`;
+    return;
+  }
+
+  const cards=lista.map(dec=>{
+    const cat=decCat(dec.categoria), st=DEC_STATUS[dec.status]||DEC_STATUS.em_analise, pr=DEC_PRIOS[dec.prioridade]||DEC_PRIOS.media;
+    const an=analiseDecisao(dec);
+    const exp=_decExpanded[dec.id];
+    const compraNome = dec.relacionadaACompraId ? ((( _hob&&_hob().itens)||[]).find(i=>i.id===dec.relacionadaACompraId)||{}).nome : '';
+    const metaNome = dec.relacionadaAMetaId ? ((D.metas||[]).find(m=>m.id===dec.relacionadaAMetaId)||{}).nome : '';
+
+    const editor = exp ? `
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Descrição</label>
+          <textarea oninput="setDecField('${dec.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(dec.descricao)}</textarea></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Categoria</label>
+            <select onchange="setDecField('${dec.id}','categoria',this.value)">${selOpts(DEC_CATS,dec.categoria,false)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Status</label>
+            <select onchange="setDecField('${dec.id}','status',this.value)">${selOpts(DEC_STATUS,dec.status,false)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prioridade</label>
+            <select onchange="setDecField('${dec.id}','prioridade',this.value)">${selOpts(DEC_PRIOS,dec.prioridade,false)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prazo</label>
+            <input type="date" value="${attr(dec.prazo)}" onchange="setDecField('${dec.id}','prazo',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Custo estimado (R$)</label>
+            <input type="number" step="10" min="0" value="${dec.custoEstimado||0}" onchange="setDecField('${dec.id}','custoEstimado',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Recorrência</label>
+            <select onchange="setDecField('${dec.id}','recorrencia',this.value)">
+              <option value="nenhuma"${dec.recorrencia==='nenhuma'?' selected':''}>Nenhuma</option>
+              <option value="mensal"${dec.recorrencia==='mensal'?' selected':''}>Mensal</option>
+              <option value="anual"${dec.recorrencia==='anual'?' selected':''}>Anual</option></select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Valor recorrente (R$)</label>
+            <input type="number" step="10" min="0" value="${dec.valorRecorrente||0}" onchange="setDecField('${dec.id}','valorRecorrente',this.value)"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+          ${['impactoFinanceiro','Financeiro','impactoProfissional','Profissional','impactoPessoal','Pessoal','impactoLazer','Lazer'].reduce((acc,_,i,arr)=>{
+            if(i%2) return acc; const f=arr[i],lab=arr[i+1];
+            return acc+`<div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Impacto ${lab}</label>
+              <select onchange="setDecField('${dec.id}','${f}',this.value)">${selOpts(DEC_IMPACTOS,dec[f],false)}</select></div>`;
+          },'')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Benefícios</label>
+            <textarea oninput="setDecField('${dec.id}','beneficios',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(dec.beneficios)}</textarea></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Riscos</label>
+            <textarea oninput="setDecField('${dec.id}','riscos',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(dec.riscos)}</textarea></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Alternativas</label>
+            <textarea oninput="setDecField('${dec.id}','alternativas',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(dec.alternativas)}</textarea></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Relacionar a compra/desejo (opcional)</label>
+            <select onchange="setDecField('${dec.id}','relacionadaACompraId',this.value)">
+              <option value="">— nenhuma —</option>
+              ${(((typeof _hob==='function'&&_hob().itens)||[])).map(it=>`<option value="${attr(it.id)}"${it.id===dec.relacionadaACompraId?' selected':''}>${escapeHTML(it.nome||'')}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Relacionar a meta (opcional)</label>
+            <select onchange="setDecField('${dec.id}','relacionadaAMetaId',this.value)">
+              <option value="">— nenhuma —</option>
+              ${((D.metas||[]).map(m=>`<option value="${attr(m.id)}"${m.id===dec.relacionadaAMetaId?' selected':''}>${escapeHTML(m.nome||'')}</option>`)).join('')}</select></div>
+        </div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Decisão final</label>
+          <input type="text" value="${attr(dec.decisaoFinal)}" onchange="setDecField('${dec.id}','decisaoFinal',this.value)" placeholder="o que você decidiu?"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Observações</label>
+          <textarea oninput="setDecField('${dec.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(dec.observacoes)}</textarea></div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn btn-neg" style="height:32px;font-size:12px" data-dec-act="remove" data-dec-id="${attr(dec.id)}">🗑️ Excluir decisão</button>
+        </div>
+      </div>` : '';
+
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${pr.cor};border-radius:var(--r14);padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:18px">${escapeHTML(cat.icon)}</span>
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(dec.titulo)}" onchange="setDecField('${dec.id}','titulo',this.value);renderDecCardTitle('${dec.id}')" placeholder="Título da decisão" style="font-weight:700;font-size:14px;width:100%">
+          <div id="dec-meta-${dec.id}" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            <span class="badge" style="background:var(--card3);color:${st.cor};font-size:10px">${escapeHTML(st.label)}</span>
+            <span class="badge" style="background:var(--card3);color:${pr.cor};font-size:10px">${escapeHTML(pr.label)}</span>
+            <span style="font-size:11px;color:var(--text2)">${escapeHTML(cat.label)}</span>
+            ${dec.custoEstimado>0?`<span style="font-size:11px;font-weight:700">· ${fmt(dec.custoEstimado)}</span>`:''}
+            ${dec.prazo?`<span style="font-size:11px;color:var(--text3)">· prazo ${escapeHTML(dec.prazo)}</span>`:''}
+            ${compraNome?`<span style="font-size:10px;color:var(--text3)">🛒 ${escapeHTML(compraNome)}</span>`:''}
+            ${metaNome?`<span style="font-size:10px;color:var(--text3)">🎯 ${escapeHTML(metaNome)}</span>`:''}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" data-dec-act="toggle" data-dec-id="${attr(dec.id)}">${exp?'▴ fechar':'▾ detalhes'}</button>
+      </div>
+      <div id="dec-analise-${dec.id}" style="background:var(--card2);border-left:3px solid ${an.cor};border-radius:var(--r10);padding:8px 11px;margin-top:10px">
+        <div style="font-size:11px;color:var(--text2);line-height:1.45" data-an-text>${escapeHTML(an.texto)}</div>
+      </div>
+      ${editor}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = filtros + cards;
+}
+// Atualiza o card-meta (badges) de uma decisão após editar o título (sem re-render total)
+function renderDecCardTitle(id){ /* título já está no input; nada a fazer além de persistir */ }
+
+// ── Card do Dashboard Geral (dados reais) ──
+function decDashResumo(){
+  const r=_decResumoData();
+  return r;
+}
 // ═══════════════════════════════════════════════════
 //  🏷️ CATEGORIAS EDITÁVEIS (Onda 2)
 // ═══════════════════════════════════════════════════
@@ -5847,7 +6188,7 @@ async function importarBackupJSON(input) {
     }
     const ok = await uiConfirm(
       `Restaurar backup de <strong>${payload._exportedAt ? new Date(payload._exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida'}</strong>?<br><br>` +
-      `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras<br><br>` +
+      `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras · 🧭 ${(data.decisoes||[]).length} decisões<br><br>` +
       `⚠️ Seus dados atuais serão <strong>substituídos</strong>.`,
       {icon:'📤', okText:'Restaurar'}
     );
