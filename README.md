@@ -102,17 +102,54 @@ Prioridade técnica (segurança primeiro):
 5. ✅ Anti-XSS (`escapeHTML`) nos pontos críticos (admin vê dados de terceiros)
 6. ✅ Dados financeiros pessoais removidos dos defaults (novo usuário começa zerado)
 7. ✅ `.gitignore` e deploy seguro
-8. 🔜 **Módulo de Configurações do Sistema** — identidade (nome, logo, cores via CSS variables), módulos e menus parametrizáveis (`systemConfig` global + preferências por `uid`)
-9. 🔜 **Menus/módulos/categorias dinâmicos** (fim do hardcode de menu no HTML)
-10. 🔜 **Metas integradas** (financeira, profissional, pessoal, lazer, patrimônio…) e **módulo de Decisões** (impacto financeiro/profissional/pessoal, prós/contras, status)
-11. 🔜 **Compras Futuras** (já há base no módulo Hobbies & Aquisições), **Projetos/Tarefas**, **Patrimônio**
-12. 🔜 **Relatórios parametrizáveis** + PDFs (via `window.print` com CSS de impressão ou `html2pdf.js`)
-13. 🔜 **Integrações de mercado** isoladas em `market-data.js` (CDI/SELIC/IPCA via Banco Central; cotações com fallback manual e status “última atualização / fonte”). Fontes que exijam segredo/CORS → Cloud Functions ou Cloudflare Worker, nunca chave no frontend.
+8. ✅ **(Fase 2) Módulo de Configurações do Sistema** — identidade global (nome, subtítulo, marca, título do navegador, logo/favicon por URL) e cores via CSS variables, em `systemConfig/app`, editável só por superadmin, com validação de hex e preview ao vivo.
+9. ✅ **(Fase 2) `firestore.rules` preparadas para subcoleções** (`userData/{uid}/{document=**}` e `users/{uid}/private/**`) + validação que impede `token`/`secret`/`apiKey` em `systemConfig`.
+10. ✅ **(Fase 2) Varredura XSS ampliada** — `escapeHTML`/`attr` aplicados a entradas, compras, cartões, metas, ativos, hobbies e categorias.
+11. ✅ **(Fase 2) Preferências por usuário** (`D.prefs`) isoladas em `userData/{uid}`, separadas das configurações globais.
+12. 🔜 **Sidebar com categorias/subcategorias dinâmicas** + **Dashboard Geral** separado do Financeiro
+13. 🔜 **Módulo de Decisões** e **Metas integradas** (domínios além de finanças)
+14. 🔜 **Compras & Desejos** (evolução do Hobbies & Aquisições com impacto financeiro)
+15. 🔜 **Relatórios parametrizáveis + PDFs** (`window.print` com CSS de impressão ou `html2pdf.js`)
+16. 🔜 **Integrações** (ver seção abaixo)
+
+### Configurações: globais vs por usuário
+
+- **Globais** (`systemConfig/app`): identidade visual, nome do sistema, cores, módulos/menus. Leitura por qualquer autenticado (necessária para renderizar); **escrita só por superadmin**. Nunca contém dados pessoais, tokens ou segredos (as regras bloqueiam campos `token`/`secret`/`apiKey`).
+- **Por usuário** (`userData/{uid}.prefs`): tema preferido, sidebar recolhida, dashboard inicial, módulos favoritos. Isoladas por dono; um usuário nunca lê preferências de outro.
+
+### Arquitetura de integrações (roadmap)
+
+Toda integração seguirá um contrato comum `{ ok, provider, source, updatedAt, stale, mode, data, error }`, em módulos separados, **sem quebrar o app se a fonte falhar** e sempre com **fallback manual** e status visível (fonte / última atualização). Classificação por viabilidade:
+
+| Integração | Viabilidade | Camada |
+|---|---|---|
+| Links "Adicionar à Google Agenda" | **Frontend-only** (agora) | `calendar-integration.js` (Fase 1: gera URLs de evento) |
+| Importação CSV/OFX de extratos | **Frontend-only** (curto prazo) | parser + prévia + dedupe, isolado por `uid` |
+| Indicadores macro (SELIC/CDI/IPCA) | Frontend via **API do Banco Central** (CORS aberto) | `market-data.js` + fallback manual |
+| Cotações B3/ações | **Exige proxy** (CORS/sem API pública) | Cloud Function / Cloudflare Worker |
+| Google Calendar (ler/criar eventos) | **Exige backend** (OAuth) | Cloud Function; tokens nunca em texto puro |
+| Open Finance / bancos | **Exige provedor + backend** | nunca pedir senha bancária nem scraping; consentimento + criptografia |
+| Gmail / e-mail | **Exige backend** (OAuth, escopos mínimos) | só roadmap |
+| Notion/Jira/Trello/Slack | Manual primeiro (links); OAuth depois | roadmap |
+| Anexos/documentos | Links externos (Fase 1) → Firebase Storage com regras por `uid` (Fase 2) | roadmap |
+
+**Diagnóstico da B3:** não há integração no código — indicadores e preços são manuais. A B3 não expõe API pública com CORS para frontend; qualquer cotação confiável exige proxy seguro (Cloud Function/Worker), nunca chave no frontend. O app opera 100% no manual, então nada quebra sem integração.
 
 ### CRUDs
 
 Cada CRUD segue o padrão: listagem, criar/editar/excluir, ativar/inativar, filtros/busca/ordenação, status e prioridade, `uid` do dono, validação, confirmação de exclusão, feedback, empty state, proteção XSS e isolamento por usuário. CRUDs **administrativos** (usuários, módulos, configurações globais) são restritos a superadmin; CRUDs **por usuário** ficam sob `userData/{uid}`.
 
 ---
+
+---
+
+## ✅ Passos manuais obrigatórios (e por que cada um importa)
+
+1. **Revogar o token GitHub antigo** (GitHub → Settings → Developer settings → PATs → *Revoke*). Removê-lo do código **não basta**: ele segue válido no histórico do Git e qualquer um com acesso ao repo pode usá-lo.
+2. **Confirmar que o token revogado não está mais ativo** (a lista de tokens deve mostrá-lo como revogado/expirado).
+3. **Remover o `auth.js` do versionamento:** `git rm auth.js` (ou `git rm --cached auth.js`). Ele é código legado inseguro; mesmo neutralizado, não deve ser publicado nem rastreado.
+4. **Publicar o `firestore.rules` no Firebase Console** (Firestore → Regras). A segurança real mora aqui — sem publicar, o isolamento por usuário não vale no servidor.
+5. **Garantir `role: "superadmin"`** no seu `users/{uid}` (Console do Firestore). É o que libera o painel de usuários e o módulo de Identidade & Cores.
+6–13. **Testar:** login, cadastro, reset por e-mail, salvar dados, isolamento entre dois usuários, usuário comum tentando abrir a área admin, backup/importação e deploy. Cada teste valida uma fronteira diferente (auth, persistência, isolamento, gating de UI, e que o deploy não publica arquivos inseguros).
 
 *FinançasPRO — JavaScript vanilla, sem build, pronto para GitHub Pages.*

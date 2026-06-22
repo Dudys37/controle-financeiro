@@ -16,20 +16,36 @@ service cloud.firestore {
     match /users/{uid} {
       allow read:  if isOwner(uid) || isAdmin();
       allow write: if isAdmin();
+
+      // Preparado para evolução futura: dados privados por usuário em subcoleção.
+      // Somente o dono lê/escreve. Superadmin NÃO acessa (privacidade — ex.: dados bancários).
+      match /private/{document=**} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
     // ── Dados pessoais/financeiros — isolados por usuário ──
-    // Leitura e escrita SOMENTE pelo dono do documento. Nenhum acesso cruzado.
+    // Modelo atual: tudo em userData/{uid}.data (JSON). Read/write SOMENTE pelo dono.
     match /userData/{uid} {
       allow read, write: if isOwner(uid);
+
+      // Evolução futura: subcoleções por domínio (entradas, metas, decisoes, compras,
+      // preferencias, trabalho, patrimonio, integracoes...). Mantêm o isolamento por dono.
+      match /{document=**} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
-    // ── Configurações globais do sistema (identidade visual, módulos, etc.) ──
-    // Leitura por qualquer autenticado (necessária para renderizar a UI);
-    // escrita somente por superadmin. NÃO deve conter dados pessoais nem segredos.
+    // ── Configurações GLOBAIS do sistema (identidade visual, módulos, menus) ──
+    // Leitura por qualquer autenticado (necessária para renderizar a UI).
+    // Escrita somente por superadmin. NUNCA deve conter dados pessoais, segredos,
+    // tokens, dados bancários nem eventos/e-mails de usuários.
     match /systemConfig/{docId} {
       allow read:  if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAdmin()
+        && !( 'token' in request.resource.data )
+        && !( 'secret' in request.resource.data )
+        && !( 'apiKey' in request.resource.data );
     }
 
     // Bloqueia qualquer outro caminho não previsto explicitamente.

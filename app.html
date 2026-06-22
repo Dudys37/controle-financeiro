@@ -1271,6 +1271,7 @@ body { margin: 0; padding: 0; }
       <div class="sidebar-section-label">Sistema</div>
       <button class="snav" id="snav-admin" onclick="goSide('admin')"><span class="snav-icon">👥</span> Usuários</button>
       <button class="snav" id="snav-config" onclick="goSide('config')"><span class="snav-icon">⚙️</span> Configurações</button>
+      <button class="snav" id="snav-sysconfig" onclick="goSide('sysconfig')"><span class="snav-icon">🎨</span> Identidade & Cores</button>
     </div>
   </div>
   <div class="sidebar-footer">
@@ -1784,6 +1785,15 @@ body { margin: 0; padding: 0; }
     <div id="hob-lista"></div>
   </div>
 
+  <!-- ████ IDENTIDADE & CORES (systemConfig — superadmin) ████ -->
+  <div class="page" id="page-sysconfig">
+    <div style="margin-bottom:24px">
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🎨 Identidade &amp; Cores do Sistema</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Configurações globais de identidade visual — base para transformar o app em auxiliador pessoal. Edição exclusiva de administradores.</div>
+    </div>
+    <div id="sysconfig-body"></div>
+  </div>
+
 <!-- ████ CONFIGURAÇÕES DO SISTEMA ████ -->
 <div class="page" id="page-config">
   <div style="margin-bottom:24px">
@@ -2221,6 +2231,7 @@ auth.onAuthStateChanged(function(user){
     selDash = getMesRefIdx(); // ← default to correct current month
     if(typeof applyChartDefaults==='function') applyChartDefaults();
     renderAll();
+    if(typeof loadSystemConfig==='function') loadSystemConfig(); // identidade/cores globais
     setTimeout(()=>{Object.keys(CH).forEach(dc);selDash=getMesRefIdx();if(typeof applyChartDefaults==='function')applyChartDefaults();renderAll();},600);
   }).catch(e=>{
     console.error(e);

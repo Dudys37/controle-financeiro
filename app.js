@@ -98,7 +98,8 @@ const DEFAULT = {
   entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[],
   planoAposentadoria: DEFAULT_PLANO,
   metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null,
-  hobbies: DEFAULT_HOBBIES
+  hobbies: DEFAULT_HOBBIES,
+  prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] }
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -114,7 +115,8 @@ const BLANK = {
   entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[],
   planoAposentadoria: DEFAULT_PLANO,
   metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null,
-  hobbies: { aporteMensal:0, saldoFundo:0, cats: JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT)), itens: [] }
+  hobbies: { aporteMensal:0, saldoFundo:0, cats: JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT)), itens: [] },
+  prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] }
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -318,7 +320,13 @@ function migrateData(d) {
   if(!Array.isArray(d.metas)) d.metas = [];
   if(typeof d.orcamentos!=='object' || d.orcamentos===null) d.orcamentos = {};
 
-  // ── Módulo Hobbies & Aquisições ──
+  // ── Preferências individuais do usuário (isoladas em userData/{uid}) ──
+  // Distintas das configurações GLOBAIS (systemConfig). Nunca contêm dados de outros usuários.
+  if(typeof d.prefs!=='object' || d.prefs===null) d.prefs = {};
+  if(d.prefs.tema==null)            d.prefs.tema = null;           // null = segue o tema global/local
+  if(d.prefs.sidebarRecolhida==null)d.prefs.sidebarRecolhida = false;
+  if(d.prefs.dashInicial==null)     d.prefs.dashInicial = 'dash';
+  if(!Array.isArray(d.prefs.modulosFavoritos)) d.prefs.modulosFavoritos = [];
   if(typeof d.hobbies!=='object' || d.hobbies===null) d.hobbies = JSON.parse(JSON.stringify(DEFAULT_HOBBIES));
   if(typeof d.hobbies.aporteMensal!=='number') d.hobbies.aporteMensal = 0;
   if(typeof d.hobbies.saldoFundo!=='number')   d.hobbies.saldoFundo = 0;
@@ -792,6 +800,7 @@ const PAGE_META = {
   hobbies:   { label:'Hobbies & Aquisições', section:'Pessoal', icon:'🎮' },
   admin:     { label:'Usuários',        section:'Sistema',    icon:'👥' },
   config:    { label:'Configurações',   section:'Sistema',    icon:'⚙️' },
+  sysconfig: { label:'Sistema',          section:'Sistema',    icon:'🎨' },
 };
 
 let _currentRole = 'user'; // perfil ativo ('user' ou 'superadmin')
@@ -877,7 +886,7 @@ function switchRole(role) {
   const adminSection=document.getElementById('sidebar-admin-section');
   const isAdmin = role==='superadmin';
   if(adminSection) adminSection.style.display = isAdmin?'':'none';
-  ['snav-admin','snav-config','snav-cats','snav-params'].forEach(id=>{
+  ['snav-admin','snav-config','snav-cats','snav-params','snav-sysconfig'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.style.display=isAdmin?'':'none';
   });
@@ -894,7 +903,7 @@ function switchRole(role) {
   // If currently on admin/config page and switched to user, go to dash
   const active=document.querySelector('.page.on');
   const activeId=active?active.id.replace('page-',''):'dash';
-  if(!isAdmin&&(activeId==='admin'||activeId==='config')) goSide('dash');
+  if(!isAdmin&&(activeId==='admin'||activeId==='config'||activeId==='sysconfig')) goSide('dash');
 }
 
 function renderPage(id) {
@@ -912,6 +921,7 @@ function renderPage(id) {
   if(id==='perfil')    { requestAnimationFrame(()=>{ if(window._renderPerfil) window._renderPerfil(); }); return; }
   if(id==='admin')     { requestAnimationFrame(()=>{ if(window._renderAdmin) window._renderAdmin(); }); return; }
   if(id==='config')    { if(typeof renderConfig==='function') renderConfig(); return; }
+  if(id==='sysconfig') { if(typeof renderSysConfig==='function') renderSysConfig(); return; }
 }
 function renderAll() {
   applyCatsCustom();
@@ -2239,7 +2249,7 @@ function finInsights(mi){
   }catch(e){}
   // 9) Objetivo perto de ser concluído
   try{
-    (D.metas||[]).forEach(m=>{ const mi2=metaInfo(m); if(mi2.pct>=80 && !mi2.concluida) push('info','🎯',`Objetivo quase lá: ${m.nome}`,`${Math.round(mi2.pct)}% concluído — faltam ${fmt(mi2.faltam)}.`); });
+    (D.metas||[]).forEach(m=>{ const mi2=metaInfo(m); if(mi2.pct>=80 && !mi2.concluida) push('info','🎯',`Objetivo quase lá: ${escapeHTML(m.nome)}`,`${Math.round(mi2.pct)}% concluído — faltam ${fmt(mi2.faltam)}.`); });
   }catch(e){}
 
   const rank={bad:0,warn:1,info:2,good:3};
@@ -2487,7 +2497,7 @@ function renderEntradas() {
     return `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r12);margin-bottom:8px;${!e.ativo?'opacity:.5':''}transition:all .15s" onmouseenter="this.style.borderColor='var(--border2)'" onmouseleave="this.style.borderColor='var(--border)'">
       <span style="font-size:22px">${info.icon}</span>
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:14px">${e.nome} ${tipoBadge}</div>
+        <div style="font-weight:700;font-size:14px">${escapeHTML(e.nome)} ${tipoBadge}</div>
         <div style="font-size:11px;color:var(--text2);margin-top:2px">${info.label}${e.dia?` · Dia ${e.dia}`:''}${mesInfo}</div>
       </div>
       <div style="text-align:right;min-width:120px">
@@ -2613,7 +2623,7 @@ function renderCartoesTo(el, i) {
       </div>
       ${lim>0?`<div class="cc-bar"><div class="cc-bar-fill" style="width:${pctUsado}%;background:${barCor}"></div></div>
       <div class="cc-meta"><span>Em aberto: <strong>${fmt(totalAberto)}</strong></span><span>Limite: <strong>${fmt(lim)}</strong> · <strong style="color:${barCor}">${pctUsado}%</strong></span></div>`:''}
-      <div class="cc-parcelas">${itens.map(c=>`<span class="cc-chip-sml">${c.nome}: ${fmtK(calcValsCompra(c)[i])}</span>`).join('')}</div>
+      <div class="cc-parcelas">${itens.map(c=>`<span class="cc-chip-sml">${escapeHTML(c.nome)}: ${fmtK(calcValsCompra(c)[i])}</span>`).join('')}</div>
     </div>`;
   }).join('');
 }
@@ -2681,7 +2691,7 @@ function renderCarteira() {
     const rows=D.cartoes.map((c,ci)=>`<tr>
       <td><div style="display:flex;align-items:center;gap:8px">
         <div style="width:10px;height:10px;border-radius:50%;background:${c.cor||'#888'}"></div>
-        <input type="text" value="${c.nome}" onchange="D.cartoes[${ci}].nome=this.value;scheduleAutoSave()" style="font-weight:600;min-width:100px">
+        <input type="text" value="${attr(c.nome)}" onchange="D.cartoes[${ci}].nome=this.value;scheduleAutoSave()" style="font-weight:600;min-width:100px">
       </div></td>
       <td><select onchange="D.cartoes[${ci}].bandeira=this.value;scheduleAutoSave()">${['Mastercard','Visa','Elo','Amex','Hipercard'].map(b=>`<option${c.bandeira===b?' selected':''}>${b}</option>`).join('')}</select></td>
       <td><input type="number" step="100" value="${c.limite||0}" onchange="D.cartoes[${ci}].limite=parseFloat(this.value)||0;scheduleAutoSave()" style="text-align:right"></td>
@@ -2842,9 +2852,9 @@ function renderSaidasVar() {
         <span style="font-size:22px">${info.icon}</span>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-weight:700;font-size:14px">${c.nome}</span>
+            <span style="font-weight:700;font-size:14px">${escapeHTML(c.nome)}</span>
             <span class="badge badge-var">Variável</span>
-            ${c.cartao?`<span class="badge" style="background:var(--card3);color:var(--text2)">💳 ${c.cartao}</span>`:''}
+            ${c.cartao?`<span class="badge" style="background:var(--card3);color:var(--text2)">💳 ${escapeHTML(c.cartao)}</span>`:''}
           </div>
           <div style="font-size:11px;color:var(--text2);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap">
             <span>📅 Compra: ${c.dataCompra||'—'}</span>
@@ -2933,7 +2943,7 @@ function abrirModalCompra(ci=-1) {
   document.getElementById('mc-nome').value=c.nome;
   { const _s=document.getElementById('mc-cat'); if(_s) _s.innerHTML=optsCats(CATS, c.cat||'cartao'); }
   document.getElementById('mc-cat').value=c.cat||'cartao';
-  document.getElementById('mc-cartao').innerHTML='<option value="">— Sem cartão (débito/pix) —</option>'+D.cartoes.map(ct=>`<option value="${ct.nome}"${c.cartao===ct.nome?' selected':''}>${ct.nome}</option>`).join('');
+  document.getElementById('mc-cartao').innerHTML='<option value="">— Sem cartão (débito/pix) —</option>'+D.cartoes.map(ct=>`<option value="${attr(ct.nome)}"${c.cartao===ct.nome?' selected':''}>${escapeHTML(ct.nome)}</option>`).join('');
   document.getElementById('mc-cartao').value=c.cartao||'';
 
   const n=c.parcelas||1;
@@ -3503,7 +3513,7 @@ function renderRelMensal(){
 
   const metas=R.metas.length?card(`<div style="font-size:14px;font-weight:700;margin-bottom:10px">🎯 Objetivos</div>
     ${R.metas.map(m=>`<div style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>${m.icon} ${m.nome}</span><span style="font-weight:700;color:${m.concluida?'var(--pos)':'var(--text)'}">${fmtK(m.atual)} / ${fmtK(m.alvo)} · ${Math.round(m.pct)}%</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>${escapeHTML(m.icon)} ${escapeHTML(m.nome)}</span><span style="font-weight:700;color:${m.concluida?'var(--pos)':'var(--text)'}">${fmtK(m.atual)} / ${fmtK(m.alvo)} · ${Math.round(m.pct)}%</span></div>
       <div style="height:7px;background:var(--card3);border-radius:99px;overflow:hidden"><div style="height:7px;width:${Math.min(100,m.pct)}%;background:${m.concluida?'var(--pos)':'var(--brand)'};border-radius:99px"></div></div>
     </div>`).join('')}`):'';
 
@@ -3631,7 +3641,7 @@ function renderObjetivos(){
   const cards=metas.map(m=>{
     const I=metaInfo(m);
     const barCor=I.concluida?'var(--pos)':I.atrasada?'var(--neg)':'var(--brand)';
-    const ativoOpts=(D.ativos||[]).map(a=>`<option value="${(a.nome||'').replace(/"/g,'&quot;')}"${a.nome===m.ativoNome?' selected':''}>${a.nome||'(sem nome)'}</option>`).join('');
+    const ativoOpts=(D.ativos||[]).map(a=>`<option value="${attr(a.nome||'')}"${a.nome===m.ativoNome?' selected':''}>${escapeHTML(a.nome||'(sem nome)')}</option>`).join('');
     const rodape = I.concluida
       ? `<div style="font-size:12px;font-weight:700;color:var(--pos)">✅ Objetivo concluído!</div>`
       : `<div style="font-size:11px;color:var(--text2)">Faltam <strong style="color:var(--text)">${fmt(I.faltam)}</strong>${
@@ -3639,7 +3649,7 @@ function renderObjetivos(){
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r14);padding:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <input type="text" value="${(m.icon||'🎯').replace(/"/g,'&quot;')}" maxlength="2" onchange="setMetaField('${m.id}','icon',this.value)" style="width:42px;text-align:center;font-size:18px">
-        <input type="text" value="${(m.nome||'').replace(/"/g,'&quot;')}" onchange="setMetaField('${m.id}','nome',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:14px">
+        <input type="text" value="${attr(m.nome||'')}" onchange="setMetaField('${m.id}','nome',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:14px">
         <button class="btn-rm" title="Remover" onclick="removeMeta('${m.id}')">✕</button>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
@@ -3924,7 +3934,7 @@ function renderHobFundo(){
       ${alvo?`<div style="background:var(--card2);border-radius:var(--r10);padding:12px 14px;margin-bottom:14px">
         <div style="font-size:11px;color:var(--text2);margin-bottom:3px">🎯 Próximo alvo (prioridade ${alvo.prioridade})</div>
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:14px">${hobCat(alvo.catId).icon} ${alvo.nome}</strong>
+          <strong style="font-size:14px">${hobCat(alvo.catId).icon} ${escapeHTML(alvo.nome)}</strong>
           <span style="font-size:13px;font-weight:700">${fmt(hobCusto(alvo))}</span>
         </div>
         <div style="font-size:11px;color:var(--text2);margin-top:4px">${
@@ -3989,7 +3999,7 @@ function renderHobLista(){
     return `<div style="background:var(--card);border:1px solid var(--border);border-top:3px solid ${cl.cor};border-radius:var(--r14);padding:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="font-size:18px">${cat.icon}</span>
-        <input type="text" value="${(it.nome||'').replace(/"/g,'&quot;')}" onchange="setItemHobbyField('${it.id}','nome',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:14px">
+        <input type="text" value="${attr(it.nome||'')}" onchange="setItemHobbyField('${it.id}','nome',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:14px">
         <button class="btn-rm" title="Remover" onclick="removeItemHobby('${it.id}')">✕</button>
       </div>
 
@@ -4017,7 +4027,7 @@ function renderHobLista(){
         <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Fase (1-5)</label>
           <input type="number" step="1" min="1" max="5" value="${it.fase||1}" onchange="setItemHobbyField('${it.id}','fase',this.value)"></div>
         <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Loja</label>
-          <input type="text" value="${(it.loja||'').replace(/"/g,'&quot;')}" onchange="setItemHobbyField('${it.id}','loja',this.value)"></div>
+          <input type="text" value="${attr(it.loja||'')}" onchange="setItemHobbyField('${it.id}','loja',this.value)"></div>
         <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Status</label>
           <select onchange="setItemHobbyField('${it.id}','status',this.value)">
             <option value="desejado"${it.status==='desejado'?' selected':''}>Desejado</option>
@@ -4026,7 +4036,7 @@ function renderHobLista(){
       </div>
 
       <div class="field" style="margin:0 0 10px"><label class="flabel" style="font-size:10px">Notas</label>
-        <input type="text" value="${(it.notas||'').replace(/"/g,'&quot;')}" onchange="setItemHobbyField('${it.id}','notas',this.value)" placeholder="observação rápida"></div>
+        <input type="text" value="${attr(it.notas||'')}" onchange="setItemHobbyField('${it.id}','notas',this.value)" placeholder="observação rápida"></div>
 
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn btn-pri" style="height:32px;font-size:12px;flex:1" onclick="comprarItemHobby('${it.id}')">✓ Comprei</button>
@@ -4044,7 +4054,7 @@ function renderHobLista(){
         ${comprados.map(it=>{const cat=hobCat(it.catId);return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:10px 12px;opacity:.85">
           <div style="display:flex;align-items:center;gap:7px">
             <span>${cat.icon}</span>
-            <strong style="font-size:13px;flex:1;min-width:0">${it.nome}</strong>
+            <strong style="font-size:13px;flex:1;min-width:0">${escapeHTML(it.nome)}</strong>
             <button class="btn-rm" title="Remover" onclick="removeItemHobby('${it.id}')">✕</button>
           </div>
           <div style="font-size:11px;color:var(--text2);margin-top:4px">✅ ${fmt(hobCusto(it))}${it.compradoEm?` · ${it.compradoEm}`:''}
@@ -4102,13 +4112,182 @@ function renderDashHobbies(){
       </div>
       ${alvo?`<div style="grid-column:1/-1;background:var(--card2);border-radius:var(--r10);padding:10px 12px">
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--text2)">🎯 Próximo: <strong style="color:var(--text)">${hobCat(alvo.catId).icon} ${alvo.nome}</strong></span>
+          <span style="font-size:12px;color:var(--text2)">🎯 Próximo: <strong style="color:var(--text)">${hobCat(alvo.catId).icon} ${escapeHTML(alvo.nome)}</strong></span>
           <span style="font-size:12px;font-weight:700">${hobCusto(alvo)>0?fmt(hobCusto(alvo)):'sem preço'}</span>
         </div>
         ${fit?`<div style="font-size:11px;font-weight:700;color:${fit.cor};margin-top:4px">${fit.nivel==='fundo'?'✅':fit.nivel==='excedente'?'⚠️':fit.nivel==='reserva'?'⛔':'·'} ${fit.label}${(meses && meses>0)?` · ~${meses} ${meses===1?'mês':'meses'} no ritmo atual`:''}</div>`:''}
       </div>`:''}
     </div>
   </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  🎨 CONFIGURAÇÃO DO SISTEMA (global · systemConfig/app)
+//  Identidade visual e cores parametrizáveis. Edição só por
+//  superadmin (UI + firestore.rules). Leitura por autenticado.
+//  NUNCA guardar segredos/tokens/dados pessoais aqui.
+// ═══════════════════════════════════════════════════
+const SYS_DEFAULTS = {
+  identity: {
+    systemName:        'FinançasPRO',
+    subtitle:          'Controle Financeiro Pessoal',
+    slogan:            '',
+    financeModuleName: 'FinançasPRO',
+    generalModuleName: 'Central Pessoal',
+    loginText:         '',
+    footerText:        '',
+    mainIcon:          '₿',
+    sidebarName:       'FinançasPRO',
+    browserTitle:      'FinançasPRO',
+    logoUrl:           '',
+    logoSmallUrl:      '',
+    faviconUrl:        ''
+  },
+  // Cores: string vazia = usa o padrão do CSS. Só hex válido é aplicado.
+  theme: { brand:'', accent:'', pos:'', neg:'', warn:'', info:'' }
+};
+let SYSCFG = JSON.parse(JSON.stringify(SYS_DEFAULTS));
+
+function isHexColor(v){ return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(v||'').trim()); }
+
+function _mergeSysCfg(cfg){
+  const out = JSON.parse(JSON.stringify(SYS_DEFAULTS));
+  if(cfg && typeof cfg==='object'){
+    if(cfg.identity && typeof cfg.identity==='object') Object.assign(out.identity, cfg.identity);
+    if(cfg.theme    && typeof cfg.theme==='object')    Object.assign(out.theme, cfg.theme);
+  }
+  return out;
+}
+
+// Aplica identidade + cores à UI (sem reload). Texto é tratado com textContent (sem XSS).
+function applySystemConfig(cfg){
+  SYSCFG = _mergeSysCfg(cfg);
+  const id = SYSCFG.identity;
+  if(id.browserTitle) document.title = id.browserTitle;
+  const brandName = document.querySelector('.sidebar-brand-name');
+  if(brandName && id.sidebarName) brandName.textContent = id.sidebarName; // textContent: seguro
+  const brandIcon = document.querySelector('.sidebar-brand-icon');
+  if(brandIcon && id.mainIcon) brandIcon.textContent = id.mainIcon;
+  if(id.faviconUrl){
+    let link = document.querySelector('link[rel="icon"]');
+    if(!link){ link=document.createElement('link'); link.rel='icon'; document.head.appendChild(link); }
+    link.href = id.faviconUrl;
+  }
+  const t = SYSCFG.theme;
+  [['brand','--brand'],['accent','--accent'],['pos','--pos'],['neg','--neg'],['warn','--warn'],['info','--info']]
+    .forEach(([k,varName])=>{ if(isHexColor(t[k])) document.documentElement.style.setProperty(varName, t[k]); });
+}
+
+// Carregamento pós-login (chamado do app.html). Falha silenciosa → mantém defaults.
+function loadSystemConfig(){
+  try {
+    return db.collection('systemConfig').doc('app').get()
+      .then(s => applySystemConfig(s && s.exists ? s.data() : null))
+      .catch(()=> applySystemConfig(null));
+  } catch(e){ applySystemConfig(null); }
+}
+
+// ── Editor (somente superadmin) ──
+const _SYS_ID_FIELDS = [
+  ['systemName','Nome do sistema'], ['subtitle','Subtítulo'], ['slogan','Slogan'],
+  ['financeModuleName','Nome do módulo financeiro'], ['generalModuleName','Nome do módulo geral'],
+  ['sidebarName','Nome na sidebar'], ['browserTitle','Título do navegador'], ['mainIcon','Ícone/emoji principal'],
+  ['loginText','Texto da tela de login'], ['footerText','Texto do rodapé'],
+  ['logoUrl','Logo (URL)'], ['logoSmallUrl','Logo reduzida (URL)'], ['faviconUrl','Favicon (URL)']
+];
+const _SYS_COLOR_FIELDS = [
+  ['brand','Cor primária'], ['accent','Cor de destaque'], ['pos','Cor positiva'],
+  ['neg','Cor negativa'], ['warn','Cor de alerta'], ['info','Cor informativa']
+];
+
+function setSysIdField(key, val){ SYSCFG.identity[key]=val; applySystemConfig(SYSCFG); }
+function setSysColor(key, val){
+  SYSCFG.theme[key]=val;
+  // Preview ao vivo só se hex válido; senão limpa override (volta ao CSS)
+  const map={brand:'--brand',accent:'--accent',pos:'--pos',neg:'--neg',warn:'--warn',info:'--info'};
+  if(isHexColor(val)) document.documentElement.style.setProperty(map[key], val);
+  else if(!val) document.documentElement.style.removeProperty(map[key]);
+  renderSysConfigBadges();
+}
+function renderSysConfigBadges(){
+  _SYS_COLOR_FIELDS.forEach(([k])=>{
+    const b=document.getElementById('sys-color-chip-'+k);
+    if(b){ const v=SYSCFG.theme[k]; b.style.background=isHexColor(v)?v:'transparent'; b.style.borderStyle=isHexColor(v)?'solid':'dashed'; }
+  });
+}
+
+function salvarSysConfig(){
+  if(_role!=='superadmin'){ toast('Apenas administradores podem editar configurações globais.',false); return; }
+  // Validação de cores antes de salvar
+  for(const [k,label] of _SYS_COLOR_FIELDS){
+    const v=SYSCFG.theme[k];
+    if(v && !isHexColor(v)){ toast(`Cor inválida em "${label}". Use hex (#RRGGBB).`,false); return; }
+  }
+  const btn=document.getElementById('sys-save-btn'); if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
+  const payload={ identity:SYSCFG.identity, theme:SYSCFG.theme, updatedAt:new Date().toISOString(), updatedBy:_user&&_user.uid };
+  db.collection('systemConfig').doc('app').set(payload)
+    .then(()=> toast('Configurações do sistema salvas! 🎨'))
+    .catch(e=> toast('Erro ao salvar: '+e.message, false))
+    .finally(()=>{ if(btn){ btn.disabled=false; btn.textContent='💾 Salvar configurações globais'; } });
+}
+function resetSysColors(){
+  _SYS_COLOR_FIELDS.forEach(([k])=>{ SYSCFG.theme[k]=''; const map={brand:'--brand',accent:'--accent',pos:'--pos',neg:'--neg',warn:'--warn',info:'--info'}; document.documentElement.style.removeProperty(map[k]); });
+  renderSysConfig();
+}
+
+function renderSysConfig(){
+  const el=document.getElementById('sysconfig-body'); if(!el) return;
+  if(_role!=='superadmin'){
+    el.innerHTML=`<div class="panel"><div class="empty" style="padding:32px">
+      <div class="empty-icon">🔒</div>
+      <div class="empty-text">Esta área é exclusiva para administradores. As configurações globais (nome, identidade e cores do sistema) só podem ser editadas por um superadmin.</div>
+    </div></div>`;
+    return;
+  }
+  const id=SYSCFG.identity, t=SYSCFG.theme;
+  const idInputs=_SYS_ID_FIELDS.map(([k,label])=>`
+    <div class="field" style="margin:0">
+      <label class="flabel" style="font-size:11px">${label}</label>
+      <input type="text" value="${attr(id[k]||'')}" onchange="setSysIdField('${k}',this.value)" placeholder="${attr(SYS_DEFAULTS.identity[k]||'')}">
+    </div>`).join('');
+  const colorInputs=_SYS_COLOR_FIELDS.map(([k,label])=>`
+    <div class="field" style="margin:0">
+      <label class="flabel" style="font-size:11px">${label}</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="sys-color-chip-${k}" style="width:26px;height:26px;border-radius:7px;border:2px ${isHexColor(t[k])?'solid':'dashed'} var(--border2);background:${isHexColor(t[k])?t[k]:'transparent'};flex-shrink:0"></span>
+        <input type="text" value="${attr(t[k]||'')}" onchange="setSysColor('${k}',this.value)" placeholder="padrão do tema (#RRGGBB)" style="flex:1">
+      </div>
+    </div>`).join('');
+
+  el.innerHTML=`
+    <div class="panel mb">
+      <div class="panel-head"><span class="panel-title">🪪 Identidade visual</span>
+        <span class="panel-badge">global · systemConfig/app</span></div>
+      <div style="padding:16px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+          Define nome, textos e marca exibidos na sidebar, no título do navegador, na tela de login e nos relatórios.
+          Reflete na hora (pré-visualização). Salve para aplicar a todos os usuários.
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${idInputs}</div>
+      </div>
+    </div>
+    <div class="panel mb">
+      <div class="panel-head"><span class="panel-title">🎨 Cores do tema</span>
+        <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="resetSysColors()">Restaurar padrão</button></div>
+      <div style="padding:16px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+          Use hexadecimal (<code>#RRGGBB</code>). Campo vazio mantém a cor padrão do tema. Cores inválidas são ignoradas e não quebram o contraste do modo claro/escuro.
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">${colorInputs}</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn btn-pri" id="sys-save-btn" onclick="salvarSysConfig()" style="height:40px">💾 Salvar configurações globais</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:10px">
+      ⚠️ Estas são configurações <strong>globais</strong> do sistema (identidade e cores). Preferências individuais (tema claro/escuro, etc.) são salvas por usuário e não afetam os demais.
+    </div>`;
+  renderSysConfigBadges();
 }
 
 // ═══════════════════════════════════════════════════
@@ -4162,7 +4341,7 @@ function renderCategorias(){
       : (overridden ? `<button class="btn btn-ghost" style="height:26px;font-size:11px;padding:2px 8px" title="Voltar ao padrão" onclick="resetCategoria('${tipo}','${key}')">↺</button>` : `<span style="font-size:10px;color:var(--text3)">padrão</span>`);
     return `<tr>
       <td><input type="text" value="${(v.icon||'🏷️').replace(/"/g,'&quot;')}" onchange="setCatField('${tipo}','${key}','icon',this.value)" style="width:46px;text-align:center;font-size:16px" maxlength="2"></td>
-      <td><input type="text" value="${(v.label||key).replace(/"/g,'&quot;')}" onchange="setCatField('${tipo}','${key}','label',this.value)" style="min-width:150px;font-weight:600"></td>
+      <td><input type="text" value="${attr(v.label||key)}" onchange="setCatField('${tipo}','${key}','label',this.value)" style="min-width:150px;font-weight:600"></td>
       <td><input type="color" value="${_resolveCor(v.cor)}" onchange="setCatField('${tipo}','${key}','cor',this.value)" style="width:42px;height:28px;padding:2px;cursor:pointer;background:transparent;border:1px solid var(--border);border-radius:6px"></td>
       <td style="font-family:monospace;font-size:11px;color:var(--text3)">${key}</td>
       <td style="text-align:right">${acao}</td>
