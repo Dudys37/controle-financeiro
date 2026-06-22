@@ -124,6 +124,9 @@ main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 
         <button class="btn-pri" id="btn-login">
           <span id="login-label">Entrar na conta</span>
         </button>
+        <div class="toggle-link" style="margin-top:10px">
+          <a onclick="doForgotPassword()" style="cursor:pointer">Esqueci minha senha</a>
+        </div>
         <div class="divider"><span>ou</span></div>
         <button class="btn-sec" onclick="showView('v-register')">
           ✨ Criar nova conta grátis
@@ -280,6 +283,16 @@ function doLogin(){
 }
 
 document.getElementById('btn-login').onclick = doLogin;
+
+// ── ESQUECI A SENHA (fluxo seguro do Firebase) ──
+function doForgotPassword(){
+  hideAlert('login-err');
+  const email = document.getElementById('login-email').value.trim();
+  if(!email){ showErr('login-err','Digite seu e-mail no campo acima para receber o link de redefinição.'); return; }
+  auth.sendPasswordResetEmail(email)
+    .then(()=> showOk('login-err','E-mail de redefinição enviado para '+email+'. Verifique sua caixa de entrada.'))
+    .catch(e=> showErr('login-err', fbMsg(e.code)));
+}
 document.getElementById('login-pass').addEventListener('keydown', e=>{
   if(e.key==='Enter') doLogin();
 });
@@ -314,10 +327,10 @@ function doRegister(){
       return db.collection('users').doc(uid).set({
         email, displayName:name, role:'user', uid, createdAt:new Date().toISOString()
       }).then(()=>{
-        // Cria userData em branco — novo usuário começa zerado
-        const blank={salario:0,outras:0,saldo:0,cdi12:14.80,cdifev:1.21,cdi26:3.41,ipca12:4.14,ipcafev:0.88,ipca26:1.92,arcaMeta:{a:25,r:25,c:25,a2:25},metaCC:2000,meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26','Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27','Set/27','Out/27','Nov/27','Dez/27'],invManual:Array(20).fill(null),cartoes:[],dividas:[],ativos:[],pagamentos:{}};
+        // Cria userData em branco — novo usuário começa zerado (migrateData completa o resto)
+        const blank={saldo:0,cdi12:14.80,cdifev:1.21,cdi26:3.41,ipca12:4.14,ipcafev:0.88,ipca26:1.92,arcaMeta:{a:25,r:25,c:25,a2:25},metaCC:2000,meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26','Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27','Set/27','Out/27','Nov/27','Dez/27'],invManual:Array(20).fill(null),entradas:[],fixas:[],compras:[],cartoes:[],dividas:[],ativos:[],pagamentos:{},metas:[],orcamentos:{}};
         return db.collection('userData').doc(uid).set({
-          data:JSON.stringify(blank), updatedAt:new Date().toISOString(), v:3, createdAt:new Date().toISOString()
+          data:JSON.stringify(blank), updatedAt:new Date().toISOString(), v:4, createdAt:new Date().toISOString()
         });
       });
     })

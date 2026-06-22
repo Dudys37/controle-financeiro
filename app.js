@@ -37,9 +37,10 @@ function mkMes(m, y) {
 
 // ── PLANO DE APOSENTADORIA (config padrão) ────────
 // Simulação de estratégia financeira real, mês a mês, rumo à renda passiva.
+// Template genérico e editável pelo usuário — sem dados pessoais reais.
 const DEFAULT_PLANO = {
   ativo: true,
-  salario: 6500,
+  salario: 0,
   metaContaCorrente: 1000,
   metaRendaPassiva: 10000,
   dataInicio: 'Jul/26',
@@ -50,92 +51,54 @@ const DEFAULT_PLANO = {
   taxas: { cdi100: 1.127, cdi115: 1.296, cdi120: 1.352, fiiMensal: 0.75 },
   arca: { caixa: 70, fiis: 10, acoesBR: 5, acoesIntl: 15 },
   caixinhas: {
-    saldoInicial115: 3742.30,
+    saldoInicial115: 0,
     limite115: 5000,
     meta100Inicial: 30000,   // ARCA ativa quando o caixa total atinge este valor
     limite120: 10000,
     teto100: 250000
   },
-  // Estrutura de contas da simulação base (aditiva: permanentes + temporárias + variáveis)
+  // Estrutura de contas da simulação (vazia por padrão; o usuário usa o modo 'real' que lê das Fixas/Compras)
   contas: {
-    permanentes: 206.05,     // Claro 120,00 + DAS 86,05
-    temporarias: [
-      { nome:'Faculdade',        valor:240.03, ini:'Jul/26', fim:'Dez/26' },
-      { nome:'Imposto de Renda', valor:96.47,  ini:'Jun/26', fim:'Dez/26' },
-    ],
-    variaveis: {
-      'Jul/26':4660.15,'Ago/26':3102.00,'Set/26':2760.00,'Out/26':2760.00,
-      'Nov/26':2196.00,'Dez/26':1874.00,'Jan/27':1230.00,'Fev/27':986.00,
-      'Mar/27':986.00,'Abr/27':603.00,'Mai/27':372.00,'Jun/27':128.00,
-      'Jul/27':128.00,'Ago/27':128.00,'Set/27':128.00,'Out/27':128.00
-    }
+    permanentes: 0,
+    temporarias: [],
+    variaveis: {}
   },
-  // Ações BR — dividendo médio MENSAL por ação/unit (R$)
-  acoesBR: [
-    {ticker:'TAEE11',preco:39.51,div:0.273},{ticker:'BBSE3',preco:35.39,div:0.379},
-    {ticker:'ITSA4', preco:12.54,div:0.103},{ticker:'ITUB4',preco:38.83,div:0.260},
-    {ticker:'BBDC4', preco:17.26,div:0.101},{ticker:'CXSE3',preco:17.57,div:0.109},
-    {ticker:'SANB11',preco:26.73,div:0.192},{ticker:'CMIG4',preco:10.90,div:0.106},
-    {ticker:'EGIE3', preco:34.09,div:0.121},{ticker:'SAPR4',preco:7.16, div:0.033}
-  ],
-  // Ações internacionais — preço e dividendo médio MENSAL em US$
-  acoesIntl: [
-    {ticker:'JNJ',preco:232.56,div:0.447},{ticker:'PG', preco:151.34,div:0.353},
-    {ticker:'KO', preco:80.08, div:0.177},{ticker:'PEP',preco:142.30,div:0.474},
-    {ticker:'MCD',preco:283.48,div:0.620},{ticker:'WMT',preco:118.09,div:0.083},
-    {ticker:'XOM',preco:140.65,div:0.343},{ticker:'CVX',preco:177.94,div:0.593},
-    {ticker:'O',  preco:60.83, div:0.271},{ticker:'WM', preco:216.65,div:0.315}
-  ]
+  // Ações BR — lista de exemplo (símbolos públicos); o cálculo real usa os ativos cadastrados em D.ativos
+  acoesBR: [],
+  // Ações internacionais — lista de exemplo
+  acoesIntl: []
 };
 
-// ── DADOS PADRÃO ──────────────────────────────────
+// ── HOBBIES & AQUISIÇÕES (config padrão) ──────────
+// Categorias de hobby e wishlist semeada com seus itens reais.
+const HOBBY_CATS_DEFAULT = [
+  {id:'h_setup', nome:'Setup/Tech', icon:'🖥️', cor:'#6366F1'},
+  {id:'h_rel',   nome:'Relógios',   icon:'⌚', cor:'#0EA5E9'},
+  {id:'h_cafe',  nome:'Café',       icon:'☕', cor:'#A16207'},
+  {id:'h_games', nome:'Games',      icon:'🎮', cor:'#22C55E'},
+];
+const DEFAULT_HOBBIES = {
+  aporteMensal: 0,
+  saldoFundo: 0,
+  cats: HOBBY_CATS_DEFAULT,
+  itens: []   // novo usuário começa sem itens; exemplos via importação de backup
+};
+
+// ── DADOS PADRÃO (novo usuário começa ZERADO — sem dados pessoais reais) ──
+// DEFAULT espelha o BLANK: nenhum salário, cartão, compra ou ativo real fica no código público.
 const DEFAULT = {
   saldo:0,
-  cdi12:14.80, cdifev:1.21, cdi26:3.41,
+  cdi12:14.80, cdifev:1.21, cdi26:3.41,        // indicadores de mercado (referência pública, editáveis)
   ipca12:4.14, ipcafev:0.88, ipca26:1.92,
   arcaMeta:{a:25,r:25,c:25,a2:25}, metaCC:2000, diaCorte:20,
   meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26',
          'Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27',
          'Set/27','Out/27','Nov/27','Dez/27'],
   invManual: Array(20).fill(null),
-  entradas: [
-    {id:'e1', nome:'Salário', valor:6500, tipo:'mensal', dia:15, ativo:true},
-  ],
-  cartoes:[
-    {nome:'Nubank PF',    limite:3700,  bandeira:'Mastercard',cor:'#820ad1',diaFechamento:3, diaVencimento:10},
-    {nome:'Nubank PJ',    limite:9700,  bandeira:'Mastercard',cor:'#820ad1',diaFechamento:3, diaVencimento:10},
-    {nome:'Mercado Pago', limite:11000, bandeira:'Mastercard',cor:'#009ee3',diaFechamento:10,diaVencimento:17},
-    {nome:'Renner',       limite:7200,  bandeira:'Mastercard',cor:'#e60000',diaFechamento:20,diaVencimento:27},
-    {nome:'Amazon',       limite:2580,  bandeira:'Visa',      cor:'#ff9900',diaFechamento:5, diaVencimento:12},
-    {nome:'SICREDI',      limite:6300,  bandeira:'Visa',      cor:'#006633',diaFechamento:10,diaVencimento:17},
-  ],
-  // Contas fixas (valor único, replica todos os meses)
-  fixas: [
-    {id:'f1', nome:'Faculdade', cat:'educacao', valor:644.05, ativo:true},
-    {id:'f2', nome:'Claro',     cat:'servicos', valor:120,    ativo:true},
-    {id:'f3', nome:'DAS',       cat:'impostos', valor:85,     ativo:true},
-  ],
-  // Compras variáveis / parceladas
-  compras: [
-    {id:'c1', nome:'Nubank PF - Fatura mai',  cat:'cartao', cartao:'Nubank PF',  valor:2148.08, parcelas:1, dataCompra:'2026-05-01', ativo:true},
-    {id:'c2', nome:'Nubank PJ - Fatura mai',  cat:'cartao', cartao:'Nubank PJ',  valor:961.41,  parcelas:1, dataCompra:'2026-05-01', ativo:true},
-    {id:'c3', nome:'SICREDI - Fatura mai',    cat:'cartao', cartao:'SICREDI',    valor:1370.44, parcelas:1, dataCompra:'2026-05-01', ativo:true},
-    {id:'c4', nome:'Mercado Pago - Parcelas', cat:'cartao', cartao:'Mercado Pago',valor:4739.05,parcelas:9, dataCompra:'2026-05-01', ativo:true},
-    {id:'c5', nome:'Renner - Parcelas',       cat:'cartao', cartao:'Renner',     valor:1859.64, parcelas:8, dataCompra:'2026-05-01', ativo:true},
-    {id:'c6', nome:'Amazon - Parcelas',       cat:'cartao', cartao:'Amazon',     valor:634.20,  parcelas:6, dataCompra:'2026-05-01', ativo:true},
-    {id:'c7', nome:'IR',                      cat:'impostos',cartao:'',          valor:675.29,  parcelas:7, dataCompra:'2026-06-01', ativo:true},
-  ],
-  // Legado — mantido para migração
-  dividas: [],
-  pagamentos: {},
-  ativos:[
-    {nome:'Tesouro Selic 2027',classe:'Renda Fixa',bucket:'C', valor:0,indice:'SELIC',pct:100,ticker:'TESOURO SELIC'},
-    {nome:'FII XPML11',        classe:'FII',       bucket:'R', valor:0,indice:'CDI',  pct:90, ticker:'XPML11'},
-    {nome:'IVVB11',            classe:'ETF',       bucket:'A2',valor:0,indice:'CDI',  pct:110,ticker:'IVVB11'},
-    {nome:'BOVA11',            classe:'ETF',       bucket:'A', valor:0,indice:'CDI',  pct:100,ticker:'BOVA11'},
-  ],
+  entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[],
   planoAposentadoria: DEFAULT_PLANO,
-  metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null
+  metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null,
+  hobbies: DEFAULT_HOBBIES
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -150,7 +113,8 @@ const BLANK = {
   invManual: Array(20).fill(null),
   entradas:[], fixas:[], compras:[], dividas:[], pagamentos:{}, ativos:[], cartoes:[],
   planoAposentadoria: DEFAULT_PLANO,
-  metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null
+  metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null,
+  hobbies: { aporteMensal:0, saldoFundo:0, cats: JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT)), itens: [] }
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -353,6 +317,26 @@ function migrateData(d) {
   if(d.catsCustomEnt===undefined) d.catsCustomEnt = null;
   if(!Array.isArray(d.metas)) d.metas = [];
   if(typeof d.orcamentos!=='object' || d.orcamentos===null) d.orcamentos = {};
+
+  // ── Módulo Hobbies & Aquisições ──
+  if(typeof d.hobbies!=='object' || d.hobbies===null) d.hobbies = JSON.parse(JSON.stringify(DEFAULT_HOBBIES));
+  if(typeof d.hobbies.aporteMensal!=='number') d.hobbies.aporteMensal = 0;
+  if(typeof d.hobbies.saldoFundo!=='number')   d.hobbies.saldoFundo = 0;
+  if(!Array.isArray(d.hobbies.cats) || !d.hobbies.cats.length) d.hobbies.cats = JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT));
+  if(!Array.isArray(d.hobbies.itens)) d.hobbies.itens = [];
+  d.hobbies.itens.forEach(it=>{
+    if(!it.id) it.id = 'hi'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    if(it.preco==null || isNaN(it.preco)) it.preco = 0;
+    if(it.frete==null || isNaN(it.frete)) it.frete = 0;
+    if(!it.classe) it.classe = 'desejavel';
+    if(!it.status) it.status = 'desejado';
+    if(it.prioridade==null) it.prioridade = 99;
+    if(it.fase==null) it.fase = 1;
+    if(it.catId==null) it.catId = (d.hobbies.cats[0]||{}).id || 'h_setup';
+    if(it.loja==null) it.loja = '';
+    if(it.link==null) it.link = '';
+    if(it.notas==null) it.notas = '';
+  });
 
   // ── Plano de Aposentadoria — cria/completa com defaults (compatibilidade dados antigos) ──
   const pd = JSON.parse(JSON.stringify(DEFAULT_PLANO));
@@ -729,6 +713,18 @@ const RK = v => 'R$\u00a0'+Number(v).toLocaleString('pt-BR',{maximumFractionDigi
 const P  = v => Number(v).toFixed(2)+'%';
 const P9 = v => Number(v).toFixed(3)+'%';
 const fmt=R, fmtK=RK, fmtP=P;
+// ── SANITIZAÇÃO ANTI-XSS ──────────────────────────
+// Escapa texto livre (de usuários ou do Firestore) antes de injetar via innerHTML.
+function escapeHTML(value){
+  return String(value ?? '')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#39;');
+}
+// Atalho para valores usados dentro de atributos HTML
+const attr = v => escapeHTML(v);
 const sM = m => { const p=m.split('/'); return p[0].substring(0,3)+'/'+(p[1]||''); };
 const pct = (v,t) => t>0?Math.round((v/t)*100)+'%':'0%';
 
@@ -793,6 +789,7 @@ const PAGE_META = {
   faturas:   { label:'Faturas',         section:'Finanças',   icon:'✅' },
   metas:     { label:'Metas & Orçamentos', section:'Finanças', icon:'🎯' },
   perfil:    { label:'Meu Perfil',      section:'Pessoal',    icon:'👤' },
+  hobbies:   { label:'Hobbies & Aquisições', section:'Pessoal', icon:'🎮' },
   admin:     { label:'Usuários',        section:'Sistema',    icon:'👥' },
   config:    { label:'Configurações',   section:'Sistema',    icon:'⚙️' },
 };
@@ -908,6 +905,7 @@ function renderPage(id) {
   if(id==='carteira')  { renderCarteira(); return; }
   if(id==='saidas')    { renderSaidas(); return; }
   if(id==='metas')     { if(typeof renderMetas==='function') renderMetas(); return; }
+  if(id==='hobbies')   { if(typeof renderHobbies==='function') renderHobbies(); return; }
   if(id==='relatorios'){ if(typeof renderRelatorios==='function') renderRelatorios(); return; }
   // Slightly heavier — use requestAnimationFrame to let UI update first
   if(id==='invest')    { requestAnimationFrame(()=>typeof renderInvestAtiva==='function'?renderInvestAtiva():null); return; }
@@ -2150,6 +2148,9 @@ function renderDashboard() {
 
   // 🩺 Saúde financeira (insights dinâmicos)
   renderInsights(mi);
+
+  // 🎮 Resumo do fundo de hobbies
+  if(typeof renderDashHobbies==='function') renderDashHobbies();
 }
 
 // ═══════════════════════════════════════════════════
@@ -3718,6 +3719,399 @@ function renderOrcamentos(){
 }
 
 // ═══════════════════════════════════════════════════
+//  🎮 HOBBIES & AQUISIÇÕES
+//  Wishlist com curadoria + fundo (sinking fund) +
+//  teste de cabimento contra a reserva ARCA +
+//  custo de oportunidade no plano de longo prazo.
+// ═══════════════════════════════════════════════════
+
+const HOB_CLASSE = {
+  essencial:  {label:'Essencial',   cor:'var(--brand)',  ord:0},
+  recomendado:{label:'Recomendado', cor:'var(--info)',   ord:1},
+  desejavel:  {label:'Desejável',   cor:'var(--violet)', ord:2},
+  luxo:       {label:'Luxo',        cor:'var(--warn)',   ord:3},
+};
+
+let hobFiltroCat = '';          // '' = todas
+let hobOrdenar   = 'prioridade'; // prioridade | preco | fase | classe
+let hobShowComprados = false;
+
+function _hob(){ if(!D.hobbies) D.hobbies = JSON.parse(JSON.stringify(DEFAULT_HOBBIES)); return D.hobbies; }
+function hobCat(id){ return (_hob().cats||[]).find(c=>c.id===id) || {id:'', nome:'—', icon:'📦', cor:'#6B7280'}; }
+function hobCusto(it){ return (it.preco||0) + (it.frete||0); }
+function hobItensAbertos(){ return (_hob().itens||[]).filter(i=>i.status!=='comprado'); }
+function hobItensComprados(){ return (_hob().itens||[]).filter(i=>i.status==='comprado'); }
+function hobTotalAberto(){ return hobItensAbertos().reduce((s,i)=>s+hobCusto(i),0); }
+
+// Distribuição do total em aberto por classificação
+function hobPorClasse(){
+  const out={}; Object.keys(HOB_CLASSE).forEach(k=>out[k]=0);
+  hobItensAbertos().forEach(i=>{ out[i.classe]=(out[i.classe]||0)+hobCusto(i); });
+  return out;
+}
+
+// Teste de cabimento de um item contra fundo, excedente do mês e reserva ARCA
+function hobFitCheck(it){
+  const custo = hobCusto(it);
+  const fundo = _hob().saldoFundo||0;
+  const mi = getMesRefIdx();
+  const exced = invDisp(mi);               // sobra do mês destinada a investir
+  const caixa = caixaAtual(), metaE = metaEmergencia();
+  if(custo<=0)
+    return {nivel:'semfundo', custo, label:'Sem preço', cor:'var(--text3)',
+      txt:'Defina um preço para avaliar o cabimento.'};
+  if(custo<=fundo)
+    return {nivel:'fundo', custo, label:'Cabe no fundo', cor:'var(--pos)',
+      txt:`Você tem ${fmt(fundo)} no fundo — compra à vista sem mexer no resto.`};
+  if(custo<=exced)
+    return {nivel:'excedente', custo, label:'Cabe no excedente do mês', cor:'var(--warn)',
+      txt:`Acima do fundo, mas dentro dos ${fmt(exced)} que sobrariam para investir em ${D.meses[mi]||'—'}. Comprar reduz o aporte do mês.`};
+  const quebraReserva = caixa>=metaE && (caixa-custo)<metaE;
+  return {nivel:'reserva', custo,
+    label: quebraReserva ? 'Fura a reserva' : 'Acima do fundo e do mês',
+    cor:'var(--neg)',
+    txt: quebraReserva
+      ? `Pagar à vista derrubaria sua reserva abaixo de ${fmt(metaE)}. Melhor acumular no fundo antes.`
+      : `Acima do fundo (${fmt(fundo)}) e do excedente do mês (${fmt(exced)}). Acumule no fundo ou parcele com consciência.`};
+}
+
+// Custo de oportunidade: o que esse valor viraria se investido até a data-fim do plano,
+// e a quantos meses do seu aporte atual ele equivale. Estimativa transparente (CDI).
+function hobImpactoFIRE(valor){
+  valor = valor||0;
+  const cdiA = (D.cdi12||14.8)/100;
+  const cdiM = Math.pow(1+cdiA, 1/12) - 1;
+  let meses = 120, aporte = 0, dataFim = null;
+  let plano = null;
+  try { plano = (typeof calcularPlanoAposentadoria==='function') ? calcularPlanoAposentadoria() : null; } catch(e){ plano=null; }
+  if(plano){
+    dataFim = plano.cfg && plano.cfg.dataFim;
+    aporte  = (plano.atual && plano.atual.aporteTotal) || 0;
+    if(dataFim){
+      const f = parseMes(dataFim), hoje = new Date();
+      meses = Math.max(1, (f.y*12+f.m) - (hoje.getFullYear()*12+hoje.getMonth()+1));
+    }
+  }
+  const futuro = valor * Math.pow(1+cdiM, meses);
+  const mesesAporte = aporte>0 ? valor/aporte : null;
+  return {valor, futuro, meses, mesesAporte, cdiA, dataFim, aporte};
+}
+
+// Meses para o fundo cobrir um valor, no ritmo de aporte atual
+function hobMesesParaCobrir(valor){
+  const ap = _hob().aporteMensal||0;
+  const falta = Math.max(0, valor - (_hob().saldoFundo||0));
+  if(falta<=0) return 0;
+  if(ap<=0) return null;
+  return Math.ceil(falta/ap);
+}
+
+// ── CRUD ──
+function addItemHobby(){
+  const h=_hob();
+  const cat = hobFiltroCat || (h.cats[0]||{}).id || 'h_setup';
+  h.itens.push({id:'hi'+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
+    nome:'Novo item', catId:cat, preco:0, frete:0, classe:'desejavel',
+    prioridade:(hobItensAbertos().length+1), fase:1, loja:'', link:'', status:'desejado', notas:''});
+  scheduleAutoSave(); renderHobbies();
+}
+function setItemHobbyField(id, field, val){
+  const it=(_hob().itens||[]).find(x=>x.id===id); if(!it) return;
+  if(['preco','frete','prioridade','fase'].includes(field)) val = parseFloat(val)||0;
+  it[field]=val;
+  scheduleAutoSave(); renderHobbies();
+}
+async function removeItemHobby(id){
+  const it=(_hob().itens||[]).find(x=>x.id===id);
+  if(!await uiConfirm(`Remover <strong>"${it?it.nome:''}"</strong> da lista?`,{icon:'🎮',okText:'Remover'})) return;
+  _hob().itens=(_hob().itens||[]).filter(x=>x.id!==id);
+  scheduleAutoSave(); renderHobbies(); toast('Item removido',true,'🗑️');
+}
+async function comprarItemHobby(id){
+  const it=(_hob().itens||[]).find(x=>x.id===id); if(!it) return;
+  const custo=hobCusto(it);
+  const ok=await uiConfirm(
+    `Marcar <strong>"${it.nome}"</strong> como comprado?` +
+    (custo>0?`<br><br>Vou debitar ${fmt(custo)} do fundo (saldo atual ${fmt(_hob().saldoFundo||0)}).`:''),
+    {icon:'🛒',okText:'Comprei'});
+  if(!ok) return;
+  it.status='comprado';
+  it.compradoEm = D.meses[getMesRefIdx()]||'';
+  _hob().saldoFundo = Math.max(0,(_hob().saldoFundo||0)-custo);
+  scheduleAutoSave(); renderHobbies(); toast('Comprado! 🎉',true,'🎉');
+}
+function restaurarItemHobby(id){
+  const it=(_hob().itens||[]).find(x=>x.id===id); if(!it) return;
+  it.status='desejado'; it.compradoEm='';
+  scheduleAutoSave(); renderHobbies();
+}
+function setHobbyFundo(field, val){
+  _hob()[field] = parseFloat(val)||0;
+  scheduleAutoSave(); renderHobbies();
+}
+// Categorias
+function addCatHobby(){
+  _hob().cats.push({id:'h'+Date.now().toString(36).slice(-4), nome:'Nova categoria', icon:'📦', cor:'#6B7280'});
+  scheduleAutoSave(); renderHobbies();
+}
+function setCatHobbyField(id, field, val){
+  const c=(_hob().cats||[]).find(x=>x.id===id); if(!c) return;
+  c[field]=val; scheduleAutoSave(); renderHobbies();
+}
+async function removeCatHobby(id){
+  const usados=(_hob().itens||[]).filter(i=>i.catId===id).length;
+  if(usados>0){ uiAlert(`Esta categoria tem ${usados} item(ns). Mova-os antes de remover.`,{icon:'⚠️'}); return; }
+  if(!await uiConfirm('Remover esta categoria?',{icon:'🗂️',okText:'Remover'})) return;
+  _hob().cats=(_hob().cats||[]).filter(x=>x.id!==id);
+  if(hobFiltroCat===id) hobFiltroCat='';
+  scheduleAutoSave(); renderHobbies();
+}
+function setHobFiltro(cat){ hobFiltroCat=cat; renderHobbies(); }
+function setHobOrdenar(v){ hobOrdenar=v; renderHobbies(); }
+function toggleHobComprados(){ hobShowComprados=!hobShowComprados; renderHobbies(); }
+
+// ── RENDER: página ──
+function renderHobbies(){
+  renderHobFundo();
+  renderHobLista();
+}
+
+function renderHobFundo(){
+  const el=document.getElementById('hob-fundo'); if(!el) return;
+  const h=_hob();
+  const totalAberto=hobTotalAberto();
+  const nAberto=hobItensAbertos().length;
+  const porClasse=hobPorClasse();
+  const imp=hobImpactoFIRE(totalAberto);
+  // Próximo alvo: maior prioridade entre os abertos
+  const proximos=hobItensAbertos().slice().sort((a,b)=>(a.prioridade-b.prioridade)||(a.fase-b.fase));
+  const alvo=proximos[0];
+  const mesesAlvo=alvo?hobMesesParaCobrir(hobCusto(alvo)):null;
+
+  // Barras de distribuição por classe
+  const ordemCl=Object.keys(HOB_CLASSE).sort((a,b)=>HOB_CLASSE[a].ord-HOB_CLASSE[b].ord);
+  const barras=ordemCl.map(k=>{
+    const v=porClasse[k]||0; const pctv=totalAberto>0?(v/totalAberto)*100:0;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:11px;width:92px;color:var(--text2)">${HOB_CLASSE[k].label}</span>
+      <div style="flex:1;height:8px;background:var(--card3);border-radius:99px;overflow:hidden">
+        <div style="height:8px;width:${pctv}%;background:${HOB_CLASSE[k].cor};border-radius:99px"></div></div>
+      <span style="font-size:11px;font-weight:700;min-width:96px;text-align:right">${fmt(v)}</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`<div class="panel">
+    <div class="panel-head"><span class="panel-title">🎮 Fundo do hobby</span>
+      <span class="panel-badge">${nAberto} item(ns) em aberto</span></div>
+    <div style="padding:16px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+        <div style="background:var(--card2);border-radius:var(--r12);padding:12px 14px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">Saldo do fundo</div>
+          <input type="number" step="50" value="${h.saldoFundo||0}" onchange="setHobbyFundo('saldoFundo',this.value)"
+            style="width:100%;font-size:18px;font-weight:800;color:var(--brand);background:transparent;border:none;padding:4px 0;margin-top:2px">
+        </div>
+        <div style="background:var(--card2);border-radius:var(--r12);padding:12px 14px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">Aporte mensal</div>
+          <input type="number" step="50" value="${h.aporteMensal||0}" onchange="setHobbyFundo('aporteMensal',this.value)"
+            style="width:100%;font-size:18px;font-weight:800;background:transparent;border:none;padding:4px 0;margin-top:2px">
+        </div>
+        <div style="background:var(--card2);border-radius:var(--r12);padding:12px 14px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">Total desejado</div>
+          <div style="font-size:18px;font-weight:800;margin-top:6px">${fmt(totalAberto)}</div>
+        </div>
+      </div>
+
+      ${alvo?`<div style="background:var(--card2);border-radius:var(--r10);padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:3px">🎯 Próximo alvo (prioridade ${alvo.prioridade})</div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <strong style="font-size:14px">${hobCat(alvo.catId).icon} ${alvo.nome}</strong>
+          <span style="font-size:13px;font-weight:700">${fmt(hobCusto(alvo))}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">${
+          hobCusto(alvo)<=0 ? 'Defina o preço para estimar.' :
+          (mesesAlvo===0 ? 'Já cabe no fundo.' :
+           mesesAlvo===null ? 'Defina um aporte mensal para projetar o tempo até juntar.' :
+           `No seu ritmo de ${fmt(h.aporteMensal||0)}/mês, o fundo cobre em <strong style="color:var(--text)">${mesesAlvo} ${mesesAlvo===1?'mês':'meses'}</strong>.`)
+        }</div>
+      </div>`:''}
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px">Total em aberto por classificação</div>
+        ${barras}
+      </div>
+
+      ${totalAberto>0?`<div style="background:var(--card2);border:1px dashed var(--border2);border-radius:var(--r10);padding:12px 14px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">📉 Custo de oportunidade</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.55">
+          Se em vez de gastar você investisse os <strong style="color:var(--text)">${fmt(totalAberto)}</strong> em aberto
+          a <strong style="color:var(--text)">${(imp.cdiA*100).toFixed(2)}% a.a.</strong>,
+          ${imp.dataFim?`até <strong style="color:var(--text)">${imp.dataFim}</strong> `:''}virariam
+          <strong style="color:var(--brand)">${fmt(imp.futuro)}</strong>${imp.dataFim?'':' em ~10 anos'}.
+          ${imp.mesesAporte!=null?`<br>É como ${(imp.mesesAporte).toFixed(1)} ${imp.mesesAporte<2?'mês':'meses'} do seu aporte atual de ${fmt(imp.aporte)}/mês ao plano.`:''}
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:6px">Estimativa transparente (juros compostos pelo CDI). Não é proibição — é o trade-off, visível.</div>
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+function renderHobLista(){
+  const el=document.getElementById('hob-lista'); if(!el) return;
+  const h=_hob();
+
+  // Filtro + ordenação
+  let abertos=hobItensAbertos();
+  if(hobFiltroCat) abertos=abertos.filter(i=>i.catId===hobFiltroCat);
+  const ordenadores={
+    prioridade:(a,b)=>(a.prioridade-b.prioridade)||(a.fase-b.fase),
+    preco:(a,b)=>hobCusto(b)-hobCusto(a),
+    fase:(a,b)=>(a.fase-b.fase)||(a.prioridade-b.prioridade),
+    classe:(a,b)=>(HOB_CLASSE[a.classe]?.ord??9)-(HOB_CLASSE[b.classe]?.ord??9)||(a.prioridade-b.prioridade),
+  };
+  abertos=abertos.slice().sort(ordenadores[hobOrdenar]||ordenadores.prioridade);
+
+  // Pills de categoria
+  const totalCount=hobItensAbertos().length;
+  const pills=[`<button class="msb${hobFiltroCat===''?' on':''}" onclick="setHobFiltro('')">Todas (${totalCount})</button>`]
+    .concat((h.cats||[]).map(c=>{
+      const n=hobItensAbertos().filter(i=>i.catId===c.id).length;
+      return `<button class="msb${hobFiltroCat===c.id?' on':''}" onclick="setHobFiltro('${c.id}')">${c.icon} ${c.nome} (${n})</button>`;
+    })).join('');
+
+  const catOpts=(sel)=> (h.cats||[]).map(c=>`<option value="${c.id}"${c.id===sel?' selected':''}>${c.icon} ${c.nome}</option>`).join('');
+  const classeOpts=(sel)=> Object.keys(HOB_CLASSE).map(k=>`<option value="${k}"${k===sel?' selected':''}>${HOB_CLASSE[k].label}</option>`).join('');
+
+  const cards=abertos.map(it=>{
+    const cat=hobCat(it.catId);
+    const cl=HOB_CLASSE[it.classe]||HOB_CLASSE.desejavel;
+    const fit=hobFitCheck(it);
+    const custo=hobCusto(it);
+    return `<div style="background:var(--card);border:1px solid var(--border);border-top:3px solid ${cl.cor};border-radius:var(--r14);padding:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:18px">${cat.icon}</span>
+        <input type="text" value="${(it.nome||'').replace(/"/g,'&quot;')}" onchange="setItemHobbyField('${it.id}','nome',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:14px">
+        <button class="btn-rm" title="Remover" onclick="removeItemHobby('${it.id}')">✕</button>
+      </div>
+
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <span style="font-size:18px;font-weight:800">${custo>0?fmt(custo):'<span style="font-size:12px;color:var(--text3)">sem preço</span>'}</span>
+        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:${cl.cor}">${cl.label}</span>
+      </div>
+
+      <div style="background:var(--card2);border-left:3px solid ${fit.cor};border-radius:var(--r10);padding:8px 10px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:800;color:${fit.cor};margin-bottom:2px">${fit.nivel==='fundo'?'✅':fit.nivel==='excedente'?'⚠️':fit.nivel==='reserva'?'⛔':'·'} ${fit.label}</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.45">${fit.txt}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-bottom:10px">
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Preço (R$)</label>
+          <input type="number" step="10" value="${it.preco||0}" onchange="setItemHobbyField('${it.id}','preco',this.value)"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Frete (R$)</label>
+          <input type="number" step="5" value="${it.frete||0}" onchange="setItemHobbyField('${it.id}','frete',this.value)"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Categoria</label>
+          <select onchange="setItemHobbyField('${it.id}','catId',this.value)">${catOpts(it.catId)}</select></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Classificação</label>
+          <select onchange="setItemHobbyField('${it.id}','classe',this.value)">${classeOpts(it.classe)}</select></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prioridade</label>
+          <input type="number" step="1" min="1" value="${it.prioridade||1}" onchange="setItemHobbyField('${it.id}','prioridade',this.value)"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Fase (1-5)</label>
+          <input type="number" step="1" min="1" max="5" value="${it.fase||1}" onchange="setItemHobbyField('${it.id}','fase',this.value)"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Loja</label>
+          <input type="text" value="${(it.loja||'').replace(/"/g,'&quot;')}" onchange="setItemHobbyField('${it.id}','loja',this.value)"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Status</label>
+          <select onchange="setItemHobbyField('${it.id}','status',this.value)">
+            <option value="desejado"${it.status==='desejado'?' selected':''}>Desejado</option>
+            <option value="planejado"${it.status==='planejado'?' selected':''}>Planejado</option>
+          </select></div>
+      </div>
+
+      <div class="field" style="margin:0 0 10px"><label class="flabel" style="font-size:10px">Notas</label>
+        <input type="text" value="${(it.notas||'').replace(/"/g,'&quot;')}" onchange="setItemHobbyField('${it.id}','notas',this.value)" placeholder="observação rápida"></div>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-pri" style="height:32px;font-size:12px;flex:1" onclick="comprarItemHobby('${it.id}')">✓ Comprei</button>
+        ${it.link?`<a href="${it.link}" target="_blank" rel="noopener" class="btn btn-ghost" style="height:32px;font-size:12px;display:inline-flex;align-items:center;padding:0 12px;text-decoration:none">🔗 Abrir</a>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Comprados (recolhível)
+  const comprados=hobItensComprados().slice().sort((a,b)=>(a.prioridade-b.prioridade));
+  const compradosHtml = comprados.length ? `
+    <div style="margin-top:18px">
+      <button class="btn btn-ghost" style="height:34px;font-size:12px" onclick="toggleHobComprados()">${hobShowComprados?'▾':'▸'} Já comprados (${comprados.length})</button>
+      ${hobShowComprados?`<div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
+        ${comprados.map(it=>{const cat=hobCat(it.catId);return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:10px 12px;opacity:.85">
+          <div style="display:flex;align-items:center;gap:7px">
+            <span>${cat.icon}</span>
+            <strong style="font-size:13px;flex:1;min-width:0">${it.nome}</strong>
+            <button class="btn-rm" title="Remover" onclick="removeItemHobby('${it.id}')">✕</button>
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">✅ ${fmt(hobCusto(it))}${it.compradoEm?` · ${it.compradoEm}`:''}
+            · <a href="#" onclick="restaurarItemHobby('${it.id}');return false" style="color:var(--accent)">desfazer</a></div>
+        </div>`;}).join('')}
+      </div>`:''}
+    </div>` : '';
+
+  el.innerHTML=`<div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">🛒 Aquisições</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select onchange="setHobOrdenar(this.value)" style="height:32px;font-size:12px">
+          <option value="prioridade"${hobOrdenar==='prioridade'?' selected':''}>Ordenar: prioridade</option>
+          <option value="preco"${hobOrdenar==='preco'?' selected':''}>Ordenar: maior preço</option>
+          <option value="fase"${hobOrdenar==='fase'?' selected':''}>Ordenar: fase</option>
+          <option value="classe"${hobOrdenar==='classe'?' selected':''}>Ordenar: classificação</option>
+        </select>
+        <button class="btn btn-pri" style="height:32px;font-size:13px" onclick="addItemHobby()">+ Novo item</button>
+      </div>
+    </div>
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${pills}</div>
+      ${abertos.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px">${cards}</div>`
+        :`<div class="empty" style="padding:24px"><div class="empty-icon">🎮</div><div class="empty-text">Nenhum item ${hobFiltroCat?'nesta categoria':'em aberto'}. Adicione um desejo e veja na hora se ele cabe no fundo, no excedente do mês ou se mexeria na sua reserva.</div></div>`}
+      ${compradosHtml}
+    </div>
+  </div>`;
+}
+
+// ── RENDER: card no dashboard ──
+function renderDashHobbies(){
+  const el=document.getElementById('dash-hobbies'); if(!el) return;
+  const h=_hob();
+  const abertos=hobItensAbertos();
+  if(!abertos.length){ el.innerHTML=''; return; }
+  const total=hobTotalAberto();
+  const proximos=abertos.slice().sort((a,b)=>(a.prioridade-b.prioridade)||(a.fase-b.fase));
+  const alvo=proximos[0];
+  const fit=alvo?hobFitCheck(alvo):null;
+  const meses=alvo?hobMesesParaCobrir(hobCusto(alvo)):null;
+  el.innerHTML=`<div class="panel">
+    <div class="panel-head"><span class="panel-title">🎮 Hobbies & aquisições</span>
+      <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="goSide('hobbies')">Abrir →</button></div>
+    <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:center">
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">Fundo do hobby</div>
+        <div style="font-size:18px;font-weight:800;color:var(--brand)">${fmt(h.saldoFundo||0)}</div>
+        <div style="font-size:11px;color:var(--text3)">${(h.aporteMensal||0)>0?`+${fmt(h.aporteMensal)}/mês`:'sem aporte definido'}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">Total desejado</div>
+        <div style="font-size:18px;font-weight:800">${fmt(total)}</div>
+        <div style="font-size:11px;color:var(--text3)">${abertos.length} item(ns) em aberto</div>
+      </div>
+      ${alvo?`<div style="grid-column:1/-1;background:var(--card2);border-radius:var(--r10);padding:10px 12px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--text2)">🎯 Próximo: <strong style="color:var(--text)">${hobCat(alvo.catId).icon} ${alvo.nome}</strong></span>
+          <span style="font-size:12px;font-weight:700">${hobCusto(alvo)>0?fmt(hobCusto(alvo)):'sem preço'}</span>
+        </div>
+        ${fit?`<div style="font-size:11px;font-weight:700;color:${fit.cor};margin-top:4px">${fit.nivel==='fundo'?'✅':fit.nivel==='excedente'?'⚠️':fit.nivel==='reserva'?'⛔':'·'} ${fit.label}${(meses && meses>0)?` · ~${meses} ${meses===1?'mês':'meses'} no ritmo atual`:''}</div>`:''}
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════
 //  🏷️ CATEGORIAS EDITÁVEIS (Onda 2)
 // ═══════════════════════════════════════════════════
 function _resolveCor(cor){
@@ -3922,7 +4316,7 @@ function criarUser() {
     const uid=cred.user.uid;
     const blank={saldo:0,cdi12:14.80,cdifev:1.21,cdi26:3.41,ipca12:4.14,ipcafev:0.88,ipca26:1.92,selic:14.75,arcaMeta:{a:25,r:25,c:25,a2:25},metaCC:2000,diaCorte:20,meses:['Mai/26','Jun/26','Jul/26','Ago/26','Set/26','Out/26','Nov/26','Dez/26','Jan/27','Fev/27','Mar/27','Abr/27','Mai/27','Jun/27','Jul/27','Ago/27','Set/27','Out/27','Nov/27','Dez/27'],invManual:Array(20).fill(null),entradas:[],fixas:[],compras:[],dividas:[],pagamentos:{},ativos:[],cartoes:[]};
     return db.collection('users').doc(uid).set({email,displayName:name,role,uid,createdAt:new Date().toISOString()})
-      .then(()=>db.collection('userData').doc(uid).set({data:JSON.stringify(blank),updatedAt:new Date().toISOString(),v:3,createdAt:new Date().toISOString()}))
+      .then(()=>db.collection('userData').doc(uid).set({data:JSON.stringify(blank),updatedAt:new Date().toISOString(),v:4,createdAt:new Date().toISOString()}))
       .then(()=>sec.auth().signOut());
   }).then(()=>{
     showModalAlert('modal-user-ok','✅ Usuário criado com sucesso!',true);
@@ -3945,10 +4339,8 @@ function editarUser() {
   btn.disabled=true;btn.textContent='Salvando...';
   const updates={displayName:name,role,updatedAt:new Date().toISOString()};
   db.collection('users').doc(uid).update(updates).then(()=>{
-    if(pass&&pass.length>=6){
-      // Salva pendingReset para ser aplicado no próximo login
-      return db.collection('pendingReset').doc(uid).set({newPass:pass,requestedAt:new Date().toISOString()});
-    }
+    // Senha NÃO é definida aqui. Para redefinir, o admin usa o botão "🔐 Senha"
+    // que dispara auth.sendPasswordResetEmail (fluxo seguro do Firebase).
   }).then(()=>{
     showModalAlert('modal-user-ok','✅ Dados atualizados!',true);
     setTimeout(fecharModalUser,1500);
@@ -4944,7 +5336,7 @@ function exportarBackupJSON() {
   try {
     const payload = {
       _app: 'FinancasPRO',
-      _version: 1,
+      _version: 4,
       _exportedAt: new Date().toISOString(),
       _user: (_user && _user.email) || '',
       data: D

@@ -2,29 +2,39 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Funções helper
-    function isAuth() { return request.auth != null; }
-    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+    // ── Helpers ──
+    function isAuth()      { return request.auth != null; }
+    function isOwner(uid)  { return isAuth() && request.auth.uid == uid; }
     function isAdmin() {
-      return isAuth() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
     }
 
-    // Perfis de usuários
+    // ── Perfis de usuário ──
+    // Leitura: o próprio dono ou um superadmin. Escrita: somente superadmin.
     match /users/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+      allow read:  if isOwner(uid) || isAdmin();
       allow write: if isAdmin();
     }
 
-    // Dados financeiros particionados por usuário
+    // ── Dados pessoais/financeiros — isolados por usuário ──
+    // Leitura e escrita SOMENTE pelo dono do documento. Nenhum acesso cruzado.
     match /userData/{uid} {
       allow read, write: if isOwner(uid);
     }
 
-    // Reset de senha pendente (admin escreve, user lê o próprio)
-    match /pendingReset/{uid} {
-      allow read, delete: if isOwner(uid);
+    // ── Configurações globais do sistema (identidade visual, módulos, etc.) ──
+    // Leitura por qualquer autenticado (necessária para renderizar a UI);
+    // escrita somente por superadmin. NÃO deve conter dados pessoais nem segredos.
+    match /systemConfig/{docId} {
+      allow read:  if isAuth();
       allow write: if isAdmin();
+    }
+
+    // Bloqueia qualquer outro caminho não previsto explicitamente.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

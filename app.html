@@ -1265,6 +1265,7 @@ body { margin: 0; padding: 0; }
     <div class="sidebar-section">
       <div class="sidebar-section-label">Pessoal</div>
       <button class="snav" id="snav-perfil" onclick="goSide('perfil')"><span class="snav-icon">👤</span> Meu Perfil</button>
+      <button class="snav" id="snav-hobbies" onclick="goSide('hobbies')"><span class="snav-icon">🎮</span> Hobbies & Aquisições</button>
     </div>
     <div class="sidebar-section" id="sidebar-admin-section" style="display:none">
       <div class="sidebar-section-label">Sistema</div>
@@ -1417,6 +1418,9 @@ body { margin: 0; padding: 0; }
 
   <!-- 🎯 Rumo à Aposentadoria -->
   <div id="dash-aposentadoria"></div>
+
+  <!-- 🎮 Hobbies & aquisições -->
+  <div id="dash-hobbies" class="mb"></div>
 </div>
 
 
@@ -1770,6 +1774,16 @@ body { margin: 0; padding: 0; }
     <div id="metas-orcamentos"></div>
   </div>
 
+  <!-- ████ HOBBIES & AQUISIÇÕES ████ -->
+  <div class="page" id="page-hobbies">
+    <div style="margin-bottom:24px">
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🎮 Hobbies &amp; Aquisições</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Sua lista de desejos com curadoria — cada compra avaliada contra a reserva e o plano de longo prazo.</div>
+    </div>
+    <div id="hob-fundo" class="mb"></div>
+    <div id="hob-lista"></div>
+  </div>
+
 <!-- ████ CONFIGURAÇÕES DO SISTEMA ████ -->
 <div class="page" id="page-config">
   <div style="margin-bottom:24px">
@@ -1913,7 +1927,7 @@ firebase.initializeApp({
   appId:"1:361900607129:web:901ff0ee9e3053a144da08"
 });
 const auth=firebase.auth(), db=firebase.firestore();
-let _user=null,_role=null,_userDoc=null,_resetUid='';
+let _user=null,_role=null,_userDoc=null,_resetUid='',_resetEmail='';
 
 /* ── Toast ── */
 function toast(msg,ok=true){
@@ -1935,7 +1949,7 @@ window._firestoreSave=function(loud=true){
   const btn=document.getElementById('btn-salvar');
   if(loud&&btn){btn.disabled=true;btn.textContent='Salvando...';}
   db.collection('userData').doc(_user.uid).set({
-    data:JSON.stringify(D),updatedAt:new Date().toISOString(),v:3
+    data:JSON.stringify(D),updatedAt:new Date().toISOString(),v:4
   }).then(()=>{
     if(loud)toast('Dados salvos com sucesso!');
   }).catch(e=>{
@@ -2059,34 +2073,40 @@ window._renderAdmin=function(){
       </div>`;
 
     const tb=document.getElementById('adm-tbody');
+    window._adminUsers = users; // referência segura para os botões de ação (lookup por uid)
     if(tb)tb.innerHTML=users.length?users.map(u=>{
       const dt=u.createdAt?new Date(u.createdAt).toLocaleDateString('pt-BR'):'—';
       const isSelf=u.uid===_user.uid;
-      const initial=(u.displayName||u.email||'?').charAt(0).toUpperCase();
+      const initial=escapeHTML((u.displayName||u.email||'?').charAt(0).toUpperCase());
       const isAdmin=u.role==='superadmin';
       return `<tr>
         <td><div style="display:flex;align-items:center;gap:10px">
           <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,${isAdmin?'var(--accent)':'var(--pos)'},${isAdmin?'#60A5FA':'#059669'});display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${initial}</div>
-          <div><div style="font-weight:600;font-size:13px">${u.displayName||'—'}${isSelf?' <span style="font-size:10px;color:var(--accent)">(você)</span>':''}</div></div>
+          <div><div style="font-weight:600;font-size:13px">${escapeHTML(u.displayName||'—')}${isSelf?' <span style="font-size:10px;color:var(--accent)">(você)</span>':''}</div></div>
         </div></td>
-        <td style="color:var(--text2);font-size:12px">${u.email||'—'}</td>
+        <td style="color:var(--text2);font-size:12px">${escapeHTML(u.email||'—')}</td>
         <td><span class="badge ${isAdmin?'badge-admin':'badge-user'}">${isAdmin?'⚙️ Admin':'👤 Usuário'}</span></td>
         <td style="color:var(--text2);font-size:12px">${dt}</td>
         <td style="color:var(--text3);font-size:11px">—</td>
         <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-accent" style="height:28px;font-size:11px" onclick="abrirModalEditarUser('${u.uid}','${(u.displayName||'').replace(/'/g,"\\'")}','${u.email||''}','${u.role||'user'}')">✏️ Editar</button>
-          <button class="btn btn-info" style="height:28px;font-size:11px" onclick="openReset('${u.uid}','${u.email||u.uid}')">🔐 Senha</button>
-          ${!isSelf?`<button class="btn btn-neg" style="height:28px;font-size:11px" onclick="delUser('${u.uid}','${(u.displayName||u.email||'').replace(/'/g,"\\'")}')">🗑️</button>`:''}
+          <button class="btn btn-accent" style="height:28px;font-size:11px" onclick="editUserById('${u.uid}')">✏️ Editar</button>
+          <button class="btn btn-info" style="height:28px;font-size:11px" onclick="openResetById('${u.uid}')">🔐 Senha</button>
+          ${!isSelf?`<button class="btn btn-neg" style="height:28px;font-size:11px" onclick="delUserById('${u.uid}')">🗑️</button>`:''}
         </div></td>
       </tr>`;
     }).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Nenhum usuário encontrado</div></div></td></tr>`;
   }).catch(e=>console.error(e));
 };
+// Wrappers que buscam o usuário pelo uid (seguro: uid é alfanumérico do Firebase)
+function _findAdminUser(uid){ return (window._adminUsers||[]).find(u=>u.uid===uid); }
+function editUserById(uid){ const u=_findAdminUser(uid); if(u) abrirModalEditarUser(u.uid, u.displayName||'', u.email||'', u.role||'user'); }
+function openResetById(uid){ const u=_findAdminUser(uid); if(u) openReset(u.uid, u.email||u.uid); }
+function delUserById(uid){ const u=_findAdminUser(uid); if(u) delUser(u.uid, u.displayName||u.email||''); }
 
 function openReset(uid,email){
   _resetUid=uid;
+  _resetEmail=email;
   document.getElementById('modal-reset-email').textContent=email;
-  document.getElementById('modal-reset-pass').value='';
   document.getElementById('modal-err').classList.remove('show');
   document.getElementById('modal-reset').classList.add('show');
 }
@@ -2094,14 +2114,13 @@ function closeModal(){document.getElementById('modal-reset').classList.remove('s
 document.addEventListener('DOMContentLoaded', function() {
   const btnConf = document.getElementById('btn-conf-reset');
   if(btnConf) btnConf.onclick = function(){
-    const np=document.getElementById('modal-reset-pass').value;
-    if(np.length<6){showAlert('modal-err','Mínimo 6 caracteres.');return;}
-    this.disabled=true;this.textContent='Salvando...';
-    db.collection('pendingReset').doc(_resetUid).set({
-      newPassword:np,requestedAt:new Date().toISOString(),requestedBy:_user.uid
-    }).then(()=>{closeModal();toast('Redefinição registrada.');})
-    .catch(e=>showAlert('modal-err',e.message))
-    .finally(()=>{this.disabled=false;this.textContent='Redefinir senha';});
+    if(!_resetEmail){showAlert('modal-err','E-mail do usuário não encontrado.');return;}
+    this.disabled=true;this.textContent='Enviando...';
+    // Fluxo seguro do Firebase: envia e-mail de redefinição. Nenhuma senha é gravada no Firestore.
+    auth.sendPasswordResetEmail(_resetEmail)
+      .then(()=>{closeModal();toast('E-mail de redefinição enviado para '+_resetEmail);})
+      .catch(e=>showAlert('modal-err', e.message))
+      .finally(()=>{this.disabled=false;this.textContent='Enviar e-mail de redefinição';});
   };
 });
 function reloadAdmin(btn){
@@ -2273,11 +2292,14 @@ auth.onAuthStateChanged(function(user){
     <div class="modal-box">
       <div class="modal-title">🔐 Redefinir senha</div>
       <div class="modal-sub">Usuário: <strong id="modal-reset-email">—</strong></div>
-      <div class="field"><label class="flabel">Nova senha</label><input type="password" id="modal-reset-pass" placeholder="Mínimo 6 caracteres"></div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin:6px 0 4px">
+        Por segurança, o administrador não define a senha diretamente. Será enviado um
+        <strong>e-mail de redefinição</strong> para o usuário criar uma nova senha pelo fluxo seguro do Firebase.
+      </div>
       <div class="alert-inline alert-err" id="modal-err"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-pri" id="btn-conf-reset">Redefinir senha</button>
+        <button class="btn btn-pri" id="btn-conf-reset">Enviar e-mail de redefinição</button>
       </div>
     </div>
   </div>
