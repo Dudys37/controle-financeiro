@@ -1248,31 +1248,8 @@ body { margin: 0; padding: 0; }
     <button class="sidebar-close" onclick="closeSidebar()">✕</button>
   </div>
   
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Análise</div>
-      <button class="snav on" id="snav-dash" onclick="goSide('dash')"><span class="snav-icon">📊</span> Dashboard</button>
-      <button class="snav" id="snav-invest" onclick="goSide('invest')"><span class="snav-icon">📈</span> Investimentos</button>
-      <button class="snav" id="snav-relatorios" onclick="goSide('relatorios')"><span class="snav-icon">📄</span> Relatórios</button>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Finanças</div>
-      <button class="snav" id="snav-entradas" onclick="goSide('entradas')"><span class="snav-icon">💰</span> Entradas</button>
-      <button class="snav" id="snav-carteira" onclick="goSide('carteira')"><span class="snav-icon">💼</span> Carteira</button>
-      <button class="snav" id="snav-saidas" onclick="goSide('saidas')"><span class="snav-icon">💸</span> Saídas</button>
-      <button class="snav" id="snav-faturas" onclick="goSide('faturas')"><span class="snav-icon">✅</span> Faturas</button>
-      <button class="snav" id="snav-metas" onclick="goSide('metas')"><span class="snav-icon">🎯</span> Metas</button>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Pessoal</div>
-      <button class="snav" id="snav-perfil" onclick="goSide('perfil')"><span class="snav-icon">👤</span> Meu Perfil</button>
-      <button class="snav" id="snav-hobbies" onclick="goSide('hobbies')"><span class="snav-icon">🎮</span> Hobbies & Aquisições</button>
-    </div>
-    <div class="sidebar-section" id="sidebar-admin-section" style="display:none">
-      <div class="sidebar-section-label">Sistema</div>
-      <button class="snav" id="snav-admin" onclick="goSide('admin')"><span class="snav-icon">👥</span> Usuários</button>
-      <button class="snav" id="snav-config" onclick="goSide('config')"><span class="snav-icon">⚙️</span> Configurações</button>
-      <button class="snav" id="snav-sysconfig" onclick="goSide('sysconfig')"><span class="snav-icon">🎨</span> Identidade & Cores</button>
-    </div>
+    <!-- Navegação gerada dinamicamente a partir de SYSCFG.menu (fallback DEFAULT_MENU) -->
+    <div id="sidebar-dynamic-nav"></div>
   </div>
   <div class="sidebar-footer">
     <button class="snav" style="color:var(--brand);font-weight:700" onclick="document.getElementById('btn-salvar').click();closeSidebar()">
@@ -1794,6 +1771,20 @@ body { margin: 0; padding: 0; }
     <div id="sysconfig-body"></div>
   </div>
 
+  <!-- ████ DASHBOARD GERAL ████ -->
+  <div class="page" id="page-geral">
+    <div style="margin-bottom:20px">
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">🏠 Dashboard Geral</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">Como está sua vida agora e o que decidir ou fazer em seguida.</div>
+    </div>
+    <div id="geral-body"></div>
+  </div>
+
+  <!-- ████ PLACEHOLDER (módulos planejados) ████ -->
+  <div class="page" id="page-placeholder">
+    <div id="placeholder-body"></div>
+  </div>
+
 <!-- ████ CONFIGURAÇÕES DO SISTEMA ████ -->
 <div class="page" id="page-config">
   <div style="margin-bottom:24px">
@@ -2231,7 +2222,10 @@ auth.onAuthStateChanged(function(user){
     selDash = getMesRefIdx(); // ← default to correct current month
     if(typeof applyChartDefaults==='function') applyChartDefaults();
     renderAll();
-    if(typeof loadSystemConfig==='function') loadSystemConfig(); // identidade/cores globais
+    if(typeof renderSidebar==='function') renderSidebar();           // sidebar dinâmica
+    if(typeof loadSystemConfig==='function') loadSystemConfig();      // identidade/cores/menu globais
+    // Preferência individual: dashboard inicial (geral/dash). Fallback seguro para 'dash'.
+    try { const di=D.prefs&&D.prefs.dashInicial; if(di && di!=='dash' && (document.getElementById('page-'+di)||(typeof PLACEHOLDER_MODULES==='object'&&PLACEHOLDER_MODULES[di]))) go(di); } catch(e){}
     setTimeout(()=>{Object.keys(CH).forEach(dc);selDash=getMesRefIdx();if(typeof applyChartDefaults==='function')applyChartDefaults();renderAll();},600);
   }).catch(e=>{
     console.error(e);

@@ -788,6 +788,7 @@ function scheduleAutoSave() {
 // ── ROTEAMENTO ────────────────────────────────────
 // ── NAVIGATION & SIDEBAR ────────────────────────
 const PAGE_META = {
+  geral:     { label:'Dashboard Geral',  section:'Visão Geral',icon:'🏠' },
   dash:      { label:'Dashboard',       section:'Análise',    icon:'📊' },
   invest:    { label:'Investimentos',   section:'Análise',    icon:'📈' },
   relatorios:{ label:'Relatórios',      section:'Análise',    icon:'📄' },
@@ -806,15 +807,20 @@ const PAGE_META = {
 let _currentRole = 'user'; // perfil ativo ('user' ou 'superadmin')
 
 function go(id, el) {
+  _activeNav = id;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.snav').forEach(t=>t.classList.remove('on'));
-  const pg=document.getElementById('page-'+id); if(pg) pg.classList.add('on');
+  const pg=document.getElementById('page-'+id);
+  if(pg) pg.classList.add('on');
+  else if(typeof PLACEHOLDER_MODULES==='object' && PLACEHOLDER_MODULES[id]){
+    const ph=document.getElementById('page-placeholder'); if(ph) ph.classList.add('on');
+  }
   const sn=document.getElementById('snav-'+id); if(sn) sn.classList.add('on');
   // Scroll to top on page change
   const mc=document.getElementById('main-content');
   if(mc) mc.scrollTop=0; else window.scrollTo(0,0);
-  // Update nav breadcrumb
-  const meta=PAGE_META[id]||{};
+  // Update nav breadcrumb (PAGE_META ou placeholder)
+  const meta=PAGE_META[id] || (PLACEHOLDER_MODULES[id]?{section:PLACEHOLDER_MODULES[id].section,label:PLACEHOLDER_MODULES[id].titulo}:{});
   const bc=document.getElementById('nav-breadcrumb');
   if(bc) bc.textContent=`/ ${meta.section||''} / ${meta.label||id}`;
   if(typeof _syncBotnav==='function') _syncBotnav(id);
@@ -883,13 +889,12 @@ document.addEventListener('click', e=>{
 function switchRole(role) {
   _currentRole = role;
   closeProfileDropdown();
-  const adminSection=document.getElementById('sidebar-admin-section');
   const isAdmin = role==='superadmin';
+  // Sidebar dinâmica: filtra itens por papel (minRole) ao re-renderizar.
+  if(typeof renderSidebar==='function') renderSidebar();
+  // Compatibilidade: oculta a seção admin estática, se ainda existir.
+  const adminSection=document.getElementById('sidebar-admin-section');
   if(adminSection) adminSection.style.display = isAdmin?'':'none';
-  ['snav-admin','snav-config','snav-cats','snav-params','snav-sysconfig'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.style.display=isAdmin?'':'none';
-  });
   // Update badge
   const badge=document.getElementById('nav-role-badge');
   if(badge){
@@ -900,13 +905,17 @@ function switchRole(role) {
   // Update role switch buttons
   document.getElementById('pd-switch-admin')?.classList.toggle('on', role==='superadmin');
   document.getElementById('pd-switch-user')?.classList.toggle('on', role==='user');
-  // If currently on admin/config page and switched to user, go to dash
+  // If currently on an admin-only page and switched to user, go to dash
   const active=document.querySelector('.page.on');
   const activeId=active?active.id.replace('page-',''):'dash';
-  if(!isAdmin&&(activeId==='admin'||activeId==='config'||activeId==='sysconfig')) goSide('dash');
+  const adminOnly=['admin','config','sysconfig','integracoes'];
+  if(!isAdmin && (adminOnly.includes(activeId) || adminOnly.includes(_activeNav))) goSide('geral');
 }
 
 function renderPage(id) {
+  // Visão Geral e módulos planejados (placeholders)
+  if(id==='geral')     { if(typeof renderGeralDash==='function') renderGeralDash(); return; }
+  if(typeof PLACEHOLDER_MODULES==='object' && PLACEHOLDER_MODULES[id]) { if(typeof renderPlaceholder==='function') renderPlaceholder(id); return; }
   // Fast renders — synchronous
   if(id==='dash')      { renderDashboard(); return; }
   if(id==='faturas')   { renderFaturas(); return; }
@@ -925,6 +934,7 @@ function renderPage(id) {
 }
 function renderAll() {
   applyCatsCustom();
+  if(typeof renderSidebar==='function') renderSidebar();
   const a=document.querySelector('.page.on');
   const id=a?a.id.replace('page-',''):'dash';
   renderPage(id);
@@ -4144,7 +4154,9 @@ const SYS_DEFAULTS = {
     faviconUrl:        ''
   },
   // Cores: string vazia = usa o padrão do CSS. Só hex válido é aplicado.
-  theme: { brand:'', accent:'', pos:'', neg:'', warn:'', info:'' }
+  theme: { brand:'', accent:'', pos:'', neg:'', warn:'', info:'' },
+  // Menu global (null = usa DEFAULT_MENU). Estrutura: [{id,label,icon,order,active,minRole,items:[...]}]
+  menu: null
 };
 let SYSCFG = JSON.parse(JSON.stringify(SYS_DEFAULTS));
 
@@ -4155,6 +4167,7 @@ function _mergeSysCfg(cfg){
   if(cfg && typeof cfg==='object'){
     if(cfg.identity && typeof cfg.identity==='object') Object.assign(out.identity, cfg.identity);
     if(cfg.theme    && typeof cfg.theme==='object')    Object.assign(out.theme, cfg.theme);
+    if(Array.isArray(cfg.menu) && cfg.menu.length)     out.menu = cfg.menu;
   }
   return out;
 }
@@ -4176,6 +4189,7 @@ function applySystemConfig(cfg){
   const t = SYSCFG.theme;
   [['brand','--brand'],['accent','--accent'],['pos','--pos'],['neg','--neg'],['warn','--warn'],['info','--info']]
     .forEach(([k,varName])=>{ if(isHexColor(t[k])) document.documentElement.style.setProperty(varName, t[k]); });
+  if(typeof renderSidebar==='function') renderSidebar();
 }
 
 // Carregamento pós-login (chamado do app.html). Falha silenciosa → mantém defaults.
@@ -4288,6 +4302,291 @@ function renderSysConfig(){
       ⚠️ Estas são configurações <strong>globais</strong> do sistema (identidade e cores). Preferências individuais (tema claro/escuro, etc.) são salvas por usuário e não afetam os demais.
     </div>`;
   renderSysConfigBadges();
+}
+
+// ═══════════════════════════════════════════════════
+//  🧭 NAVEGAÇÃO DINÂMICA (sidebar orientada a dados)
+//  Menu vem de SYSCFG.menu (global) com fallback para DEFAULT_MENU.
+//  Labels/ícones são tratados como dados não confiáveis (escapeHTML).
+//  Cliques via delegação (data-page), sem onclick inline.
+// ═══════════════════════════════════════════════════
+let _activeNav = 'dash';
+
+// Mapa de páginas reais já existentes (não quebrar navegação atual).
+const DEFAULT_MENU = [
+  { id:'geral', label:'Visão Geral', icon:'🏠', order:1, active:true, items:[
+    { id:'geral',  label:'Dashboard Geral', icon:'📌', page:'geral', active:true },
+  ]},
+  { id:'financas', label:'Finanças', icon:'💰', order:2, active:true, items:[
+    { id:'dash',     label:'Dashboard Financeiro', icon:'📊', page:'dash',     active:true },
+    { id:'entradas', label:'Entradas',             icon:'💵', page:'entradas', active:true },
+    { id:'saidas',   label:'Saídas',               icon:'💸', page:'saidas',   active:true },
+    { id:'faturas',  label:'Faturas',              icon:'✅', page:'faturas',  active:true },
+    { id:'carteira', label:'Carteira',             icon:'💼', page:'carteira', active:true },
+    { id:'metas',    label:'Metas & Orçamentos',   icon:'🎯', page:'metas',    active:true },
+    { id:'invest',   label:'Investimentos',        icon:'📈', page:'invest',   active:true },
+  ]},
+  { id:'trabalho', label:'Trabalho', icon:'💼', order:3, active:true, items:[
+    { id:'trabalho', label:'Projetos & Tarefas', icon:'🗂️', page:'trabalho', active:true },
+  ]},
+  { id:'carreira', label:'Carreira', icon:'🚀', order:4, active:true, items:[
+    { id:'carreira', label:'Objetivos & Evolução', icon:'🎓', page:'carreira', active:true },
+  ]},
+  { id:'planejamento', label:'Planejamento', icon:'🗓️', order:5, active:true, items:[
+    { id:'planejamento', label:'Objetivos & Hábitos', icon:'✅', page:'planejamento', active:true },
+  ]},
+  { id:'lazer', label:'Lazer', icon:'🎮', order:6, active:true, items:[
+    { id:'hobbies', label:'Hobbies & Aquisições', icon:'🎮', page:'hobbies', active:true },
+  ]},
+  { id:'compras', label:'Compras & Desejos', icon:'🛒', order:7, active:true, items:[
+    { id:'compras', label:'Compras & Desejos', icon:'🛒', page:'compras', active:true },
+  ]},
+  { id:'patrimonio', label:'Patrimônio', icon:'📦', order:8, active:true, items:[
+    { id:'patrimonio', label:'Bens & Equipamentos', icon:'📦', page:'patrimonio', active:true },
+  ]},
+  { id:'decisoes', label:'Decisões', icon:'🧭', order:9, active:true, items:[
+    { id:'decisoes', label:'Decisões', icon:'🧭', page:'decisoes', active:true },
+  ]},
+  { id:'relatorios', label:'Relatórios', icon:'📄', order:10, active:true, items:[
+    { id:'relatorios',        label:'Relatórios Financeiros', icon:'📄', page:'relatorios', active:true },
+    { id:'relatorios-gerais', label:'Relatório Geral da Vida', icon:'📑', page:'relatorios-gerais', active:true },
+  ]},
+  { id:'pessoal', label:'Pessoal', icon:'👤', order:11, active:true, items:[
+    { id:'perfil', label:'Meu Perfil', icon:'👤', page:'perfil', active:true },
+  ]},
+  { id:'sistema', label:'Sistema', icon:'⚙️', order:12, active:true, minRole:'superadmin', items:[
+    { id:'admin',     label:'Usuários',         icon:'👥', page:'admin',     active:true, minRole:'superadmin' },
+    { id:'config',    label:'Configurações',    icon:'⚙️', page:'config',    active:true, minRole:'superadmin' },
+    { id:'sysconfig', label:'Identidade & Cores',icon:'🎨', page:'sysconfig', active:true, minRole:'superadmin' },
+    { id:'integracoes', label:'Integrações',    icon:'🔌', page:'integracoes', active:true, minRole:'superadmin' },
+  ]},
+];
+
+function _menuData(){
+  // SYSCFG.menu (global) tem prioridade; fallback seguro para DEFAULT_MENU.
+  const m = SYSCFG && Array.isArray(SYSCFG.menu) && SYSCFG.menu.length ? SYSCFG.menu : DEFAULT_MENU;
+  return m.slice().sort((a,b)=>(a.order||99)-(b.order||99));
+}
+function _canSee(node){
+  if(node && node.minRole==='superadmin') return _currentRole==='superadmin';
+  return true;
+}
+function _menuCollapsed(){ return (D.prefs && Array.isArray(D.prefs.menuCollapsed)) ? D.prefs.menuCollapsed : []; }
+
+function toggleMenuCat(catId){
+  if(!D.prefs) D.prefs={};
+  if(!Array.isArray(D.prefs.menuCollapsed)) D.prefs.menuCollapsed=[];
+  const i=D.prefs.menuCollapsed.indexOf(catId);
+  if(i>=0) D.prefs.menuCollapsed.splice(i,1); else D.prefs.menuCollapsed.push(catId);
+  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
+  renderSidebar();
+}
+
+let _sidebarDelegated=false;
+function _setupSidebarDelegation(){
+  if(_sidebarDelegated) return;
+  const host=document.getElementById('sidebar-dynamic-nav'); if(!host) return;
+  host.addEventListener('click', e=>{
+    const item=e.target.closest('[data-page]');
+    if(item){ goSide(item.getAttribute('data-page')); return; }
+    const cat=e.target.closest('[data-cat]');
+    if(cat){ toggleMenuCat(cat.getAttribute('data-cat')); return; }
+  });
+  _sidebarDelegated=true;
+}
+
+function renderSidebar(){
+  const host=document.getElementById('sidebar-dynamic-nav'); if(!host) return;
+  _setupSidebarDelegation();
+  const collapsed=_menuCollapsed();
+  const html=_menuData().filter(cat=>cat.active!==false && _canSee(cat)).map(cat=>{
+    const items=(cat.items||[]).filter(it=>it.active!==false && _canSee(it));
+    if(!items.length) return '';
+    const isCol=collapsed.includes(cat.id);
+    const btns=items.map(it=>{
+      const on=_activeNav===it.page ? ' on' : '';
+      return `<button class="snav${on}" id="snav-${escapeHTML(it.page)}" data-page="${attr(it.page)}">`
+        + `<span class="snav-icon">${escapeHTML(it.icon||'•')}</span> ${escapeHTML(it.label||it.page)}</button>`;
+    }).join('');
+    return `<div class="sidebar-section">
+      <button class="sidebar-cat-header" data-cat="${attr(cat.id)}"
+        style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;padding:2px 6px;color:var(--text3);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em">
+        <span>${escapeHTML(cat.icon||'')} ${escapeHTML(cat.label||cat.id)}</span>
+        <span style="font-size:9px;opacity:.7">${isCol?'▸':'▾'}</span>
+      </button>
+      <div style="${isCol?'display:none':''}">${btns}</div>
+    </div>`;
+  }).join('');
+  host.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════
+//  🧩 PLACEHOLDERS — módulos planejados (em construção)
+// ═══════════════════════════════════════════════════
+const PLACEHOLDER_MODULES = {
+  trabalho: { icon:'💼', titulo:'Trabalho', section:'Trabalho',
+    desc:'Centralize projetos, tarefas, demandas, clientes, reuniões e entregas em um só lugar, ligados aos seus prazos e metas.',
+    futuras:['Projetos e tarefas com status e prioridade','Clientes e demandas','Prazos e entregas','Histórico de decisões de projeto'] },
+  carreira: { icon:'🚀', titulo:'Carreira', section:'Carreira',
+    desc:'Acompanhe objetivos profissionais, competências, cursos e simulações de renda alinhadas ao seu planejamento financeiro.',
+    futuras:['Objetivos profissionais','Competências e certificações','Simulação de renda','Plano de transição'] },
+  planejamento: { icon:'🗓️', titulo:'Planejamento Pessoal', section:'Planejamento',
+    desc:'Organize objetivos de curto, médio e longo prazo, hábitos, rotinas e revisões semanais/mensais.',
+    futuras:['Objetivos por horizonte','Hábitos e rotinas','Checklists semanais/mensais','Revisão de vida'] },
+  patrimonio: { icon:'📦', titulo:'Patrimônio', section:'Patrimônio',
+    desc:'Registre bens, equipamentos, veículos, garantias, notas fiscais e manutenções, com valor estimado e histórico.',
+    futuras:['Bens, veículos e equipamentos','Garantias e notas fiscais','Manutenções e seguros','Histórico de aquisições'] },
+  compras: { icon:'🛒', titulo:'Compras & Desejos', section:'Compras & Desejos',
+    desc:'Evolução do módulo Hobbies & Aquisições: cada desejo com análise de impacto na reserva e nas metas, melhor momento de compra e alternativas.',
+    futuras:['Análise de impacto financeiro','Melhor momento para comprar','Comparador de alternativas','Relação com metas e reserva'] },
+  decisoes: { icon:'🧭', titulo:'Decisões', section:'Decisões',
+    desc:'Avalie decisões importantes antes de agir — impacto financeiro, profissional, pessoal e de qualidade de vida — para evitar escolhas impulsivas.',
+    futuras:['Impacto financeiro/profissional/pessoal','Prós, contras e riscos','Alternativas e critérios','Decisão final e revisão'] },
+  'relatorios-gerais': { icon:'📑', titulo:'Relatório Geral da Vida', section:'Relatórios',
+    desc:'Um relatório consolidado de finanças, metas, patrimônio, lazer, decisões e próximos passos — exportável em PDF.',
+    futuras:['Consolidação multi-domínio','Exportação em PDF','Indicadores e gráficos','Observações e próximos passos'] },
+  integracoes: { icon:'🔌', titulo:'Integrações', section:'Sistema',
+    desc:'Conecte agenda, indicadores de mercado, importação de extratos e mais — sempre com consentimento, fonte e fallback manual.',
+    futuras:['Links "Adicionar à Google Agenda"','Importação CSV/OFX de extratos','Indicadores via Banco Central','Open Finance (com backend) no futuro'] },
+  agenda: { icon:'📅', titulo:'Google Agenda', section:'Integrações',
+    desc:'Comece por links de criação de evento (sem OAuth) e evolua para sincronização real com backend seguro.',
+    futuras:['Adicionar faturas/decisões/metas à agenda','Lembretes financeiros','Sincronização via Cloud Function (futuro)'] },
+  openbanking: { icon:'🏦', titulo:'Open Finance', section:'Integrações',
+    desc:'Importe saldos e transações com segurança. Nunca pediremos sua senha bancária — começa por CSV/OFX e evolui via provedor + backend.',
+    futuras:['Importação CSV/OFX','Conciliação de transações','Open Finance via provedor (backend)','Isolado por usuário e criptografado'] },
+  anexos: { icon:'📎', titulo:'Anexos & Documentos', section:'Patrimônio',
+    desc:'Anexe notas fiscais, garantias e comprovantes — primeiro por link externo, depois via Firebase Storage com regras por usuário.',
+    futuras:['Links externos (Drive/OneDrive)','Firebase Storage por uid','Validação de tipo/tamanho','Vínculo a compras e patrimônio'] },
+};
+
+function renderPlaceholder(id){
+  const el=document.getElementById('placeholder-body'); if(!el) return;
+  const m=PLACEHOLDER_MODULES[id]; if(!m){ el.innerHTML=''; return; }
+  el.innerHTML=`
+    <div style="margin-bottom:24px">
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">${escapeHTML(m.icon)} ${escapeHTML(m.titulo)}
+        <span style="font-size:11px;font-weight:700;color:var(--warn);background:var(--warn-bg);border:1px solid rgba(245,158,11,.25);border-radius:99px;padding:3px 10px;margin-left:8px;vertical-align:middle">em construção</span></div>
+      <div style="font-size:13px;color:var(--text2);margin-top:6px;max-width:680px;line-height:1.55">${escapeHTML(m.desc)}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">✨ Funcionalidades planejadas</span>
+        <span class="panel-badge">próxima fase</span></div>
+      <div style="padding:16px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
+          ${(m.futuras||[]).map(f=>`<div style="display:flex;align-items:flex-start;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:var(--r10);padding:11px 13px">
+            <span style="color:var(--brand);font-weight:800">→</span>
+            <span style="font-size:12.5px;color:var(--text)">${escapeHTML(f)}</span></div>`).join('')}
+        </div>
+        <div style="margin-top:16px;font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px">
+          <span>🧱</span> Este módulo está planejado para uma próxima fase. A estrutura e a navegação já estão prontas para recebê-lo.
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px"><button class="btn btn-ghost" data-goto="geral" onclick="goSide('geral')">← Voltar ao Dashboard Geral</button></div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  🏠 DASHBOARD GERAL — "como está minha vida agora?"
+// ═══════════════════════════════════════════════════
+function _gcard(opts){
+  // opts: {icon,label,valor,sub,cor,page,extra}
+  const nav = opts.page ? `onclick="goSide('${opts.page}')"` : '';
+  return `<button class="snav" ${nav} style="all:unset;cursor:${opts.page?'pointer':'default'};display:block;width:100%">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r14);padding:16px;height:100%;transition:border-color .15s"
+      onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:16px">${escapeHTML(opts.icon||'•')}</span>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">${escapeHTML(opts.label||'')}</span>
+      </div>
+      <div style="font-size:20px;font-weight:800;color:${opts.cor||'var(--text)'}">${opts.valor||''}</div>
+      ${opts.sub?`<div style="font-size:11.5px;color:var(--text3);margin-top:3px">${opts.sub}</div>`:''}
+      ${opts.extra||''}
+    </div>
+  </button>`;
+}
+
+function renderGeralDash(){
+  const el=document.getElementById('geral-body'); if(!el) return;
+  const mi = (typeof getMesRefIdx==='function') ? getMesRefIdx() : 0;
+  const mesNome = (D.meses&&D.meses[mi])||'';
+
+  // Finanças do mês
+  let entrada=0, cp={bruto:0,pendente:0,pago:0}, sobra=0, investir=0;
+  try { entrada=totalEMes(mi); cp=calcPendenteMes(mi); sobra=entrada-cp.bruto; investir=invDisp(mi); } catch(e){}
+  // Reserva
+  let reserva={pct:0,caixa:0,meta:0,falta:0};
+  try { reserva=statusReserva(); } catch(e){}
+  // Metas em andamento
+  let metasAtivas=[], metaTop=null;
+  try {
+    metasAtivas=(D.metas||[]).map(m=>{ try{return {m, info:metaInfo(m)};}catch(e){return null;} }).filter(Boolean).filter(x=>!x.info.concluida);
+    metaTop=metasAtivas.slice().sort((a,b)=>b.info.pct-a.info.pct)[0];
+  } catch(e){}
+  // Hobbies/compras prioritários
+  let hobAbertos=[], hobAlvo=null, hobTotal=0;
+  try {
+    hobAbertos=hobItensAbertos(); hobTotal=hobTotalAberto();
+    hobAlvo=hobAbertos.slice().sort((a,b)=>(a.prioridade-b.prioridade)||(a.fase-b.fase))[0];
+  } catch(e){}
+  // Alertas / insights
+  let insights=[];
+  try { const F=finInsights(mi); insights=(F&&F.insights)?F.insights.slice(0,4):[]; } catch(e){}
+
+  const reservaCor = reserva.pct>=100?'var(--brand)':reserva.pct>=50?'var(--warn)':'var(--neg)';
+  const sobraCor = sobra>=0?'var(--pos)':'var(--neg)';
+
+  const cards=[
+    _gcard({icon:'💰', label:'Situação do mês', valor:fmt(sobra), cor:sobraCor, page:'dash',
+      sub:`${mesNome} · ${fmt(entrada)} entradas − ${fmt(cp.bruto)} saídas`}),
+    _gcard({icon:'🛡️', label:'Reserva de emergência', valor:`${reserva.pct}%`, cor:reservaCor, page:'carteira',
+      sub:reserva.pct>=100?'Reserva completa':`Faltam ${fmt(reserva.falta)} para completar`,
+      extra:`<div style="height:6px;background:var(--card3);border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:6px;width:${Math.min(100,reserva.pct)}%;background:${reservaCor};border-radius:99px"></div></div>`}),
+    _gcard({icon:'🚀', label:'Disponível p/ investir', valor:fmt(investir), cor:'var(--teal)', page:'carteira',
+      sub:cp.pendente>0?`${fmt(cp.pendente)} ainda pendente no mês`:'Contas do mês em dia'}),
+    _gcard({icon:'🎯', label:'Metas em andamento', valor:String(metasAtivas.length), cor:'var(--text)', page:'metas',
+      sub:metaTop?`Mais perto: ${escapeHTML(metaTop.m.nome||'')} (${Math.round(metaTop.info.pct)}%)`:'Nenhuma meta ativa'}),
+    _gcard({icon:'🛒', label:'Compras & desejos', valor:fmt(hobTotal), cor:'var(--violet)', page:'hobbies',
+      sub:hobAlvo?`Próximo: ${escapeHTML(hobAlvo.nome||'')}${hobCusto(hobAlvo)>0?' · '+fmt(hobCusto(hobAlvo)):''}`:`${hobAbertos.length} item(ns) em aberto`}),
+    _gcard({icon:'🧭', label:'Decisões', valor:'—', cor:'var(--text3)', page:'decisoes',
+      sub:'Módulo em construção — avalie decisões antes de agir'}),
+  ].join('');
+
+  // Alertas
+  const alertasHtml = insights.length ? `
+    <div class="panel mb">
+      <div class="panel-head"><span class="panel-title">🚨 Alertas & sinais do mês</span></div>
+      <div style="padding:12px 16px">
+        ${insights.map(a=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:15px;flex-shrink:0">${escapeHTML(a.icon||'•')}</span>
+          <div><div style="font-size:13px;font-weight:600">${escapeHTML(a.titulo||a.title||'')}</div>
+          <div style="font-size:11.5px;color:var(--text2)">${escapeHTML(a.desc||a.msg||'')}</div></div>
+        </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  // Próximos passos (derivados, sem dados sensíveis)
+  const passos=[];
+  if(reserva.pct<100) passos.push(`Completar a reserva de emergência (faltam ${fmt(reserva.falta)}).`);
+  if(cp.pendente>0)   passos.push(`Quitar ${fmt(cp.pendente)} de contas pendentes em ${mesNome}.`);
+  if(sobra>0 && investir>0) passos.push(`Direcionar ${fmt(investir)} para investimento conforme o ARCA.`);
+  if(hobAlvo && hobCusto(hobAlvo)>0){ try{ const fit=hobFitCheck(hobAlvo); passos.push(`Avaliar a compra "${escapeHTML(hobAlvo.nome)}": ${escapeHTML(fit.label)}.`);}catch(e){} }
+  if(metaTop) passos.push(`Avançar na meta "${escapeHTML(metaTop.m.nome||'')}" (${Math.round(metaTop.info.pct)}%).`);
+  if(!passos.length) passos.push('Tudo em dia por aqui. Que tal registrar um novo objetivo ou decisão?');
+
+  const passosHtml=`
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">✅ Próximos passos recomendados</span></div>
+      <div style="padding:12px 16px">
+        ${passos.slice(0,5).map(p=>`<div style="display:flex;align-items:flex-start;gap:9px;padding:7px 0">
+          <span style="color:var(--brand);font-weight:800">→</span>
+          <span style="font-size:13px;color:var(--text)">${p}</span></div>`).join('')}
+      </div>
+    </div>`;
+
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:20px">${cards}</div>
+    ${alertasHtml}
+    ${passosHtml}`;
 }
 
 // ═══════════════════════════════════════════════════

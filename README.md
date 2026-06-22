@@ -106,11 +106,15 @@ Prioridade técnica (segurança primeiro):
 9. ✅ **(Fase 2) `firestore.rules` preparadas para subcoleções** (`userData/{uid}/{document=**}` e `users/{uid}/private/**`) + validação que impede `token`/`secret`/`apiKey` em `systemConfig`.
 10. ✅ **(Fase 2) Varredura XSS ampliada** — `escapeHTML`/`attr` aplicados a entradas, compras, cartões, metas, ativos, hobbies e categorias.
 11. ✅ **(Fase 2) Preferências por usuário** (`D.prefs`) isoladas em `userData/{uid}`, separadas das configurações globais.
-12. 🔜 **Sidebar com categorias/subcategorias dinâmicas** + **Dashboard Geral** separado do Financeiro
-13. 🔜 **Módulo de Decisões** e **Metas integradas** (domínios além de finanças)
-14. 🔜 **Compras & Desejos** (evolução do Hobbies & Aquisições com impacto financeiro)
-15. 🔜 **Relatórios parametrizáveis + PDFs** (`window.print` com CSS de impressão ou `html2pdf.js`)
-16. 🔜 **Integrações** (ver seção abaixo)
+12. ✅ **(Fase 3) Sidebar dinâmica por categorias/subcategorias** — gerada de dados (`SYSCFG.menu` com fallback `DEFAULT_MENU`), 12 categorias (Visão Geral, Finanças, Trabalho, Carreira, Planejamento, Lazer, Compras & Desejos, Patrimônio, Decisões, Relatórios, Pessoal, Sistema), recolhíveis (estado em `D.prefs.menuCollapsed`), com gating por papel, labels escapados e cliques por delegação (`data-page`, sem `onclick` inline).
+13. ✅ **(Fase 3) Dashboard Geral** (`page-geral`) separado do Financeiro — cards estratégicos (situação do mês, reserva, disponível p/ investir, metas, compras & desejos, decisões) + alertas + próximos passos, cada card linkando ao módulo. Configurável como tela inicial via `D.prefs.dashInicial`.
+14. ✅ **(Fase 3) Placeholders elegantes** para 11 módulos planejados (Trabalho, Carreira, Planejamento, Patrimônio, Compras & Desejos, Decisões, Relatório Geral, Integrações, Google Agenda, Open Finance, Anexos) — título, descrição, status "em construção" e funcionalidades futuras.
+15. 🔜 **Módulo de Decisões** e **Metas integradas** (domínios além de finanças) — estrutura de navegação já pronta
+16. 🔜 **Compras & Desejos** (evolução do Hobbies & Aquisições), **Relatórios parametrizáveis + PDFs**, **Integrações** (ver tabela abaixo)
+
+### Como funciona a navegação (Fase 3)
+
+A sidebar é **orientada a dados**: `renderSidebar()` lê `SYSCFG.menu` (global, editável por superadmin) e, se ausente/ inválido, usa `DEFAULT_MENU` (fallback seguro). Cada categoria tem `id/label/icon/order/active/minRole/items[]`; cada item aponta para uma `page`. Itens com `minRole:'superadmin'` só aparecem para administradores. Telas financeiras existentes foram preservadas (mesmos `page` ids). Módulos ainda não construídos abrem uma página de **placeholder** elegante. O **Dashboard Geral** responde "como está minha vida agora?" usando só dados já existentes (finanças, reserva, metas, hobbies/compras) e prepara espaço para os módulos futuros; o **Dashboard Financeiro** continua intacto. Para tornar o menu configurável por interface (CRUD), basta gravar um array em `systemConfig/app.menu` — a estrutura e o merge já estão prontos.
 
 ### Configurações: globais vs por usuário
 
