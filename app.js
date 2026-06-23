@@ -399,6 +399,27 @@ function migrateData(d) {
     if(it.loja==null) it.loja = '';
     if(it.link==null) it.link = '';
     if(it.notas==null) it.notas = '';
+    // ── Campos novos de Compras & Desejos (compatibilidade defensiva) ──
+    if(it.descricao==null) it.descricao = '';
+    if(!it.tipo) it.tipo = 'desejo';
+    if(!it.dominio){ // infere domínio a partir da categoria antiga
+      it.dominio = ({h_setup:'tecnologia', h_rel:'patrimonio', h_cafe:'lazer', h_games:'lazer'})[it.catId] || 'lazer';
+    }
+    if(it.custoTotal==null || isNaN(it.custoTotal)) it.custoTotal = (it.preco||0)+(it.frete||0);
+    if(!it.impactoFinanceiro) it.impactoFinanceiro = 'medio';
+    if(!it.impactoLazer) it.impactoLazer = (it.dominio==='lazer'||it.dominio==='experiencia')?'alto':'medio';
+    if(!it.impactoProfissional) it.impactoProfissional = (it.dominio==='trabalho'||it.dominio==='carreira'||it.dominio==='estudo')?'alto':'baixo';
+    if(!it.impactoPatrimonio) it.impactoPatrimonio = (it.dominio==='patrimonio')?'alto':'baixo';
+    if(it.justificativa==null) it.justificativa = '';
+    if(it.alternativas==null) it.alternativas = '';
+    if(it.melhorMomento==null) it.melhorMomento = '';
+    if(it.relacionadaAMetaId==null) it.relacionadaAMetaId = '';
+    if(it.relacionadaADecisaoId==null) it.relacionadaADecisaoId = '';
+    if(it.dataCriacao==null) it.dataCriacao = new Date().toISOString();
+    if(it.dataAtualizacao==null) it.dataAtualizacao = it.dataCriacao;
+    if(it.dataCompraPlanejada==null) it.dataCompraPlanejada = '';
+    if(it.dataCompraRealizada==null) it.dataCompraRealizada = it.compradoEm || '';
+    if(it.ativo==null) it.ativo = true;
   });
 
   // ── Plano de Aposentadoria — cria/completa com defaults (compatibilidade dados antigos) ──
@@ -853,7 +874,7 @@ const PAGE_META = {
   faturas:   { label:'Faturas',         section:'Finanças',   icon:'✅' },
   metas:     { label:'Metas & Orçamentos', section:'Finanças', icon:'🎯' },
   perfil:    { label:'Meu Perfil',      section:'Pessoal',    icon:'👤' },
-  hobbies:   { label:'Hobbies & Aquisições', section:'Pessoal', icon:'🎮' },
+  hobbies:   { label:'Compras & Desejos', section:'Compras & Desejos', icon:'🛒' },
   decisoes:  { label:'Decisões',         section:'Decisões',  icon:'🧭' },
   admin:     { label:'Usuários',        section:'Sistema',    icon:'👥' },
   config:    { label:'Configurações',   section:'Sistema',    icon:'⚙️' },
@@ -3962,18 +3983,46 @@ function renderOrcamentos(){
 const HOB_CLASSE = {
   essencial:  {label:'Essencial',   cor:'var(--brand)',  ord:0},
   recomendado:{label:'Recomendado', cor:'var(--info)',   ord:1},
-  desejavel:  {label:'Desejável',   cor:'var(--violet)', ord:2},
-  luxo:       {label:'Luxo',        cor:'var(--warn)',   ord:3},
+  investimento_profissional:{label:'Invest. profissional', cor:'var(--teal)', ord:2},
+  investimento_pessoal:{label:'Invest. pessoal', cor:'var(--teal)', ord:3},
+  substituir: {label:'Substituir',  cor:'var(--info)',   ord:4},
+  desejavel:  {label:'Desejável',   cor:'var(--violet)', ord:5},
+  luxo:       {label:'Luxo',        cor:'var(--warn)',   ord:6},
+  impulso:    {label:'Impulso',     cor:'var(--neg)',    ord:7},
 };
+const COMPRA_CLASSES = HOB_CLASSE; // alias semântico (Compras & Desejos)
+const COMPRA_DOMINIOS = [
+  {id:'lazer',label:'Lazer',icon:'🎮'}, {id:'tecnologia',label:'Tecnologia/Setup',icon:'🖥️'},
+  {id:'trabalho',label:'Trabalho',icon:'💼'}, {id:'carreira',label:'Carreira',icon:'🚀'},
+  {id:'patrimonio',label:'Patrimônio',icon:'📦'}, {id:'viagem',label:'Viagem',icon:'✈️'},
+  {id:'saude',label:'Saúde',icon:'🩺'}, {id:'estudo',label:'Estudo',icon:'🎓'},
+  {id:'casa',label:'Casa/Quarto',icon:'🏠'}, {id:'experiencia',label:'Experiência',icon:'✨'},
+  {id:'outro',label:'Outro',icon:'📌'},
+];
+const COMPRA_STATUS = {
+  desejado:{label:'Desejado',cor:'var(--text2)'}, em_analise:{label:'Em análise',cor:'var(--info)'},
+  aprovado:{label:'Aprovado',cor:'var(--pos)'}, adiado:{label:'Adiado',cor:'var(--violet)'},
+  aguardando_preco:{label:'Aguardando preço',cor:'var(--warn)'}, aguardando_oportunidade:{label:'Aguardando oportunidade',cor:'var(--warn)'},
+  comprado:{label:'Comprado',cor:'var(--brand)'}, descartado:{label:'Descartado',cor:'var(--text3)'},
+};
+const _COMPRA_IMP = { nenhum:0, baixo:1, medio:2, alto:3, critico:4 };
 
 let hobFiltroCat = '';          // '' = todas
 let hobOrdenar   = 'prioridade'; // prioridade | preco | fase | classe
 let hobShowComprados = false;
+// Estado de UI Compras & Desejos
+let _compraFiltroCat='', _compraFiltroDom='', _compraFiltroStatus='', _compraFiltroClasse='', _compraFiltroPrio='', _compraFiltroImpacto='', _compraBusca='', _compraOrdenar='prioridade';
+let _compraExpanded={};
 
 function _hob(){ if(!D.hobbies) D.hobbies = JSON.parse(JSON.stringify(DEFAULT_HOBBIES)); return D.hobbies; }
 function hobCat(id){ return (_hob().cats||[]).find(c=>c.id===id) || {id:'', nome:'—', icon:'📦', cor:'#6B7280'}; }
-function hobCusto(it){ return (it.preco||0) + (it.frete||0); }
-function hobItensAbertos(){ return (_hob().itens||[]).filter(i=>i.status!=='comprado'); }
+function compraCusto(it){ return (it.preco||0) + (it.frete||0); }
+function hobCusto(it){ return compraCusto(it); }
+function compraDominio(id){ return COMPRA_DOMINIOS.find(d=>d.id===id) || {id:'outro',label:'Outro',icon:'📌'}; }
+function compraStatus(id){ return COMPRA_STATUS[id] || COMPRA_STATUS.desejado; }
+function compraClasse(id){ return COMPRA_CLASSES[id] || COMPRA_CLASSES.desejavel; }
+function compraMesesParaCobrir(it){ return hobMesesParaCobrir(compraCusto(it)); }
+function hobItensAbertos(){ return (_hob().itens||[]).filter(i=>i.status!=='comprado' && i.status!=='descartado'); }
 function hobItensComprados(){ return (_hob().itens||[]).filter(i=>i.status==='comprado'); }
 function hobTotalAberto(){ return hobItensAbertos().reduce((s,i)=>s+hobCusto(i),0); }
 
@@ -4040,21 +4089,145 @@ function hobMesesParaCobrir(valor){
   return Math.ceil(falta/ap);
 }
 
+// ── Análise estratégica da compra (regras locais, sem IA/back-end) ──
+function analisarCompra(item){
+  const custo = compraCusto(item);
+  const flags = [];
+  if(custo<=0){
+    return { nivel:'sem_dados', recomendacao:'analisar', label:'Sem preço', cor:'var(--text3)',
+      texto:'Defina um preço para avaliar o impacto.', flags:['sem preço definido'], custo:0 };
+  }
+  let exced=0, caixa=0, metaE=0; const fundo=_hob().saldoFundo||0;
+  try { exced=invDisp(getMesRefIdx()); caixa=caixaAtual(); metaE=metaEmergencia(); } catch(e){}
+  const hasFin = caixa>0 || metaE>0 || exced>0 || fundo>0;
+  const classe = item.classe||'desejavel';
+  const prio = item.prioridade||9;
+  let nivel='ok';
+
+  if(!hasFin){
+    nivel='sem_dados'; flags.push('sem dados financeiros suficientes — preencha entradas, reserva e metas');
+  } else {
+    const cabeNoFundo = custo<=fundo;
+    if(cabeNoFundo){ flags.push(`cabe no fundo de compras (${fmt(fundo)})`); }
+    else if(custo<=exced){ flags.push(`cabe no excedente do mês (${fmt(exced)}), mas reduz seu aporte`); nivel='atencao'; }
+    else {
+      const quebra = metaE>0 && caixa>=metaE && (caixa-custo)<metaE;
+      if(quebra){ flags.push(`pagar à vista derrubaria a reserva abaixo de ${fmt(metaE)}`); nivel='critico'; }
+      else { flags.push('acima do fundo e do excedente do mês'); nivel='atencao'; }
+    }
+    // Penalidades de pressão de custo só quando NÃO cabe no fundo
+    if(!cabeNoFundo){
+      if(classe==='impulso'){ flags.push('classificado como impulso'); if(nivel==='ok') nivel='adiar'; }
+      if(classe==='luxo' && custo>exced){ flags.push('luxo acima do excedente do mês'); if(nivel==='ok'||nivel==='atencao') nivel='adiar'; }
+      if(prio>=4 && custo>exced && classe!=='essencial'){ flags.push('prioridade baixa para o custo'); if(nivel==='ok') nivel='adiar'; }
+      if((classe==='essencial'||classe==='investimento_profissional'||classe==='substituir')){ flags.push('tem caráter essencial/estratégico'); if(nivel==='adiar') nivel='atencao'; }
+    } else if(classe==='impulso'){
+      flags.push('marcado como impulso — confirme que não é por impulso');
+    }
+    if((_COMPRA_IMP[item.impactoProfissional]||0)>=3) flags.push('impacto profissional alto');
+    if((_COMPRA_IMP[item.impactoLazer]||0)>=3) flags.push('impacto positivo em qualidade de vida');
+  }
+  if(item.relacionadaAMetaId) flags.push('vinculado a uma meta');
+  if(item.relacionadaADecisaoId) flags.push('possui decisão de avaliação');
+
+  const recomendacao = nivel==='critico'?'adiar' : nivel==='adiar'?'adiar' : nivel==='atencao'?'aguardar' : nivel==='sem_dados'?'analisar' : 'comprar_agora';
+  let label = nivel==='critico'?'Decisão crítica' : nivel==='adiar'?'Recomenda-se adiar' : nivel==='atencao'?'Atenção' : nivel==='sem_dados'?'Faltam dados' : 'Boa compra';
+  if(classe==='luxo' && nivel!=='critico' && nivel!=='sem_dados') label='Luxo controlado';
+  const cor = nivel==='critico'?'var(--neg)' : nivel==='adiar'?'var(--violet)' : nivel==='atencao'?'var(--warn)' : nivel==='sem_dados'?'var(--text3)' : 'var(--pos)';
+  return { nivel, recomendacao, label, cor, texto:`${label}: ${flags.join('; ')}.`, flags, custo };
+}
+
+// ── Resumo para Dashboard Geral / cards ──
+function compraResumoData(){
+  const abertos=hobItensAbertos();
+  const emAnalise=abertos.filter(i=>i.status==='em_analise').length;
+  const adiados=(_hob().itens||[]).filter(i=>i.status==='adiado').length;
+  const totalAberto=hobTotalAberto();
+  const altoImpacto=abertos.filter(i=>(_COMPRA_IMP[i.impactoFinanceiro]||0)>=3).length;
+  const vincMeta=abertos.filter(i=>i.relacionadaAMetaId).length;
+  const vincDec=abertos.filter(i=>i.relacionadaADecisaoId).length;
+  // próxima recomendada: prioridade asc, depois custo asc, ignorando adiados/descartados
+  const candidatos=abertos.filter(i=>!['adiado','descartado'].includes(i.status))
+    .slice().sort((a,b)=>(a.prioridade-b.prioridade)||(compraCusto(a)-compraCusto(b))||(a.fase-b.fase));
+  const proximo=candidatos[0]||null;
+  return { emAnalise, adiados, totalAberto, altoImpacto, vincMeta, vincDec, proximo, nAberto:abertos.length };
+}
+
+// ── Gerar Decisão / Meta a partir de uma compra (sem duplicar) ──
+function criarDecisaoDaCompra(id){
+  const it=(_hob().itens||[]).find(x=>x.id===id); if(!it) return;
+  if(it.relacionadaADecisaoId && (D.decisoes||[]).some(d=>d.id===it.relacionadaADecisaoId)){
+    go('decisoes'); toast('Esta compra já tem uma decisão vinculada',true,'🧭'); return;
+  }
+  if(!Array.isArray(D.decisoes)) D.decisoes=[];
+  const agora=new Date().toISOString();
+  const dec={ id:'dec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:`Avaliar compra: ${it.nome||'item'}`, descricao:it.descricao||'',
+    categoria:'compra', status:'em_analise', prioridade:'media', prazo:'',
+    dataCriacao:agora, dataAtualizacao:agora, dataDecisao:'',
+    custoEstimado:compraCusto(it), recorrencia:'nenhuma', valorRecorrente:0,
+    impactoFinanceiro:it.impactoFinanceiro||'medio', impactoProfissional:it.impactoProfissional||'baixo',
+    impactoPessoal:it.impactoLazer||'medio', impactoLazer:it.impactoLazer||'medio',
+    beneficios:it.justificativa||'', riscos:'', alternativas:it.alternativas||'',
+    decisaoFinal:'', observacoes:'', relacionadaACompraId:it.id, relacionadaAMetaId:it.relacionadaAMetaId||'', ativa:true };
+  D.decisoes.unshift(dec);
+  it.relacionadaADecisaoId=dec.id; it.dataAtualizacao=agora;
+  if(it.status==='desejado') it.status='em_analise';
+  scheduleAutoSave(); renderHobbies();
+  toast('Decisão criada para esta compra',true,'🧭');
+}
+function criarMetaDaCompra(id){
+  const it=(_hob().itens||[]).find(x=>x.id===id); if(!it) return;
+  if(it.relacionadaAMetaId && (D.metas||[]).some(m=>m.id===it.relacionadaAMetaId)){
+    go('metas'); toast('Esta compra já tem uma meta vinculada',true,'🎯'); return;
+  }
+  if(!Array.isArray(D.metas)) D.metas=[];
+  const agora=new Date().toISOString();
+  const meta={ id:'meta_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:`Comprar ${it.nome||'item'}`, descricao:it.descricao||'', icon:'🛒',
+    dominio:'compra', categoria:'', status:'em_andamento', prioridade:'media',
+    unidade:'dinheiro', prazo:'', valorAlvo:compraCusto(it), valorAtual:0, progressoManual:null,
+    fonte:'manual', ativoNome:'', cor:'#00D4AA', impactoFinanceiro:it.impactoFinanceiro||'medio',
+    proximosPassos:'', observacoes:'', relacionadaADecisaoId:it.relacionadaADecisaoId||'', relacionadaACompraId:it.id,
+    dataCriacao:agora, dataAtualizacao:agora, ativa:true };
+  D.metas.unshift(meta);
+  it.relacionadaAMetaId=meta.id; it.dataAtualizacao=agora;
+  scheduleAutoSave(); renderHobbies();
+  toast('Meta criada para esta compra',true,'🎯');
+}
+
 // ── CRUD ──
 function addItemHobby(){
   const h=_hob();
-  const cat = hobFiltroCat || (h.cats[0]||{}).id || 'h_setup';
-  h.itens.push({id:'hi'+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
-    nome:'Novo item', catId:cat, preco:0, frete:0, classe:'desejavel',
-    prioridade:(hobItensAbertos().length+1), fase:1, loja:'', link:'', status:'desejado', notas:''});
+  const cat = (_compraFiltroCat) || (h.cats[0]||{}).id || 'h_setup';
+  const dom = ({h_setup:'tecnologia', h_rel:'patrimonio', h_cafe:'lazer', h_games:'lazer'})[cat] || 'lazer';
+  const agora=new Date().toISOString();
+  h.itens.unshift({id:'hi'+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
+    nome:'Novo desejo', descricao:'', catId:cat, tipo:'desejo', dominio:dom,
+    preco:0, frete:0, custoTotal:0, classe:'desejavel',
+    prioridade:(hobItensAbertos().length+1), fase:1, status:'desejado', loja:'', link:'', notas:'',
+    justificativa:'', alternativas:'', melhorMomento:'',
+    impactoFinanceiro:'medio', impactoLazer:(dom==='lazer'?'alto':'medio'), impactoProfissional:'baixo', impactoPatrimonio:(dom==='patrimonio'?'alto':'baixo'),
+    relacionadaAMetaId:'', relacionadaADecisaoId:'',
+    dataCriacao:agora, dataAtualizacao:agora, dataCompraPlanejada:'', dataCompraRealizada:'', ativo:true});
+  _compraExpanded[h.itens[0].id]=true;
   scheduleAutoSave(); renderHobbies();
 }
 function setItemHobbyField(id, field, val){
   const it=(_hob().itens||[]).find(x=>x.id===id); if(!it) return;
   if(['preco','frete','prioridade','fase'].includes(field)) val = parseFloat(val)||0;
   it[field]=val;
+  if(field==='preco'||field==='frete') it.custoTotal=(it.preco||0)+(it.frete||0);
+  it.dataAtualizacao=new Date().toISOString();
   scheduleAutoSave(); renderHobbies();
 }
+function setCompraStatus(id, status){
+  const it=(_hob().itens||[]).find(x=>x.id===id); if(!it) return;
+  it.status=status; it.dataAtualizacao=new Date().toISOString();
+  scheduleAutoSave(); renderHobbies();
+  const lab=(COMPRA_STATUS[status]||{}).label||status; toast(`Marcado como ${lab.toLowerCase()}`,true,'🛒');
+}
+function toggleCompraExpand(id){ _compraExpanded[id]=!_compraExpanded[id]; renderHobbies(); }
 async function removeItemHobby(id){
   const it=(_hob().itens||[]).find(x=>x.id===id);
   if(!await uiConfirm(`Remover <strong>"${it?it.nome:''}"</strong> da lista?`,{icon:'🎮',okText:'Remover'})) return;
@@ -4100,9 +4273,16 @@ async function removeCatHobby(id){
   if(hobFiltroCat===id) hobFiltroCat='';
   scheduleAutoSave(); renderHobbies();
 }
-function setHobFiltro(cat){ hobFiltroCat=cat; renderHobbies(); }
+function setHobFiltro(cat){ hobFiltroCat=cat; _compraFiltroCat=cat; renderHobbies(); }
 function setHobOrdenar(v){ hobOrdenar=v; renderHobbies(); }
 function toggleHobComprados(){ hobShowComprados=!hobShowComprados; renderHobbies(); }
+function setCompraFiltro(campo,val){
+  ({cat:()=>_compraFiltroCat=val, dom:()=>_compraFiltroDom=val, status:()=>_compraFiltroStatus=val,
+    classe:()=>_compraFiltroClasse=val, prio:()=>_compraFiltroPrio=val, imp:()=>_compraFiltroImpacto=val,
+    busca:()=>_compraBusca=val, ord:()=>_compraOrdenar=val}[campo]||(()=>{}))();
+  if(campo==='cat') hobFiltroCat=val;
+  renderHobbies();
+}
 
 // ── RENDER: página ──
 function renderHobbies(){
@@ -4135,7 +4315,7 @@ function renderHobFundo(){
   }).join('');
 
   el.innerHTML=`<div class="panel">
-    <div class="panel-head"><span class="panel-title">🎮 Fundo do hobby</span>
+    <div class="panel-head"><span class="panel-title">💰 Fundo de Compras</span>
       <span class="panel-badge">${nAberto} item(ns) em aberto</span></div>
     <div style="padding:16px">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
@@ -4193,118 +4373,192 @@ function renderHobLista(){
   const el=document.getElementById('hob-lista'); if(!el) return;
   const h=_hob();
 
-  // Filtro + ordenação
+  // Resumo estratégico
+  const R=compraResumoData();
+  const rc=(icon,label,valor,cor)=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:11px 13px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">${icon} ${label}</div>
+    <div style="font-size:18px;font-weight:800;color:${cor||'var(--text)'};margin-top:2px">${valor}</div></div>`;
+  const resumo=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:14px">
+    ${rc('🛒','Em aberto',R.nAberto,'var(--text)')}
+    ${rc('💰','Total aberto',fmt(R.totalAberto),'var(--violet)')}
+    ${rc('🔍','Em análise',R.emAnalise,'var(--info)')}
+    ${rc('⏸️','Adiados',R.adiados,R.adiados>0?'var(--warn)':'var(--text)')}
+    ${rc('🎯','Vinc. metas',R.vincMeta,'var(--text)')}
+    ${rc('🧭','Vinc. decisões',R.vincDec,'var(--text)')}
+  </div>`;
+
+  // Filtros + busca + ordenação
   let abertos=hobItensAbertos();
-  if(hobFiltroCat) abertos=abertos.filter(i=>i.catId===hobFiltroCat);
+  if(_compraFiltroCat)    abertos=abertos.filter(i=>i.catId===_compraFiltroCat);
+  if(_compraFiltroDom)    abertos=abertos.filter(i=>(i.dominio||'lazer')===_compraFiltroDom);
+  if(_compraFiltroStatus) abertos=abertos.filter(i=>(i.status||'desejado')===_compraFiltroStatus);
+  if(_compraFiltroClasse) abertos=abertos.filter(i=>(i.classe||'desejavel')===_compraFiltroClasse);
+  if(_compraFiltroPrio)   abertos=abertos.filter(i=>String(i.prioridade)===String(_compraFiltroPrio));
+  if(_compraFiltroImpacto)abertos=abertos.filter(i=>(i.impactoFinanceiro||'medio')===_compraFiltroImpacto);
+  if(_compraBusca){ const q=_compraBusca.toLowerCase(); abertos=abertos.filter(i=>['nome','descricao','loja','notas','justificativa','alternativas'].some(k=>(i[k]||'').toLowerCase().includes(q))); }
   const ordenadores={
     prioridade:(a,b)=>(a.prioridade-b.prioridade)||(a.fase-b.fase),
-    preco:(a,b)=>hobCusto(b)-hobCusto(a),
+    custo:(a,b)=>compraCusto(b)-compraCusto(a),
     fase:(a,b)=>(a.fase-b.fase)||(a.prioridade-b.prioridade),
-    classe:(a,b)=>(HOB_CLASSE[a.classe]?.ord??9)-(HOB_CLASSE[b.classe]?.ord??9)||(a.prioridade-b.prioridade),
+    status:(a,b)=>(a.status||'').localeCompare(b.status||''),
+    criacao:(a,b)=>(b.dataCriacao||'').localeCompare(a.dataCriacao||''),
+    momento:(a,b)=>(a.melhorMomento||'~').localeCompare(b.melhorMomento||'~'),
+    impacto:(a,b)=>(_COMPRA_IMP[b.impactoFinanceiro]||0)-(_COMPRA_IMP[a.impactoFinanceiro]||0),
   };
-  abertos=abertos.slice().sort(ordenadores[hobOrdenar]||ordenadores.prioridade);
+  abertos=abertos.slice().sort(ordenadores[_compraOrdenar]||ordenadores.prioridade);
 
-  // Pills de categoria
-  const totalCount=hobItensAbertos().length;
-  const pills=[`<button class="msb${hobFiltroCat===''?' on':''}" onclick="setHobFiltro('')">Todas (${totalCount})</button>`]
-    .concat((h.cats||[]).map(c=>{
-      const n=hobItensAbertos().filter(i=>i.catId===c.id).length;
-      return `<button class="msb${hobFiltroCat===c.id?' on':''}" onclick="setHobFiltro('${c.id}')">${c.icon} ${c.nome} (${n})</button>`;
-    })).join('');
+  const selStr=(obj,sel,labelKey)=>{
+    if(Array.isArray(obj)) return obj.map(c=>`<option value="${attr(c.id)}"${c.id===sel?' selected':''}>${escapeHTML(c.icon||'')} ${escapeHTML(c.label)}</option>`).join('');
+    return Object.keys(obj).map(k=>`<option value="${attr(k)}"${k===sel?' selected':''}>${escapeHTML(obj[k][labelKey]||obj[k].label||obj[k])}</option>`).join('');
+  };
+  const catOpts=(sel)=> (h.cats||[]).map(c=>`<option value="${attr(c.id)}"${c.id===sel?' selected':''}>${escapeHTML(c.icon||'')} ${escapeHTML(c.nome)}</option>`).join('');
 
-  const catOpts=(sel)=> (h.cats||[]).map(c=>`<option value="${c.id}"${c.id===sel?' selected':''}>${c.icon} ${c.nome}</option>`).join('');
-  const classeOpts=(sel)=> Object.keys(HOB_CLASSE).map(k=>`<option value="${k}"${k===sel?' selected':''}>${HOB_CLASSE[k].label}</option>`).join('');
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(_compraBusca)}" oninput="setCompraFiltro('busca',this.value)" placeholder="🔍 Buscar nome, loja, notas…" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setCompraFiltro('cat',this.value)" style="height:34px;font-size:12px"><option value="">Categoria: todas</option>${catOpts(_compraFiltroCat)}</select>
+    <select onchange="setCompraFiltro('dom',this.value)" style="height:34px;font-size:12px"><option value="">Domínio: todos</option>${selStr(COMPRA_DOMINIOS,_compraFiltroDom)}</select>
+    <select onchange="setCompraFiltro('status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${selStr(COMPRA_STATUS,_compraFiltroStatus)}</select>
+    <select onchange="setCompraFiltro('classe',this.value)" style="height:34px;font-size:12px"><option value="">Classe: todas</option>${selStr(COMPRA_CLASSES,_compraFiltroClasse)}</select>
+    <select onchange="setCompraFiltro('imp',this.value)" style="height:34px;font-size:12px"><option value="">Impacto fin.: todos</option>${Object.keys(_COMPRA_IMP).map(k=>`<option value="${k}"${k===_compraFiltroImpacto?' selected':''}>${k}</option>`).join('')}</select>
+    <select onchange="setCompraFiltro('ord',this.value)" style="height:34px;font-size:12px">
+      <option value="prioridade"${_compraOrdenar==='prioridade'?' selected':''}>Ordenar: prioridade</option>
+      <option value="custo"${_compraOrdenar==='custo'?' selected':''}>Ordenar: maior custo</option>
+      <option value="fase"${_compraOrdenar==='fase'?' selected':''}>Ordenar: fase</option>
+      <option value="status"${_compraOrdenar==='status'?' selected':''}>Ordenar: status</option>
+      <option value="criacao"${_compraOrdenar==='criacao'?' selected':''}>Ordenar: mais recentes</option>
+      <option value="momento"${_compraOrdenar==='momento'?' selected':''}>Ordenar: melhor momento</option>
+      <option value="impacto"${_compraOrdenar==='impacto'?' selected':''}>Ordenar: impacto financeiro</option>
+    </select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addItemHobby()">+ Novo desejo</button>
+  </div>`;
+
+  const impOpts=(sel)=>Object.keys(_COMPRA_IMP).map(k=>`<option value="${k}"${k===sel?' selected':''}>${k}</option>`).join('');
 
   const cards=abertos.map(it=>{
-    const cat=hobCat(it.catId);
-    const cl=HOB_CLASSE[it.classe]||HOB_CLASSE.desejavel;
-    const fit=hobFitCheck(it);
-    const custo=hobCusto(it);
-    return `<div style="background:var(--card);border:1px solid var(--border);border-top:3px solid ${cl.cor};border-radius:var(--r14);padding:14px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:18px">${cat.icon}</span>
-        <input type="text" value="${attr(it.nome||'')}" onchange="setItemHobbyField('${it.id}','nome',this.value)" style="flex:1;min-width:0;font-weight:700;font-size:14px">
-        <button class="btn-rm" title="Remover" onclick="removeItemHobby('${it.id}')">✕</button>
-      </div>
+    const cat=hobCat(it.catId), dom=compraDominio(it.dominio||'lazer'), st=compraStatus(it.status), cl=compraClasse(it.classe);
+    const A=analisarCompra(it), custo=compraCusto(it);
+    const exp=_compraExpanded[it.id];
+    const meses=compraMesesParaCobrir(it);
+    const metaRel=it.relacionadaAMetaId?(D.metas||[]).find(m=>m.id===it.relacionadaAMetaId):null;
+    const decRel=it.relacionadaADecisaoId?(D.decisoes||[]).find(d=>d.id===it.relacionadaADecisaoId):null;
+    const linkSafe = (it.link && /^https?:\/\//i.test(it.link)) ? it.link : '';
 
-      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <span style="font-size:18px;font-weight:800">${custo>0?fmt(custo):'<span style="font-size:12px;color:var(--text3)">sem preço</span>'}</span>
-        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:${cl.cor}">${cl.label}</span>
-      </div>
+    const editor = exp ? `
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Descrição</label>
+          <textarea oninput="setItemHobbyField('${it.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(it.descricao||'')}</textarea></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Preço (R$)</label>
+            <input type="number" step="10" value="${it.preco||0}" onchange="setItemHobbyField('${it.id}','preco',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Frete (R$)</label>
+            <input type="number" step="5" value="${it.frete||0}" onchange="setItemHobbyField('${it.id}','frete',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Categoria</label>
+            <select onchange="setItemHobbyField('${it.id}','catId',this.value)">${catOpts(it.catId)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Domínio</label>
+            <select onchange="setItemHobbyField('${it.id}','dominio',this.value)">${selStr(COMPRA_DOMINIOS,it.dominio||'lazer')}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Classe</label>
+            <select onchange="setItemHobbyField('${it.id}','classe',this.value)">${selStr(COMPRA_CLASSES,it.classe)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Status</label>
+            <select onchange="setItemHobbyField('${it.id}','status',this.value)">${selStr(COMPRA_STATUS,it.status)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prioridade</label>
+            <input type="number" step="1" min="1" value="${it.prioridade||1}" onchange="setItemHobbyField('${it.id}','prioridade',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Fase (1-5)</label>
+            <input type="number" step="1" min="1" max="5" value="${it.fase||1}" onchange="setItemHobbyField('${it.id}','fase',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Loja</label>
+            <input type="text" value="${attr(it.loja||'')}" onchange="setItemHobbyField('${it.id}','loja',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Link (https)</label>
+            <input type="text" value="${attr(it.link||'')}" onchange="setItemHobbyField('${it.id}','link',this.value)" placeholder="https://…"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Melhor momento</label>
+            <input type="text" value="${attr(it.melhorMomento||'')}" onchange="setItemHobbyField('${it.id}','melhorMomento',this.value)" placeholder="Black Friday, Dez/26…"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Impacto financeiro</label><select onchange="setItemHobbyField('${it.id}','impactoFinanceiro',this.value)">${impOpts(it.impactoFinanceiro)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Impacto lazer</label><select onchange="setItemHobbyField('${it.id}','impactoLazer',this.value)">${impOpts(it.impactoLazer)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Impacto profissional</label><select onchange="setItemHobbyField('${it.id}','impactoProfissional',this.value)">${impOpts(it.impactoProfissional)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Impacto patrimônio</label><select onchange="setItemHobbyField('${it.id}','impactoPatrimonio',this.value)">${impOpts(it.impactoPatrimonio)}</select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Justificativa</label>
+            <textarea oninput="setItemHobbyField('${it.id}','justificativa',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(it.justificativa||'')}</textarea></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Alternativas</label>
+            <textarea oninput="setItemHobbyField('${it.id}','alternativas',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(it.alternativas||'')}</textarea></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Meta vinculada</label>
+            <select onchange="setItemHobbyField('${it.id}','relacionadaAMetaId',this.value)"><option value="">— nenhuma —</option>
+              ${((D.metas||[]).map(m=>`<option value="${attr(m.id)}"${m.id===it.relacionadaAMetaId?' selected':''}>${escapeHTML((typeof metaDom==='function'?metaDom(m.dominio).icon+' ':'')+(m.nome||''))}</option>`)).join('')}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Decisão vinculada</label>
+            <select onchange="setItemHobbyField('${it.id}','relacionadaADecisaoId',this.value)"><option value="">— nenhuma —</option>
+              ${((D.decisoes||[]).map(d=>`<option value="${attr(d.id)}"${d.id===it.relacionadaADecisaoId?' selected':''}>${escapeHTML(d.titulo||'(sem título)')}</option>`)).join('')}</select></div>
+        </div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Notas</label>
+          <input type="text" value="${attr(it.notas||'')}" onchange="setItemHobbyField('${it.id}','notas',this.value)" placeholder="observação rápida"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          ${!decRel?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDaCompra('${it.id}')">🧭 Criar decisão</button>`:''}
+          ${!metaRel?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarMetaDaCompra('${it.id}')">🎯 Criar meta</button>`:''}
+          <div style="flex:1"></div>
+          <button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeItemHobby('${it.id}')">🗑️ Excluir</button>
+        </div>
+      </div>` : '';
 
-      <div style="background:var(--card2);border-left:3px solid ${fit.cor};border-radius:var(--r10);padding:8px 10px;margin-bottom:10px">
-        <div style="font-size:11px;font-weight:800;color:${fit.cor};margin-bottom:2px">${fit.nivel==='fundo'?'✅':fit.nivel==='excedente'?'⚠️':fit.nivel==='reserva'?'⛔':'·'} ${fit.label}</div>
-        <div style="font-size:11px;color:var(--text2);line-height:1.45">${fit.txt}</div>
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${cl.cor};border-radius:var(--r14);padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <span style="font-size:18px;flex-shrink:0">${escapeHTML(cat.icon||'📦')}</span>
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(it.nome||'')}" onchange="setItemHobbyField('${it.id}','nome',this.value)" placeholder="Nome do desejo" style="font-weight:700;font-size:14px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            <span class="badge" style="background:var(--card3);font-size:10px">${escapeHTML(dom.icon)} ${escapeHTML(dom.label)}</span>
+            <span class="badge" style="background:var(--card3);color:${st.cor};font-size:10px">${escapeHTML(st.label)}</span>
+            <span class="badge" style="background:var(--card3);color:${cl.cor};font-size:10px">${escapeHTML(cl.label)}</span>
+            <span style="font-size:10px;color:var(--text3)">P${it.prioridade||1}·F${it.fase||1}</span>
+            ${metaRel?`<span style="font-size:10px;color:var(--text3)">🎯 ${escapeHTML(metaRel.nome||'')}${typeof metaProgress==='function'?` (${Math.round(metaProgress(metaRel).pct)}%)`:''}</span>`:''}
+            ${decRel?`<span style="font-size:10px;color:var(--text3)">🧭 ${escapeHTML((compraStatus(decRel.status)?'':''))}${escapeHTML(decRel.titulo||'')}</span>`:''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:16px;font-weight:800">${custo>0?fmt(custo):'<span style=\"font-size:11px;color:var(--text3)\">sem preço</span>'}</div>
+          <button class="btn btn-ghost" style="height:26px;font-size:11px;margin-top:4px" onclick="toggleCompraExpand('${it.id}')">${exp?'▴ fechar':'▾ detalhes'}</button>
+        </div>
       </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-bottom:10px">
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Preço (R$)</label>
-          <input type="number" step="10" value="${it.preco||0}" onchange="setItemHobbyField('${it.id}','preco',this.value)"></div>
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Frete (R$)</label>
-          <input type="number" step="5" value="${it.frete||0}" onchange="setItemHobbyField('${it.id}','frete',this.value)"></div>
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Categoria</label>
-          <select onchange="setItemHobbyField('${it.id}','catId',this.value)">${catOpts(it.catId)}</select></div>
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Classificação</label>
-          <select onchange="setItemHobbyField('${it.id}','classe',this.value)">${classeOpts(it.classe)}</select></div>
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prioridade</label>
-          <input type="number" step="1" min="1" value="${it.prioridade||1}" onchange="setItemHobbyField('${it.id}','prioridade',this.value)"></div>
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Fase (1-5)</label>
-          <input type="number" step="1" min="1" max="5" value="${it.fase||1}" onchange="setItemHobbyField('${it.id}','fase',this.value)"></div>
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Loja</label>
-          <input type="text" value="${attr(it.loja||'')}" onchange="setItemHobbyField('${it.id}','loja',this.value)"></div>
-        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Status</label>
-          <select onchange="setItemHobbyField('${it.id}','status',this.value)">
-            <option value="desejado"${it.status==='desejado'?' selected':''}>Desejado</option>
-            <option value="planejado"${it.status==='planejado'?' selected':''}>Planejado</option>
-          </select></div>
+      <div style="background:var(--card2);border-left:3px solid ${A.cor};border-radius:var(--r10);padding:8px 11px;margin-top:10px">
+        <div style="font-size:11.5px;color:var(--text2);line-height:1.45">${escapeHTML(A.texto)}</div>
+        ${custo>0?`<div style="font-size:10.5px;color:var(--text3);margin-top:4px">${meses===0?'✅ cabe no fundo agora':meses==null?'defina um aporte no fundo para estimar meses':`⏳ ~${meses} ${meses===1?'mês':'meses'} de aporte para cobrir`}${it.melhorMomento?` · 🗓️ ${escapeHTML(it.melhorMomento)}`:''}</div>`:''}
       </div>
-
-      <div class="field" style="margin:0 0 10px"><label class="flabel" style="font-size:10px">Notas</label>
-        <input type="text" value="${attr(it.notas||'')}" onchange="setItemHobbyField('${it.id}','notas',this.value)" placeholder="observação rápida"></div>
-
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-pri" style="height:32px;font-size:12px;flex:1" onclick="comprarItemHobby('${it.id}')">✓ Comprei</button>
-        ${it.link?`<a href="${it.link}" target="_blank" rel="noopener" class="btn btn-ghost" style="height:32px;font-size:12px;display:inline-flex;align-items:center;padding:0 12px;text-decoration:none">🔗 Abrir</a>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn btn-pri" style="height:30px;font-size:12px;flex:1;min-width:90px" onclick="comprarItemHobby('${it.id}')">✓ Comprei</button>
+        <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="setCompraStatus('${it.id}','adiado')">⏸️ Adiar</button>
+        <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="setCompraStatus('${it.id}','descartado')">✕ Descartar</button>
+        ${linkSafe?`<a href="${attr(linkSafe)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost" style="height:30px;font-size:12px;display:inline-flex;align-items:center;padding:0 12px;text-decoration:none">🔗 Abrir</a>`:''}
       </div>
+      ${editor}
     </div>`;
   }).join('');
 
-  // Comprados (recolhível)
-  const comprados=hobItensComprados().slice().sort((a,b)=>(a.prioridade-b.prioridade));
-  const compradosHtml = comprados.length ? `
+  // Comprados / descartados (recolhível)
+  const finalizados=(_hob().itens||[]).filter(i=>i.status==='comprado'||i.status==='descartado').slice().sort((a,b)=>(a.prioridade-b.prioridade));
+  const finHtml = finalizados.length ? `
     <div style="margin-top:18px">
-      <button class="btn btn-ghost" style="height:34px;font-size:12px" onclick="toggleHobComprados()">${hobShowComprados?'▾':'▸'} Já comprados (${comprados.length})</button>
+      <button class="btn btn-ghost" style="height:34px;font-size:12px" onclick="toggleHobComprados()">${hobShowComprados?'▾':'▸'} Comprados / descartados (${finalizados.length})</button>
       ${hobShowComprados?`<div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">
-        ${comprados.map(it=>{const cat=hobCat(it.catId);return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:10px 12px;opacity:.85">
+        ${finalizados.map(it=>{const cat=hobCat(it.catId);const comp=it.status==='comprado';return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:10px 12px;opacity:.85">
           <div style="display:flex;align-items:center;gap:7px">
-            <span>${cat.icon}</span>
+            <span>${escapeHTML(cat.icon||'📦')}</span>
             <strong style="font-size:13px;flex:1;min-width:0">${escapeHTML(it.nome)}</strong>
             <button class="btn-rm" title="Remover" onclick="removeItemHobby('${it.id}')">✕</button>
           </div>
-          <div style="font-size:11px;color:var(--text2);margin-top:4px">✅ ${fmt(hobCusto(it))}${it.compradoEm?` · ${it.compradoEm}`:''}
-            · <a href="#" onclick="restaurarItemHobby('${it.id}');return false" style="color:var(--accent)">desfazer</a></div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">${comp?'✅ '+fmt(compraCusto(it)):'✕ descartado'}${it.dataCompraRealizada?` · ${escapeHTML(it.dataCompraRealizada)}`:''}
+            · <a href="#" onclick="restaurarItemHobby('${it.id}');return false" style="color:var(--accent)">restaurar</a></div>
         </div>`;}).join('')}
       </div>`:''}
     </div>` : '';
 
   el.innerHTML=`<div class="panel">
-    <div class="panel-head">
-      <span class="panel-title">🛒 Aquisições</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select onchange="setHobOrdenar(this.value)" style="height:32px;font-size:12px">
-          <option value="prioridade"${hobOrdenar==='prioridade'?' selected':''}>Ordenar: prioridade</option>
-          <option value="preco"${hobOrdenar==='preco'?' selected':''}>Ordenar: maior preço</option>
-          <option value="fase"${hobOrdenar==='fase'?' selected':''}>Ordenar: fase</option>
-          <option value="classe"${hobOrdenar==='classe'?' selected':''}>Ordenar: classificação</option>
-        </select>
-        <button class="btn btn-pri" style="height:32px;font-size:13px" onclick="addItemHobby()">+ Novo item</button>
-      </div>
-    </div>
+    <div class="panel-head"><span class="panel-title">🛒 Compras & Desejos</span></div>
     <div style="padding:14px 16px">
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${pills}</div>
-      ${abertos.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px">${cards}</div>`
-        :`<div class="empty" style="padding:24px"><div class="empty-icon">🎮</div><div class="empty-text">Nenhum item ${hobFiltroCat?'nesta categoria':'em aberto'}. Adicione um desejo e veja na hora se ele cabe no fundo, no excedente do mês ou se mexeria na sua reserva.</div></div>`}
-      ${compradosHtml}
+      ${resumo}${filtros}
+      ${abertos.length?cards
+        :`<div class="empty" style="padding:24px"><div class="empty-icon">🛒</div><div class="empty-text">Nenhum desejo ${(_compraFiltroCat||_compraFiltroDom||_compraFiltroStatus||_compraBusca)?'neste filtro':'em aberto'}. Adicione algo que você quer comprar e veja na hora se cabe no fundo, no excedente do mês, e o impacto na reserva e nas metas — além de poder gerar uma decisão ou meta a partir dele.</div></div>`}
+      ${finHtml}
     </div>
   </div>`;
 }
@@ -4550,10 +4804,10 @@ const DEFAULT_MENU = [
     { id:'planejamento', label:'Objetivos & Hábitos', icon:'✅', page:'planejamento', active:true },
   ]},
   { id:'lazer', label:'Lazer', icon:'🎮', order:6, active:true, items:[
-    { id:'hobbies', label:'Hobbies & Aquisições', icon:'🎮', page:'hobbies', active:true },
+    { id:'lazer', label:'Lazer & Hobbies', icon:'🎮', page:'lazer', active:true },
   ]},
   { id:'compras', label:'Compras & Desejos', icon:'🛒', order:7, active:true, items:[
-    { id:'compras', label:'Compras & Desejos', icon:'🛒', page:'compras', active:true },
+    { id:'compras', label:'Compras & Desejos', icon:'🛒', page:'hobbies', active:true },
   ]},
   { id:'patrimonio', label:'Patrimônio', icon:'📦', order:8, active:true, items:[
     { id:'patrimonio', label:'Bens & Equipamentos', icon:'📦', page:'patrimonio', active:true },
@@ -4650,9 +4904,9 @@ const PLACEHOLDER_MODULES = {
   patrimonio: { icon:'📦', titulo:'Patrimônio', section:'Patrimônio',
     desc:'Registre bens, equipamentos, veículos, garantias, notas fiscais e manutenções, com valor estimado e histórico.',
     futuras:['Bens, veículos e equipamentos','Garantias e notas fiscais','Manutenções e seguros','Histórico de aquisições'] },
-  compras: { icon:'🛒', titulo:'Compras & Desejos', section:'Compras & Desejos',
-    desc:'Evolução do módulo Hobbies & Aquisições: cada desejo com análise de impacto na reserva e nas metas, melhor momento de compra e alternativas.',
-    futuras:['Análise de impacto financeiro','Melhor momento para comprar','Comparador de alternativas','Relação com metas e reserva'] },
+  lazer: { icon:'🎮', titulo:'Lazer & Hobbies', section:'Lazer',
+    desc:'Acompanhe hobbies, atividades de lazer e qualidade de vida. As aquisições de hobby agora vivem em Compras & Desejos; aqui ficará o acompanhamento de uso, prática e satisfação.',
+    futuras:['Registro de hobbies e prática','Tempo dedicado e satisfação','Vínculo com Compras & Desejos','Metas de lazer'] },
   'relatorios-gerais': { icon:'📑', titulo:'Relatório Geral da Vida', section:'Relatórios',
     desc:'Um relatório consolidado de finanças, metas, patrimônio, lazer, decisões e próximos passos — exportável em PDF.',
     futuras:['Consolidação multi-domínio','Exportação em PDF','Indicadores e gráficos','Observações e próximos passos'] },
@@ -4758,7 +5012,7 @@ function renderGeralDash(){
     _gcard({icon:'🎯', label:'Metas em andamento', valor:String(metasAtivas.length), cor:'var(--text)', page:'metas',
       sub:metaTop?`${metaDoms} domínio(s) · mais perto: ${escapeHTML((typeof metaDom==='function'?metaDom(metaTop.m.dominio).icon:'')+' '+(metaTop.m.nome||''))} (${Math.round(metaTop.info.pct)}%)`:'Nenhuma meta ativa'}),
     _gcard({icon:'🛒', label:'Compras & desejos', valor:fmt(hobTotal), cor:'var(--violet)', page:'hobbies',
-      sub:hobAlvo?`Próximo: ${escapeHTML(hobAlvo.nome||'')}${hobCusto(hobAlvo)>0?' · '+fmt(hobCusto(hobAlvo)):''}`:`${hobAbertos.length} item(ns) em aberto`}),
+      sub:(()=>{ try{ const C=compraResumoData(); const parts=[]; if(C.proximo) parts.push(`próximo: ${C.proximo.nome||''}${compraCusto(C.proximo)>0?' ('+fmt(compraCusto(C.proximo))+')':''}`); if(C.emAnalise) parts.push(`${C.emAnalise} em análise`); if(C.vincMeta) parts.push(`${C.vincMeta} vinc. metas`); return parts.length?escapeHTML(parts.join(' · ')):`${C.nAberto} item(ns) em aberto`; }catch(e){ return `${hobAbertos.length} item(ns) em aberto`; } })()}),
     _gcard({icon:'🧭', label:'Decisões', valor:(typeof _decResumoData==='function'?String(_decResumoData().emAnalise):'0'), cor:'var(--info)', page:'decisoes',
       sub:(()=>{ try{ const r=_decResumoData(); const parts=[]; if(r.emAnalise) parts.push(`${r.emAnalise} em análise`); if(r.criticas) parts.push(`${r.criticas} crítica(s)`); if(r.prazoProx) parts.push(`prazo em ${r.prazoProx.dias}d`); return parts.length?parts.join(' · '):'Nenhuma decisão pendente'; }catch(e){ return 'Avalie decisões antes de agir'; } })()}),
   ].join('');
@@ -6463,7 +6717,8 @@ async function importarBackupJSON(input) {
     }
     const ok = await uiConfirm(
       `Restaurar backup de <strong>${payload._exportedAt ? new Date(payload._exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida'}</strong>?<br><br>` +
-      `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras · 🎯 ${(data.metas||[]).length} metas · 🧭 ${(data.decisoes||[]).length} decisões<br><br>` +
+      `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras · 🎯 ${(data.metas||[]).length} metas · 🧭 ${(data.decisoes||[]).length} decisões<br>` +
+      `🛍️ ${((data.hobbies&&data.hobbies.itens)||[]).length} desejos · 🏦 fundo ${fmt((data.hobbies&&data.hobbies.saldoFundo)||0)}<br><br>` +
       `⚠️ Seus dados atuais serão <strong>substituídos</strong>.`,
       {icon:'📤', okText:'Restaurar'}
     );
