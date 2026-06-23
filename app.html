@@ -1173,6 +1173,12 @@ body { margin: 0; padding: 0; }
   }
   body.printing-report .rel-noprint { display:none !important; }
   body.printing-report #report-print .rep-card { box-shadow:none !important; border:1px solid #ddd !important; break-inside:avoid; }
+  body.printing-report #report-print .report-page { background:#fff !important; border:none !important; box-shadow:none !important; max-width:none !important; padding:0 !important; }
+  body.printing-report #report-print .report-section { break-inside:avoid; page-break-inside:avoid; background:#fff !important; }
+  body.printing-report #report-print, body.printing-report #report-print * { color:#111 !important; }
+  body.printing-report #report-print table { width:100% !important; }
+  body.printing-report #report-print th, body.printing-report #report-print td { border-color:#ccc !important; }
+  body.printing-report #report-print .no-print, .no-print { display:none !important; }
   @page { margin:14mm; }
 }
 /* ════ Onda 5 — micro-interações & mobile ════ */
@@ -1728,18 +1734,23 @@ body { margin: 0; padding: 0; }
 
   <!-- ████ RELATÓRIOS ████ -->
   <div class="page" id="page-relatorios">
-    <div style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px" class="rel-noprint">
+    <div style="margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px" class="rel-noprint">
       <div>
-        <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">📄 Relatórios</div>
-        <div style="font-size:13px;color:var(--text2);margin-top:4px">Fechamento mensal e evolução — exporte em PDF pela impressão do navegador.</div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">📄 Central de Relatórios</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px">Gere, visualize e salve em PDF (pela impressão do navegador) relatórios de finanças, metas, decisões e compras — só com os seus dados.</div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="rel-tipo" onchange="setRelTipo(this.value)" style="height:38px;font-weight:600"></select>
         <select id="rel-mes" onchange="setRelMes(this.value)" style="height:38px"></select>
-        <button class="btn btn-pri" style="height:38px" onclick="printRelatorio()">🖨️ Exportar / Imprimir</button>
+        <select id="rel-ano" onchange="setRelAno(this.value)" style="height:38px;display:none"></select>
+        <select id="rel-dom" onchange="setRelDom(this.value)" style="height:38px;display:none"></select>
+        <button class="btn btn-ghost" style="height:38px" onclick="renderRelatorioAtivo()">↻ Gerar</button>
+        <button class="btn btn-ghost" id="rel-csv-btn" style="height:38px;display:none" onclick="exportRelCSV()">⬇️ CSV</button>
+        <button class="btn btn-pri" style="height:38px" onclick="printRelatorio()">🖨️ Imprimir / PDF</button>
       </div>
     </div>
     <div id="report-print"></div>
-    <div id="rel-evolucao" class="mb rel-noprint"></div>
+    <div id="rel-evolucao" class="mb rel-noprint" style="display:none"></div>
   </div>
 
   <!-- ████ METAS & ORÇAMENTOS ████ -->
