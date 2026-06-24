@@ -101,7 +101,8 @@ const DEFAULT = {
   hobbies: DEFAULT_HOBBIES,
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
   decisoes: [],
-  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} }
+  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} },
+  trabalho: { projetos:[], tarefas:[], clientes:[] }
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -120,7 +121,8 @@ const BLANK = {
   hobbies: { aporteMensal:0, saldoFundo:0, cats: JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT)), itens: [] },
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
   decisoes: [],
-  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} }
+  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} },
+  trabalho: { projetos:[], tarefas:[], clientes:[] }
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -370,6 +372,37 @@ function migrateData(d) {
   if(typeof d.integracoes.importacao!=='object'||!d.integracoes.importacao) d.integracoes.importacao={ultimoTipo:'',ultimaImportacao:'',totalRegistros:0};
   if(typeof d.integracoes.indicadores!=='object'||!d.integracoes.indicadores) d.integracoes.indicadores={fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null};
 
+  // ── Trabalho & Projetos (Fase 9) — isolado por uid ──
+  if(typeof d.trabalho!=='object' || d.trabalho===null) d.trabalho={};
+  if(!Array.isArray(d.trabalho.projetos)) d.trabalho.projetos=[];
+  if(!Array.isArray(d.trabalho.tarefas))  d.trabalho.tarefas=[];
+  if(!Array.isArray(d.trabalho.clientes)) d.trabalho.clientes=[];
+  d.trabalho.projetos.forEach(p=>{
+    if(!p.id) p.id='proj_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['nome','descricao','clienteId','categoria','dataInicio','prazo','dataConclusao','observacoes','proximoPasso','relacionadaAMetaId','relacionadaADecisaoId','linkPrincipal'].forEach(k=>{ if(p[k]==null) p[k]=''; });
+    if(!p.status) p.status='em_andamento'; if(!p.prioridade) p.prioridade='media'; if(!p.risco) p.risco='medio';
+    if(p.progressoManual===undefined) p.progressoManual=null;
+    if(p.valorEstimado==null||isNaN(p.valorEstimado)) p.valorEstimado=0;
+    if(p.recorrente==null) p.recorrente=false; if(p.ativo==null) p.ativo=true;
+    if(!p.dataCriacao) p.dataCriacao=new Date().toISOString(); if(p.dataAtualizacao==null) p.dataAtualizacao=p.dataCriacao;
+  });
+  d.trabalho.tarefas.forEach(t=>{
+    if(!t.id) t.id='task_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['projetoId','titulo','descricao','prazo','dataConclusao','responsavel','link','observacoes','relacionadaAMetaId','relacionadaADecisaoId'].forEach(k=>{ if(t[k]==null) t[k]=''; });
+    if(!t.tipo) t.tipo='tarefa'; if(!t.status) t.status='pendente'; if(!t.prioridade) t.prioridade='media';
+    if(!Array.isArray(t.tags)) t.tags=[];
+    if(t.estimativaHoras==null||isNaN(t.estimativaHoras)) t.estimativaHoras=0;
+    if(t.tempoGastoHoras==null||isNaN(t.tempoGastoHoras)) t.tempoGastoHoras=0;
+    if(t.ativo==null) t.ativo=true;
+    if(!t.dataCriacao) t.dataCriacao=new Date().toISOString(); if(t.dataAtualizacao==null) t.dataAtualizacao=t.dataCriacao;
+  });
+  d.trabalho.clientes.forEach(c=>{
+    if(!c.id) c.id='cli_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['nome','descricao','contato','link','observacoes'].forEach(k=>{ if(c[k]==null) c[k]=''; });
+    if(!c.tipo) c.tipo='cliente'; if(c.ativo==null) c.ativo=true;
+    if(!c.dataCriacao) c.dataCriacao=new Date().toISOString(); if(c.dataAtualizacao==null) c.dataAtualizacao=c.dataCriacao;
+  });
+
   // ── Módulo de Decisões (primeiro módulo fora de finanças) ──
   if(!Array.isArray(d.decisoes)) d.decisoes = [];
   d.decisoes.forEach(dec=>{
@@ -387,7 +420,7 @@ function migrateData(d) {
     if(!dec.recorrencia) dec.recorrencia = 'nenhuma';
     if(dec.valorRecorrente==null || isNaN(dec.valorRecorrente)) dec.valorRecorrente = 0;
     ['impactoFinanceiro','impactoProfissional','impactoPessoal','impactoLazer'].forEach(k=>{ if(!dec[k]) dec[k]='medio'; });
-    ['beneficios','riscos','alternativas','decisaoFinal','observacoes','relacionadaACompraId','relacionadaAMetaId'].forEach(k=>{ if(dec[k]==null) dec[k]=''; });
+    ['beneficios','riscos','alternativas','decisaoFinal','observacoes','relacionadaACompraId','relacionadaAMetaId','relacionadaAProjetoId'].forEach(k=>{ if(dec[k]==null) dec[k]=''; });
     if(dec.ativa==null) dec.ativa = true;
   });
 
@@ -1003,6 +1036,7 @@ function renderPage(id) {
   if(id==='geral')     { if(typeof renderGeralDash==='function') renderGeralDash(); return; }
   if(id==='decisoes')  { if(typeof renderDecisoes==='function') renderDecisoes(); return; }
   if(id==='integracoes'){ if(typeof renderIntegracoes==='function') renderIntegracoes(); return; }
+  if(id==='trabalho')   { if(typeof renderTrabalho==='function') renderTrabalho(); return; }
   if(typeof PLACEHOLDER_MODULES==='object' && PLACEHOLDER_MODULES[id]) { if(typeof renderPlaceholder==='function') renderPlaceholder(id); return; }
   // Fast renders — synchronous
   if(id==='dash')      { renderDashboard(); return; }
@@ -4908,9 +4942,6 @@ function renderSidebar(){
 //  🧩 PLACEHOLDERS — módulos planejados (em construção)
 // ═══════════════════════════════════════════════════
 const PLACEHOLDER_MODULES = {
-  trabalho: { icon:'💼', titulo:'Trabalho', section:'Trabalho',
-    desc:'Centralize projetos, tarefas, demandas, clientes, reuniões e entregas em um só lugar, ligados aos seus prazos e metas.',
-    futuras:['Projetos e tarefas com status e prioridade','Clientes e demandas','Prazos e entregas','Histórico de decisões de projeto'] },
   carreira: { icon:'🚀', titulo:'Carreira', section:'Carreira',
     desc:'Acompanhe objetivos profissionais, competências, cursos e simulações de renda alinhadas ao seu planejamento financeiro.',
     futuras:['Objetivos profissionais','Competências e certificações','Simulação de renda','Plano de transição'] },
@@ -5025,6 +5056,8 @@ function renderGeralDash(){
       sub:(()=>{ try{ const C=compraResumoData(); const parts=[]; if(C.proximo) parts.push(`próximo: ${C.proximo.nome||''}${compraCusto(C.proximo)>0?' ('+fmt(compraCusto(C.proximo))+')':''}`); if(C.emAnalise) parts.push(`${C.emAnalise} em análise`); if(C.vincMeta) parts.push(`${C.vincMeta} vinc. metas`); return parts.length?escapeHTML(parts.join(' · ')):`${C.nAberto} item(ns) em aberto`; }catch(e){ return `${hobAbertos.length} item(ns) em aberto`; } })()}),
     _gcard({icon:'🧭', label:'Decisões', valor:(typeof _decResumoData==='function'?String(_decResumoData().emAnalise):'0'), cor:'var(--info)', page:'decisoes',
       sub:(()=>{ try{ const r=_decResumoData(); const parts=[]; if(r.emAnalise) parts.push(`${r.emAnalise} em análise`); if(r.criticas) parts.push(`${r.criticas} crítica(s)`); if(r.prazoProx) parts.push(`prazo em ${r.prazoProx.dias}d`); return parts.length?parts.join(' · '):'Nenhuma decisão pendente'; }catch(e){ return 'Avalie decisões antes de agir'; } })()}),
+    _gcard({icon:'💼', label:'Trabalho & projetos', valor:(typeof trabalhoResumoData==='function'?String(trabalhoResumoData().projetosAtivos):'0'), cor:'#3b82f6', page:'trabalho',
+      sub:(()=>{ try{ const r=trabalhoResumoData(); const parts=[]; if(r.tarefasPendentes) parts.push(`${r.tarefasPendentes} tarefa(s) pendente(s)`); if(r.tarefasAtrasadas) parts.push(`${r.tarefasAtrasadas} atrasada(s)`); if(r.projetosCriticos) parts.push(`${r.projetosCriticos} crítico(s)`); if(r.aguardando) parts.push(`${r.aguardando} aguardando`); if(r.proximaEntrega) parts.push(`próxima entrega: ${r.proximaEntrega.dias===0?'hoje':r.proximaEntrega.dias+'d'}`); return parts.length?escapeHTML(parts.join(' · ')):'Nenhum projeto ativo'; }catch(e){ return 'Organize seus projetos e tarefas'; } })()}),
   ].join('');
 
   // Alertas
@@ -5047,6 +5080,11 @@ function renderGeralDash(){
   if(sobra>0 && investir>0) passos.push(`Direcionar ${fmt(investir)} para investimento conforme o ARCA.`);
   if(hobAlvo && hobCusto(hobAlvo)>0){ try{ const fit=hobFitCheck(hobAlvo); passos.push(`Avaliar a compra "${escapeHTML(hobAlvo.nome)}": ${escapeHTML(fit.label)}.`);}catch(e){} }
   if(metaTop) passos.push(`Avançar na meta "${escapeHTML(metaTop.m.nome||'')}" (${Math.round(metaTop.info.pct)}%).`);
+  try{ const tr=trabalhoResumoData();
+    if(tr.tarefasAtrasadas>0) passos.push(`Resolver ${tr.tarefasAtrasadas} tarefa(s) de trabalho atrasada(s).`);
+    else if(tr.proximaEntrega) passos.push(`Preparar a próxima entrega de trabalho "${escapeHTML(tr.proximaEntrega.nome||'')}" (${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}).`);
+    if(tr.projetosCriticos>0) passos.push(`Dar atenção a ${tr.projetosCriticos} projeto(s) crítico(s).`);
+  }catch(e){}
   if(!passos.length) passos.push('Tudo em dia por aqui. Que tal registrar um novo objetivo ou decisão?');
 
   const passosHtml=`
@@ -5162,7 +5200,7 @@ function addDecisao(){
     custoEstimado:0, recorrencia:'nenhuma', valorRecorrente:0,
     impactoFinanceiro:'medio', impactoProfissional:'baixo', impactoPessoal:'medio', impactoLazer:'baixo',
     beneficios:'', riscos:'', alternativas:'', decisaoFinal:'', observacoes:'',
-    relacionadaACompraId:'', relacionadaAMetaId:'', ativa:true };
+    relacionadaACompraId:'', relacionadaAMetaId:'', relacionadaAProjetoId:'', ativa:true };
   _decs().unshift(dec);
   _decExpanded[dec.id]=true;
   if(typeof scheduleAutoSave==='function') scheduleAutoSave();
@@ -5484,6 +5522,7 @@ const _REL_TIPOS = [
   {id:'metas',    label:'Metas',               icon:'🎯'},
   {id:'decisoes', label:'Decisões',            icon:'🧭'},
   {id:'compras',  label:'Compras & Desejos',   icon:'🛒'},
+  {id:'trabalho', label:'Trabalho & Projetos',  icon:'💼'},
   {id:'geral',    label:'Geral da Vida',       icon:'🏠'},
 ];
 const _REL_COMPRA_ST = { desejado:'Desejado', em_analise:'Em análise', adiado:'Adiado', comprado:'Comprado', descartado:'Descartado' };
@@ -5717,6 +5756,7 @@ function relDocGeral(){
     <div>🎯 <strong>Metas:</strong> ${metasAtivas.length} em andamento${metasAtivas[0]?`, mais perto: ${escapeHTML(metasAtivas.slice().sort((a,b)=>b.p.pct-a.p.pct)[0].m.nome||'')}`:''}.</div>
     <div>🧭 <strong>Decisões:</strong> ${dr.emAnalise} em análise${dr.criticas?`, ${dr.criticas} crítica(s)`:''}${dr.custoTotal?`, custo estimado ${fmt(dr.custoTotal)}`:''}.</div>
     <div>🛒 <strong>Compras &amp; desejos:</strong> ${fmt(cr.totalAberto)} em aberto${cr.proximo?`, próximo: ${escapeHTML(cr.proximo.nome||'')}`:''}.</div>
+    ${(()=>{ try{ const tr=trabalhoResumoData(); return `<div>💼 <strong>Trabalho:</strong> ${tr.projetosAtivos} projeto(s) ativo(s), ${tr.tarefasPendentes} tarefa(s) pendente(s)${tr.tarefasAtrasadas?`, ${tr.tarefasAtrasadas} atrasada(s)`:''}${tr.proximaEntrega?`. Próxima entrega: ${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}`:''}.</div>`; }catch(e){ return ''; } })()}
   </div>`);
 
   const alertas=insights.length?_relSection('Alertas importantes',
@@ -5728,6 +5768,7 @@ function relDocGeral(){
   if(sobra>0&&investir>0) passos.push(`Direcionar ${fmt(investir)} para investimento.`);
   if(dr.prazoProx&&dr.prazoProx.dec) passos.push(`Decidir "${escapeHTML(dr.prazoProx.dec.titulo||'')}" (prazo em ${dr.prazoProx.dias}d).`);
   metasAtivas.filter(x=>x.m.proximosPassos).slice(0,2).forEach(x=>passos.push(`Meta "${escapeHTML(x.m.nome||'')}": ${escapeHTML(x.m.proximosPassos)}`));
+  try{ const tr=trabalhoResumoData(); if(tr.tarefasAtrasadas>0) passos.push(`Resolver ${tr.tarefasAtrasadas} tarefa(s) de trabalho atrasada(s).`); else if(tr.proximaEntrega) passos.push(`Preparar entrega "${escapeHTML(tr.proximaEntrega.nome||'')}" (${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}).`); }catch(e){}
   if(!passos.length) passos.push('Tudo em dia. Considere registrar um novo objetivo ou revisar suas metas.');
   const passosSec=_relSection('Próximos passos recomendados',
     `<div style="display:grid;gap:6px;font-size:12px">${passos.slice(0,6).map(p=>`<div>→ ${p}</div>`).join('')}</div>`);
@@ -5736,6 +5777,7 @@ function relDocGeral(){
   if((reserva.pct||0)<50) riscos.push('Reserva de emergência abaixo de 50% da meta.');
   if(sobra<0) riscos.push('Mês fechando no negativo.');
   if(dr.criticas>0) riscos.push(`${dr.criticas} decisão(ões) crítica(s) pendente(s).`);
+  try{ const tr=trabalhoResumoData(); if(tr.tarefasAtrasadas>0) riscos.push(`${tr.tarefasAtrasadas} tarefa(s) de trabalho atrasada(s).`); if(tr.projetosCriticos>0) riscos.push(`${tr.projetosCriticos} projeto(s) de trabalho em risco/críticos.`); }catch(e){}
   const riscosSec=riscos.length?_relSection('Riscos do momento',
     `<div style="display:grid;gap:5px;font-size:12px;color:var(--text2)">${riscos.map(r=>`<div>⚠️ ${escapeHTML(r)}</div>`).join('')}</div>`):'';
 
@@ -5758,6 +5800,7 @@ function renderRelatorioAtivo(){
     else if(_relTipo==='metas'){ html=relDocMetas(_relFiltroDomMeta); }
     else if(_relTipo==='decisoes'){ html=relDocDecisoes(); }
     else if(_relTipo==='compras'){ html=relDocCompras(); }
+    else if(_relTipo==='trabalho'){ html=relDocTrabalho(); }
     else if(_relTipo==='geral'){ html=relDocGeral(); }
   }catch(e){ html=_relDoc('Relatório', '', _relEmpty('Não foi possível gerar este relatório com os dados atuais.')); console.error('rel',e); }
   el.innerHTML=html;
@@ -6257,6 +6300,527 @@ function _renderAvisosInternos(){
   el.innerHTML = avisos.length
     ? `<div style="display:grid;gap:5px;font-size:11.5px;color:var(--text2);margin-top:4px">${avisos.map(a=>`<div>${a}</div>`).join('')}</div>`
     : `<div style="font-size:11.5px;color:var(--text3);margin-top:4px">Nenhum aviso no momento.</div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  💼 TRABALHO & PROJETOS (Fase 9) — produtividade
+//  Dados em D.trabalho (userData/{uid}). Texto livre escapado.
+// ═══════════════════════════════════════════════════
+const TRAB_PROJ_STATUS = {
+  planejado:{label:'Planejado',cor:'var(--text3)'}, em_andamento:{label:'Em andamento',cor:'var(--info)'},
+  aguardando_cliente:{label:'Aguardando cliente',cor:'var(--warn)'}, aguardando_interno:{label:'Aguardando interno',cor:'var(--warn)'},
+  pausado:{label:'Pausado',cor:'var(--text3)'}, concluido:{label:'Concluído',cor:'var(--pos)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'},
+};
+const TRAB_TAREFA_STATUS = {
+  pendente:{label:'Pendente',cor:'var(--text3)'}, em_andamento:{label:'Em andamento',cor:'var(--info)'},
+  aguardando:{label:'Aguardando',cor:'var(--warn)'}, bloqueada:{label:'Bloqueada',cor:'var(--neg)'},
+  concluida:{label:'Concluída',cor:'var(--pos)'}, cancelada:{label:'Cancelada',cor:'var(--text3)'},
+};
+const TRAB_PRIOS = { baixa:{label:'Baixa',cor:'var(--text3)',ord:0}, media:{label:'Média',cor:'var(--info)',ord:1}, alta:{label:'Alta',cor:'var(--warn)',ord:2}, critica:{label:'Crítica',cor:'var(--neg)',ord:3} };
+const TRAB_RISCOS = { baixo:{label:'Baixo',cor:'var(--pos)',ord:0}, medio:{label:'Médio',cor:'var(--warn)',ord:1}, alto:{label:'Alto',cor:'var(--neg)',ord:2} };
+const TRAB_PROJ_CATS = ['cliente','interno','produto','documentacao','homologacao','requisitos','reuniao','suporte','melhoria','entrega','outro'];
+const TRAB_TAREFA_TIPOS = ['tarefa','demanda','reuniao','documentacao','requisito','teste','homologacao','follow-up','decisao','bug','melhoria','entrega'];
+const TRAB_CLI_TIPOS = ['cliente','empresa','projeto_interno','area','pessoa','outro'];
+
+function _trab(){
+  if(typeof D.trabalho!=='object'||D.trabalho===null) D.trabalho={};
+  if(!Array.isArray(D.trabalho.projetos)) D.trabalho.projetos=[];
+  if(!Array.isArray(D.trabalho.tarefas))  D.trabalho.tarefas=[];
+  if(!Array.isArray(D.trabalho.clientes)) D.trabalho.clientes=[];
+  return D.trabalho;
+}
+function projGet(id){ return _trab().projetos.find(p=>p.id===id); }
+function taskGet(id){ return _trab().tarefas.find(t=>t.id===id); }
+function cliGet(id){ return _trab().clientes.find(c=>c.id===id); }
+function cliNome(id){ const c=cliGet(id); return c?c.nome:''; }
+function _trabTarefasDoProjeto(pid){ return _trab().tarefas.filter(t=>t.projetoId===pid && t.ativo!==false); }
+
+function _isPast(dateStr){
+  if(!dateStr || !/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return false;
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  return new Date(dateStr+'T00:00:00') < hoje;
+}
+function _diasAte(dateStr){
+  if(!dateStr || !/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return null;
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  return Math.round((new Date(dateStr+'T00:00:00')-hoje)/86400000);
+}
+function _safeUrl(u){ const s=String(u||'').trim(); return /^https?:\/\//i.test(s)?s:''; }
+
+// ── Cálculos ──
+function tarefaAtrasada(t){ return _isPast(t.prazo) && !['concluida','cancelada'].includes(t.status); }
+function projetoProgress(p){
+  let pct=0, defined=true;
+  if(p.status==='concluido') pct=100;
+  else if(p.progressoManual!=null){ pct=p.progressoManual; }
+  else {
+    const ts=_trabTarefasDoProjeto(p.id);
+    if(ts.length){ pct=Math.round(ts.filter(t=>t.status==='concluida').length/ts.length*100); }
+    else { defined=false; pct=0; }
+  }
+  const concluido = p.status==='concluido' || (defined && pct>=100);
+  const atrasado = _isPast(p.prazo) && !['concluido','cancelado'].includes(p.status);
+  return { pct, pctVis:Math.max(0,Math.min(100,pct)), defined, concluido, atrasado };
+}
+function projetoRisco(p){
+  if(['concluido','cancelado'].includes(p.status)) return {nivel:'baixo',...TRAB_RISCOS.baixo};
+  let ord = (TRAB_RISCOS[p.risco]||TRAB_RISCOS.medio).ord;
+  const atrasadas=_trabTarefasDoProjeto(p.id).filter(tarefaAtrasada).length;
+  if(_isPast(p.prazo)) ord++;
+  if(atrasadas>=2) ord++;
+  if(p.prioridade==='critica') ord++;
+  ord=Math.max(0,Math.min(2,ord));
+  const k=['baixo','medio','alto'][ord];
+  return {nivel:k, ...TRAB_RISCOS[k]};
+}
+function trabalhoResumoData(){
+  const T=_trab();
+  const projAtivos=T.projetos.filter(p=>p.ativo!==false && !['concluido','cancelado'].includes(p.status));
+  const tPend=T.tarefas.filter(t=>t.ativo!==false && !['concluida','cancelada'].includes(t.status));
+  const tAtras=tPend.filter(tarefaAtrasada);
+  const criticos=projAtivos.filter(p=>p.prioridade==='critica' || projetoRisco(p).nivel==='alto');
+  const aguardando=projAtivos.filter(p=>p.status==='aguardando_cliente'||p.status==='aguardando_interno');
+  // próxima entrega: tarefa/projeto com prazo futuro mais próximo
+  let prox=null;
+  [...projAtivos.map(p=>({nome:p.nome,prazo:p.prazo,tipo:'projeto'})), ...tPend.map(t=>({nome:t.titulo,prazo:t.prazo,tipo:'tarefa'}))]
+    .forEach(x=>{ const d=_diasAte(x.prazo); if(d!=null && d>=0 && (!prox||d<prox.dias)) prox={...x,dias:d}; });
+  return { projetosAtivos:projAtivos.length, tarefasPendentes:tPend.length, tarefasAtrasadas:tAtras.length,
+    projetosCriticos:criticos.length, aguardando:aguardando.length, proximaEntrega:prox, projAtivosList:projAtivos };
+}
+
+// ── Estado de UI ──
+let _trabAba='projetos';
+let _projFiltro={cliente:'',status:'',prio:'',cat:'',busca:'',ord:'prioridade'};
+let _taskFiltro={projeto:'',status:'',prio:'',tipo:'',busca:'',ord:'prioridade'};
+let _trabExpanded={};
+function setTrabAba(a){ _trabAba=a; renderTrabalho(); }
+function toggleTrabExpand(id){ _trabExpanded[id]=!_trabExpanded[id]; renderTrabalho(); }
+function setProjFiltro(k,v){ _projFiltro[k]=v; renderTrabalho(); }
+function setTaskFiltro(k,v){ _taskFiltro[k]=v; renderTrabalho(); }
+
+// ── CRUD Projetos ──
+function addProjeto(){
+  const ag=new Date().toISOString();
+  const p={ id:'proj_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Novo projeto', descricao:'', clienteId:'', categoria:'cliente', status:'em_andamento', prioridade:'media',
+    dataInicio:'', prazo:'', dataConclusao:'', progressoManual:null, risco:'medio', valorEstimado:0, recorrente:false,
+    observacoes:'', proximoPasso:'', relacionadaAMetaId:'', relacionadaADecisaoId:'', linkPrincipal:'', ativo:true,
+    dataCriacao:ag, dataAtualizacao:ag };
+  _trab().projetos.unshift(p); _trabExpanded[p.id]=true; scheduleAutoSave(); renderTrabalho();
+}
+function setProjField(id,f,v){
+  const p=projGet(id); if(!p) return;
+  if(f==='valorEstimado') v=Math.max(0,parseFloat(v)||0);
+  else if(f==='progressoManual') v=(v===''||v==null)?null:Math.max(0,Math.min(100,parseFloat(v)||0));
+  else if(f==='recorrente') v=!!v;
+  p[f]=v; p.dataAtualizacao=new Date().toISOString();
+  if(f==='status' && v==='concluido' && !p.dataConclusao) p.dataConclusao=new Date().toISOString().slice(0,10);
+  scheduleAutoSave(); renderTrabalho();
+}
+async function removeProjeto(id){
+  const p=projGet(id);
+  if(!await uiConfirm(`Remover o projeto <strong>"${escapeHTML(p&&p.nome||'')}"</strong>? As tarefas vinculadas continuarão existindo (sem projeto).`,{icon:'💼',okText:'Remover'})) return;
+  _trab().projetos=_trab().projetos.filter(x=>x.id!==id);
+  _trab().tarefas.forEach(t=>{ if(t.projetoId===id) t.projetoId=''; });
+  delete _trabExpanded[id]; scheduleAutoSave(); renderTrabalho(); toast('Projeto removido',true,'🗑️');
+}
+
+// ── CRUD Tarefas ──
+function addTarefa(projetoId){
+  const ag=new Date().toISOString();
+  const t={ id:'task_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    projetoId:projetoId||'', titulo:'Nova tarefa', descricao:'', tipo:'tarefa', status:'pendente', prioridade:'media',
+    prazo:'', dataConclusao:'', estimativaHoras:0, tempoGastoHoras:0, responsavel:'', tags:[], link:'', observacoes:'',
+    relacionadaAMetaId:'', relacionadaADecisaoId:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _trab().tarefas.unshift(t); _trabExpanded[t.id]=true; _trabAba='tarefas'; scheduleAutoSave(); renderTrabalho();
+}
+function setTaskField(id,f,v){
+  const t=taskGet(id); if(!t) return;
+  if(f==='estimativaHoras'||f==='tempoGastoHoras') v=Math.max(0,parseFloat(v)||0);
+  else if(f==='tags') v=String(v).split(',').map(s=>s.trim()).filter(Boolean).slice(0,12);
+  t[f]=v; t.dataAtualizacao=new Date().toISOString();
+  if(f==='status' && v==='concluida' && !t.dataConclusao) t.dataConclusao=new Date().toISOString().slice(0,10);
+  scheduleAutoSave(); renderTrabalho();
+}
+async function removeTarefa(id){
+  const t=taskGet(id);
+  if(!await uiConfirm(`Remover a tarefa <strong>"${escapeHTML(t&&t.titulo||'')}"</strong>?`,{icon:'✅',okText:'Remover'})) return;
+  _trab().tarefas=_trab().tarefas.filter(x=>x.id!==id); delete _trabExpanded[id];
+  scheduleAutoSave(); renderTrabalho(); toast('Tarefa removida',true,'🗑️');
+}
+
+// ── CRUD Clientes ──
+function addCliente(){
+  const ag=new Date().toISOString();
+  const c={ id:'cli_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Novo cliente', descricao:'', tipo:'cliente', contato:'', link:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _trab().clientes.unshift(c); _trabExpanded[c.id]=true; _trabAba='clientes'; scheduleAutoSave(); renderTrabalho();
+}
+function setCliField(id,f,v){ const c=cliGet(id); if(!c) return; c[f]=v; c.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderTrabalho(); }
+async function removeCliente(id){
+  const c=cliGet(id);
+  if(!await uiConfirm(`Remover o cliente/contexto <strong>"${escapeHTML(c&&c.nome||'')}"</strong>? Projetos vinculados ficarão sem cliente.`,{icon:'🏢',okText:'Remover'})) return;
+  _trab().clientes=_trab().clientes.filter(x=>x.id!==id);
+  _trab().projetos.forEach(p=>{ if(p.clienteId===id) p.clienteId=''; });
+  delete _trabExpanded[id]; scheduleAutoSave(); renderTrabalho(); toast('Cliente removido',true,'🗑️');
+}
+
+// ── Agenda (reusa googleCalendarLink da Fase 8) ──
+function agendarProjeto(id){ const p=projGet(id); if(!p) return;
+  _abrirAgenda({ title:`Projeto: ${p.nome||'(sem nome)'}`, details:`Prazo do projeto.${p.proximoPasso?' Próximo passo: '+p.proximoPasso:''}`, startDate:p.prazo }); }
+function agendarTarefa(id){ const t=taskGet(id); if(!t) return;
+  _abrirAgenda({ title:`Tarefa: ${t.titulo||'(sem título)'}`, details:`${t.tipo||'tarefa'}.${t.descricao?' '+t.descricao:''}`, startDate:t.prazo }); }
+
+// ── Criar decisão a partir de projeto/tarefa ──
+function criarDecisaoDoProjeto(id){
+  const p=projGet(id); if(!p) return;
+  if(p.relacionadaADecisaoId && (D.decisoes||[]).some(d=>d.id===p.relacionadaADecisaoId)){ go('decisoes'); toast('Este projeto já tem decisão vinculada',true,'🧭'); return; }
+  if(!Array.isArray(D.decisoes)) D.decisoes=[];
+  const ag=new Date().toISOString();
+  const dec={ id:'dec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:`Avaliar projeto: ${p.nome||'projeto'}`, descricao:p.descricao||'', categoria:'trabalho',
+    status:'em_analise', prioridade:p.prioridade||'media', prazo:p.prazo||'', dataCriacao:ag, dataAtualizacao:ag, dataDecisao:'',
+    custoEstimado:p.valorEstimado||0, recorrencia:'nenhuma', valorRecorrente:0,
+    impactoFinanceiro:'medio', impactoProfissional:'alto', impactoPessoal:'medio', impactoLazer:'baixo',
+    beneficios:'', riscos:'', alternativas:'', decisaoFinal:'', observacoes:'',
+    relacionadaACompraId:'', relacionadaAMetaId:p.relacionadaAMetaId||'', relacionadaAProjetoId:p.id, ativa:true };
+  D.decisoes.unshift(dec); p.relacionadaADecisaoId=dec.id; p.dataAtualizacao=ag;
+  scheduleAutoSave(); toast('Decisão criada e vinculada',true,'🧭'); go('decisoes');
+}
+function criarDecisaoDaTarefa(id){
+  const t=taskGet(id); if(!t) return;
+  if(t.relacionadaADecisaoId && (D.decisoes||[]).some(d=>d.id===t.relacionadaADecisaoId)){ go('decisoes'); toast('Esta tarefa já tem decisão vinculada',true,'🧭'); return; }
+  if(!Array.isArray(D.decisoes)) D.decisoes=[];
+  const ag=new Date().toISOString();
+  const dec={ id:'dec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:`Avaliar tarefa: ${t.titulo||'tarefa'}`, descricao:t.descricao||'', categoria:'trabalho',
+    status:'em_analise', prioridade:t.prioridade||'media', prazo:t.prazo||'', dataCriacao:ag, dataAtualizacao:ag, dataDecisao:'',
+    custoEstimado:0, recorrencia:'nenhuma', valorRecorrente:0,
+    impactoFinanceiro:'baixo', impactoProfissional:'alto', impactoPessoal:'medio', impactoLazer:'baixo',
+    beneficios:'', riscos:'', alternativas:'', decisaoFinal:'', observacoes:'',
+    relacionadaACompraId:'', relacionadaAMetaId:t.relacionadaAMetaId||'', relacionadaAProjetoId:t.projetoId||'', ativa:true };
+  D.decisoes.unshift(dec); t.relacionadaADecisaoId=dec.id; t.dataAtualizacao=ag;
+  scheduleAutoSave(); toast('Decisão criada e vinculada',true,'🧭'); go('decisoes');
+}
+
+// ── Helpers de render ──
+function _trabBadge(label,cor){ return `<span class="badge" style="background:var(--card3);color:${cor};font-size:10px">${escapeHTML(label)}</span>`; }
+function _selOpts(obj,sel){
+  if(Array.isArray(obj)) return obj.map(k=>`<option value="${attr(k)}"${k===sel?' selected':''}>${escapeHTML(k.replace(/_/g,' '))}</option>`).join('');
+  return Object.keys(obj).map(k=>`<option value="${attr(k)}"${k===sel?' selected':''}>${escapeHTML(obj[k].label||obj[k])}</option>`).join('');
+}
+function _metaVincBadge(metaId){
+  if(!metaId) return ''; const m=(D.metas||[]).find(x=>x.id===metaId); if(!m) return '';
+  const dom=(typeof metaDom==='function')?metaDom(m.dominio):{icon:'🎯',label:''};
+  const pct=(typeof metaProgress==='function')?Math.round(metaProgress(m).pct):0;
+  return `<span style="font-size:10px;color:var(--text3)">${escapeHTML(dom.icon+' '+(m.nome||''))} (${pct}%)</span>`;
+}
+function _decVincBadge(decId){
+  if(!decId) return ''; const d=(D.decisoes||[]).find(x=>x.id===decId); if(!d) return '';
+  const st=(typeof DEC_STATUS!=='undefined'?DEC_STATUS[d.status]:null)||{label:d.status||''};
+  return `<span style="font-size:10px;color:var(--text3)">🧭 ${escapeHTML(d.titulo||'')} · ${escapeHTML(st.label)}</span>`;
+}
+
+function renderTrabalho(){
+  const el=document.getElementById('trabalho-body'); if(!el) return;
+  _trab();
+  const r=trabalhoResumoData();
+  const rc=(icon,label,val,cor)=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:11px 13px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">${icon} ${label}</div>
+    <div style="font-size:18px;font-weight:800;color:${cor||'var(--text)'};margin-top:2px">${val}</div></div>`;
+  const resumo=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:16px">
+    ${rc('💼','Projetos ativos',r.projetosAtivos,'var(--info)')}
+    ${rc('✅','Tarefas pendentes',r.tarefasPendentes)}
+    ${rc('⏰','Tarefas atrasadas',r.tarefasAtrasadas,r.tarefasAtrasadas>0?'var(--neg)':'var(--text)')}
+    ${rc('🚨','Projetos críticos',r.projetosCriticos,r.projetosCriticos>0?'var(--neg)':'var(--text)')}
+    ${rc('⏳','Aguardando',r.aguardando,r.aguardando>0?'var(--warn)':'var(--text)')}
+    ${rc('📦','Próxima entrega',r.proximaEntrega?(r.proximaEntrega.dias===0?'hoje':r.proximaEntrega.dias+'d'):'—',r.proximaEntrega&&r.proximaEntrega.dias<=3?'var(--warn)':'var(--text)')}
+  </div>`;
+
+  const aba=(id,label)=>`<button class="btn ${_trabAba===id?'btn-pri':'btn-ghost'}" style="height:34px;font-size:13px" onclick="setTrabAba('${id}')">${label}</button>`;
+  const tabs=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    ${aba('projetos','💼 Projetos')}${aba('tarefas','✅ Tarefas')}${aba('clientes','🏢 Clientes')}</div>`;
+
+  let conteudo='';
+  if(_trabAba==='projetos') conteudo=_renderProjetos();
+  else if(_trabAba==='tarefas') conteudo=_renderTarefas();
+  else conteudo=_renderClientes();
+
+  el.innerHTML = resumo + tabs + conteudo;
+}
+
+function _renderProjetos(){
+  const T=_trab(); const f=_projFiltro;
+  const cliOpts=T.clientes.map(c=>`<option value="${attr(c.id)}"${c.id===f.cliente?' selected':''}>${escapeHTML(c.nome||'')}</option>`).join('');
+  let lista=T.projetos.slice();
+  if(f.cliente) lista=lista.filter(p=>p.clienteId===f.cliente);
+  if(f.status) lista=lista.filter(p=>p.status===f.status);
+  if(f.prio) lista=lista.filter(p=>p.prioridade===f.prio);
+  if(f.cat) lista=lista.filter(p=>p.categoria===f.cat);
+  if(f.busca){ const q=f.busca.toLowerCase(); lista=lista.filter(p=>['nome','descricao','observacoes','proximoPasso'].some(k=>(p[k]||'').toLowerCase().includes(q))); }
+  const ord={ prioridade:(a,b)=>(TRAB_PRIOS[b.prioridade]?.ord||0)-(TRAB_PRIOS[a.prioridade]?.ord||0),
+    prazo:(a,b)=>(a.prazo||'~').localeCompare(b.prazo||'~'), status:(a,b)=>(a.status||'').localeCompare(b.status||''),
+    risco:(a,b)=>(projetoRisco(b).ord||0)-(projetoRisco(a).ord||0), criacao:(a,b)=>(b.dataCriacao||'').localeCompare(a.dataCriacao||''),
+    progresso:(a,b)=>projetoProgress(b).pct-projetoProgress(a).pct };
+  lista.sort(ord[f.ord]||ord.prioridade);
+
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(f.busca)}" oninput="setProjFiltro('busca',this.value)" placeholder="🔍 Buscar projetos" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setProjFiltro('cliente',this.value)" style="height:34px;font-size:12px"><option value="">Cliente: todos</option>${cliOpts}</select>
+    <select onchange="setProjFiltro('status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${_selOpts(TRAB_PROJ_STATUS,f.status)}</select>
+    <select onchange="setProjFiltro('prio',this.value)" style="height:34px;font-size:12px"><option value="">Prioridade: todas</option>${_selOpts(TRAB_PRIOS,f.prio)}</select>
+    <select onchange="setProjFiltro('ord',this.value)" style="height:34px;font-size:12px">
+      <option value="prioridade"${f.ord==='prioridade'?' selected':''}>Ordenar: prioridade</option>
+      <option value="prazo"${f.ord==='prazo'?' selected':''}>Ordenar: prazo</option>
+      <option value="risco"${f.ord==='risco'?' selected':''}>Ordenar: risco</option>
+      <option value="progresso"${f.ord==='progresso'?' selected':''}>Ordenar: progresso</option>
+      <option value="criacao"${f.ord==='criacao'?' selected':''}>Ordenar: recentes</option></select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addProjeto()">+ Novo projeto</button>
+  </div>`;
+
+  if(!T.projetos.length) return filtros+`<div class="panel"><div class="empty" style="padding:28px"><div class="empty-icon">💼</div><div class="empty-text">Nenhum projeto ainda. Crie seu primeiro projeto — uma demanda de cliente, uma entrega interna, um produto — e acompanhe tarefas, prazos e próximos passos.</div><button class="btn btn-pri" style="margin-top:14px" onclick="addProjeto()">+ Criar primeiro projeto</button></div></div>`;
+  if(!lista.length) return filtros+`<div class="panel"><div class="empty" style="padding:24px"><div class="empty-text">Nenhum projeto nesse filtro.</div></div></div>`;
+
+  const cards=lista.map(p=>{
+    const st=TRAB_PROJ_STATUS[p.status]||TRAB_PROJ_STATUS.em_andamento, pr=TRAB_PRIOS[p.prioridade]||TRAB_PRIOS.media;
+    const P=projetoProgress(p), risco=projetoRisco(p), exp=_trabExpanded[p.id];
+    const barCor=P.concluido?'var(--pos)':P.atrasado?'var(--neg)':'var(--info)';
+    const ts=_trabTarefasDoProjeto(p.id), tAtras=ts.filter(tarefaAtrasada).length;
+    const editor = exp ? `
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Descrição</label>
+          <textarea oninput="setProjField('${p.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(p.descricao)}</textarea></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Cliente</label>
+            <select onchange="setProjField('${p.id}','clienteId',this.value)"><option value="">— nenhum —</option>${T.clientes.map(c=>`<option value="${attr(c.id)}"${c.id===p.clienteId?' selected':''}>${escapeHTML(c.nome||'')}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Categoria</label>
+            <select onchange="setProjField('${p.id}','categoria',this.value)">${_selOpts(TRAB_PROJ_CATS,p.categoria)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Status</label>
+            <select onchange="setProjField('${p.id}','status',this.value)">${_selOpts(TRAB_PROJ_STATUS,p.status)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prioridade</label>
+            <select onchange="setProjField('${p.id}','prioridade',this.value)">${_selOpts(TRAB_PRIOS,p.prioridade)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Risco</label>
+            <select onchange="setProjField('${p.id}','risco',this.value)">${_selOpts(TRAB_RISCOS,p.risco)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Início</label>
+            <input type="date" value="${attr(p.dataInicio)}" onchange="setProjField('${p.id}','dataInicio',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prazo</label>
+            <input type="date" value="${attr(p.prazo)}" onchange="setProjField('${p.id}','prazo',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Progresso manual (%)</label>
+            <input type="number" min="0" max="100" step="5" value="${p.progressoManual!=null?p.progressoManual:''}" placeholder="auto pelas tarefas" onchange="setProjField('${p.id}','progressoManual',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Valor estimado (R$)</label>
+            <input type="number" min="0" step="100" value="${p.valorEstimado||0}" onchange="setProjField('${p.id}','valorEstimado',this.value)"></div>
+        </div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Próximo passo</label>
+          <input type="text" value="${attr(p.proximoPasso)}" onchange="setProjField('${p.id}','proximoPasso',this.value)" placeholder="o que destrava o projeto?"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Link principal</label>
+          <input type="url" value="${attr(p.linkPrincipal)}" onchange="setProjField('${p.id}','linkPrincipal',this.value)" placeholder="https://..."></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Vincular a meta</label>
+            <select onchange="setProjField('${p.id}','relacionadaAMetaId',this.value)"><option value="">— nenhuma —</option>${(D.metas||[]).map(m=>`<option value="${attr(m.id)}"${m.id===p.relacionadaAMetaId?' selected':''}>${escapeHTML((typeof metaDom==='function'?metaDom(m.dominio).icon+' ':'')+(m.nome||''))}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Vincular a decisão</label>
+            <select onchange="setProjField('${p.id}','relacionadaADecisaoId',this.value)"><option value="">— nenhuma —</option>${(D.decisoes||[]).map(d=>`<option value="${attr(d.id)}"${d.id===p.relacionadaADecisaoId?' selected':''}>${escapeHTML(d.titulo||'')}</option>`).join('')}</select></div>
+        </div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Observações</label>
+          <textarea oninput="setProjField('${p.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(p.observacoes)}</textarea></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="addTarefa('${p.id}')">+ Tarefa neste projeto</button>
+          ${!p.relacionadaADecisaoId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDoProjeto('${p.id}')">🧭 Criar decisão</button>`:''}
+          ${_safeUrl(p.linkPrincipal)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(p.linkPrincipal))}" target="_blank" rel="noopener noreferrer">🔗 Abrir link</a>`:''}
+          <div style="flex:1"></div>
+          <button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeProjeto('${p.id}')">🗑️ Excluir</button>
+        </div>
+      </div>` : '';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${pr.cor};border-radius:var(--r14);padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(p.nome||'')}" onchange="setProjField('${p.id}','nome',this.value)" placeholder="Nome do projeto" style="font-weight:700;font-size:14px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            ${_trabBadge(st.label,st.cor)}${_trabBadge(pr.label,pr.cor)}${_trabBadge('risco '+risco.label,risco.cor)}
+            ${p.clienteId?`<span style="font-size:10px;color:var(--text3)">🏢 ${escapeHTML(cliNome(p.clienteId))}</span>`:''}
+            ${p.prazo?`<span style="font-size:10px;color:${P.atrasado?'var(--neg)':'var(--text3)'}">${P.atrasado?'⚠ ':''}prazo ${escapeHTML(p.prazo)}</span>`:''}
+            ${ts.length?`<span style="font-size:10px;color:var(--text3)">✅ ${ts.filter(t=>t.status==='concluida').length}/${ts.length} tarefas${tAtras?` · ${tAtras} atrasada(s)`:''}</span>`:''}
+            ${_metaVincBadge(p.relacionadaAMetaId)}${_decVincBadge(p.relacionadaADecisaoId)}
+          </div>
+        </div>
+        ${p.prazo?`<button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" title="Adicionar à Google Agenda" onclick="agendarProjeto('${p.id}')">📅</button>`:''}
+        <button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" onclick="toggleTrabExpand('${p.id}')">${exp?'▴ fechar':'▾ detalhes'}</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 4px">
+        <span style="font-size:12px;color:${barCor};font-weight:700">${P.defined?Math.round(P.pct)+'%':'sem tarefas/progresso'}</span>
+        ${p.proximoPasso?`<span style="font-size:11px;color:var(--text2)">→ ${escapeHTML(p.proximoPasso)}</span>`:''}
+      </div>
+      <div style="height:7px;background:var(--card3);border-radius:99px;overflow:hidden"><div style="height:7px;width:${P.pctVis}%;background:${barCor};border-radius:99px;transition:width .5s"></div></div>
+      ${editor}
+    </div>`;
+  }).join('');
+  return filtros+cards;
+}
+
+function _renderTarefas(){
+  const T=_trab(); const f=_taskFiltro;
+  const projOpts=T.projetos.map(p=>`<option value="${attr(p.id)}"${p.id===f.projeto?' selected':''}>${escapeHTML(p.nome||'')}</option>`).join('');
+  let lista=T.tarefas.slice();
+  if(f.projeto) lista=lista.filter(t=>t.projetoId===f.projeto);
+  if(f.status) lista=lista.filter(t=>t.status===f.status);
+  if(f.prio) lista=lista.filter(t=>t.prioridade===f.prio);
+  if(f.tipo) lista=lista.filter(t=>t.tipo===f.tipo);
+  if(f.busca){ const q=f.busca.toLowerCase(); lista=lista.filter(t=>['titulo','descricao','observacoes'].some(k=>(t[k]||'').toLowerCase().includes(q))||(t.tags||[]).join(' ').toLowerCase().includes(q)); }
+  const ord={ prioridade:(a,b)=>(TRAB_PRIOS[b.prioridade]?.ord||0)-(TRAB_PRIOS[a.prioridade]?.ord||0),
+    prazo:(a,b)=>(a.prazo||'~').localeCompare(b.prazo||'~'), status:(a,b)=>(a.status||'').localeCompare(b.status||''),
+    criacao:(a,b)=>(b.dataCriacao||'').localeCompare(a.dataCriacao||''), estimativa:(a,b)=>(b.estimativaHoras||0)-(a.estimativaHoras||0) };
+  lista.sort(ord[f.ord]||ord.prioridade);
+
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(f.busca)}" oninput="setTaskFiltro('busca',this.value)" placeholder="🔍 Buscar tarefas" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setTaskFiltro('projeto',this.value)" style="height:34px;font-size:12px"><option value="">Projeto: todos</option>${projOpts}</select>
+    <select onchange="setTaskFiltro('status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${_selOpts(TRAB_TAREFA_STATUS,f.status)}</select>
+    <select onchange="setTaskFiltro('prio',this.value)" style="height:34px;font-size:12px"><option value="">Prioridade: todas</option>${_selOpts(TRAB_PRIOS,f.prio)}</select>
+    <select onchange="setTaskFiltro('tipo',this.value)" style="height:34px;font-size:12px"><option value="">Tipo: todos</option>${_selOpts(TRAB_TAREFA_TIPOS,f.tipo)}</select>
+    <select onchange="setTaskFiltro('ord',this.value)" style="height:34px;font-size:12px">
+      <option value="prioridade"${f.ord==='prioridade'?' selected':''}>Ordenar: prioridade</option>
+      <option value="prazo"${f.ord==='prazo'?' selected':''}>Ordenar: prazo</option>
+      <option value="status"${f.ord==='status'?' selected':''}>Ordenar: status</option>
+      <option value="criacao"${f.ord==='criacao'?' selected':''}>Ordenar: recentes</option></select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addTarefa('')">+ Nova tarefa</button>
+  </div>`;
+
+  if(!T.tarefas.length) return filtros+`<div class="panel"><div class="empty" style="padding:28px"><div class="empty-icon">✅</div><div class="empty-text">Nenhuma tarefa ainda. Crie tarefas e demandas, defina prazos e acompanhe o que está pendente, atrasado ou bloqueado.</div><button class="btn btn-pri" style="margin-top:14px" onclick="addTarefa('')">+ Criar primeira tarefa</button></div></div>`;
+  if(!lista.length) return filtros+`<div class="panel"><div class="empty" style="padding:24px"><div class="empty-text">Nenhuma tarefa nesse filtro.</div></div></div>`;
+
+  const cards=lista.map(t=>{
+    const st=TRAB_TAREFA_STATUS[t.status]||TRAB_TAREFA_STATUS.pendente, pr=TRAB_PRIOS[t.prioridade]||TRAB_PRIOS.media;
+    const atras=tarefaAtrasada(t), exp=_trabExpanded[t.id], proj=projGet(t.projetoId);
+    const editor= exp ? `
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Descrição</label>
+          <textarea oninput="setTaskField('${t.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(t.descricao)}</textarea></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Projeto</label>
+            <select onchange="setTaskField('${t.id}','projetoId',this.value)"><option value="">— sem projeto —</option>${T.projetos.map(p=>`<option value="${attr(p.id)}"${p.id===t.projetoId?' selected':''}>${escapeHTML(p.nome||'')}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Tipo</label>
+            <select onchange="setTaskField('${t.id}','tipo',this.value)">${_selOpts(TRAB_TAREFA_TIPOS,t.tipo)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Status</label>
+            <select onchange="setTaskField('${t.id}','status',this.value)">${_selOpts(TRAB_TAREFA_STATUS,t.status)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prioridade</label>
+            <select onchange="setTaskField('${t.id}','prioridade',this.value)">${_selOpts(TRAB_PRIOS,t.prioridade)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Prazo</label>
+            <input type="date" value="${attr(t.prazo)}" onchange="setTaskField('${t.id}','prazo',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Estimativa (h)</label>
+            <input type="number" min="0" step="0.5" value="${t.estimativaHoras||0}" onchange="setTaskField('${t.id}','estimativaHoras',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Tempo gasto (h)</label>
+            <input type="number" min="0" step="0.5" value="${t.tempoGastoHoras||0}" onchange="setTaskField('${t.id}','tempoGastoHoras',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Responsável</label>
+            <input type="text" value="${attr(t.responsavel)}" onchange="setTaskField('${t.id}','responsavel',this.value)"></div>
+        </div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Tags (separadas por vírgula)</label>
+          <input type="text" value="${attr((t.tags||[]).join(', '))}" onchange="setTaskField('${t.id}','tags',this.value)"></div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Link</label>
+          <input type="url" value="${attr(t.link)}" onchange="setTaskField('${t.id}','link',this.value)" placeholder="https://..."></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Vincular a meta</label>
+            <select onchange="setTaskField('${t.id}','relacionadaAMetaId',this.value)"><option value="">— nenhuma —</option>${(D.metas||[]).map(m=>`<option value="${attr(m.id)}"${m.id===t.relacionadaAMetaId?' selected':''}>${escapeHTML((typeof metaDom==='function'?metaDom(m.dominio).icon+' ':'')+(m.nome||''))}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Vincular a decisão</label>
+            <select onchange="setTaskField('${t.id}','relacionadaADecisaoId',this.value)"><option value="">— nenhuma —</option>${(D.decisoes||[]).map(d=>`<option value="${attr(d.id)}"${d.id===t.relacionadaADecisaoId?' selected':''}>${escapeHTML(d.titulo||'')}</option>`).join('')}</select></div>
+        </div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Observações</label>
+          <textarea oninput="setTaskField('${t.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(t.observacoes)}</textarea></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          ${!t.relacionadaADecisaoId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDaTarefa('${t.id}')">🧭 Criar decisão</button>`:''}
+          ${_safeUrl(t.link)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(t.link))}" target="_blank" rel="noopener noreferrer">🔗 Abrir link</a>`:''}
+          <div style="flex:1"></div>
+          <button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeTarefa('${t.id}')">🗑️ Excluir</button>
+        </div>
+      </div>` : '';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${atras?'var(--neg)':pr.cor};border-radius:var(--r14);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(t.titulo||'')}" onchange="setTaskField('${t.id}','titulo',this.value)" placeholder="Título da tarefa" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            ${_trabBadge(st.label, atras?'var(--neg)':st.cor)}${_trabBadge(pr.label,pr.cor)}
+            <span style="font-size:10px;color:var(--text3)">${escapeHTML((t.tipo||'tarefa').replace(/_/g,' '))}</span>
+            ${proj?`<span style="font-size:10px;color:var(--text3)">💼 ${escapeHTML(proj.nome||'')}</span>`:''}
+            ${t.prazo?`<span style="font-size:10px;color:${atras?'var(--neg)':'var(--text3)'}">${atras?'⚠ ':''}prazo ${escapeHTML(t.prazo)}</span>`:''}
+            ${(t.tags||[]).slice(0,4).map(tag=>`<span style="font-size:9px;background:var(--card3);border-radius:99px;padding:1px 6px;color:var(--text2)">#${escapeHTML(tag)}</span>`).join('')}
+            ${_metaVincBadge(t.relacionadaAMetaId)}${_decVincBadge(t.relacionadaADecisaoId)}
+          </div>
+        </div>
+        ${t.prazo?`<button class="btn btn-ghost" style="height:28px;font-size:12px;flex-shrink:0" title="Adicionar à Google Agenda" onclick="agendarTarefa('${t.id}')">📅</button>`:''}
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="toggleTrabExpand('${t.id}')">${exp?'▴':'▾'}</button>
+      </div>
+      ${editor}
+    </div>`;
+  }).join('');
+  return filtros+cards;
+}
+
+function _renderClientes(){
+  const T=_trab();
+  const novo=`<div style="margin-bottom:14px"><button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addCliente()">+ Novo cliente/contexto</button></div>`;
+  if(!T.clientes.length) return novo+`<div class="panel"><div class="empty" style="padding:28px"><div class="empty-icon">🏢</div><div class="empty-text">Nenhum cliente ou contexto ainda. Cadastre clientes, empresas ou áreas para associar aos seus projetos.</div></div></div>`;
+  const cards=T.clientes.map(c=>{
+    const exp=_trabExpanded[c.id];
+    const nProj=T.projetos.filter(p=>p.clienteId===c.id).length;
+    const editor= exp ? `
+      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:grid;gap:10px">
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Descrição</label>
+          <textarea oninput="setCliField('${c.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(c.descricao)}</textarea></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Tipo</label>
+            <select onchange="setCliField('${c.id}','tipo',this.value)">${_selOpts(TRAB_CLI_TIPOS,c.tipo)}</select></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Contato</label>
+            <input type="text" value="${attr(c.contato)}" onchange="setCliField('${c.id}','contato',this.value)"></div>
+          <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Link</label>
+            <input type="url" value="${attr(c.link)}" onchange="setCliField('${c.id}','link',this.value)" placeholder="https://..."></div>
+        </div>
+        <div class="field" style="margin:0"><label class="flabel" style="font-size:10px">Observações</label>
+          <textarea oninput="setCliField('${c.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(c.observacoes)}</textarea></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${_safeUrl(c.link)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(c.link))}" target="_blank" rel="noopener noreferrer">🔗 Abrir link</a>`:''}
+          <div style="flex:1"></div>
+          <button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeCliente('${c.id}')">🗑️ Excluir</button>
+        </div>
+      </div>` : '';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(c.nome||'')}" onchange="setCliField('${c.id}','nome',this.value)" placeholder="Nome" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            <span style="font-size:10px;color:var(--text3)">${escapeHTML((c.tipo||'cliente').replace(/_/g,' '))}</span>
+            ${nProj?`<span style="font-size:10px;color:var(--text3)">💼 ${nProj} projeto(s)</span>`:''}
+            ${c.contato?`<span style="font-size:10px;color:var(--text3)">✉️ ${escapeHTML(c.contato)}</span>`:''}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="toggleTrabExpand('${c.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}
+    </div>`;
+  }).join('');
+  return novo+cards;
+}
+
+// ── Relatório de Trabalho (Central de Relatórios) ──
+function relDocTrabalho(){
+  const r=trabalhoResumoData(); const T=_trab();
+  if(!T.projetos.length && !T.tarefas.length) return _relDoc('Relatório de Trabalho','Projetos & Tarefas', _relEmpty('Nenhum projeto ou tarefa cadastrado no módulo Trabalho & Projetos.'));
+  const kpis=_relKpis([
+    {label:'Projetos ativos',val:String(r.projetosAtivos),cor:'var(--info)'},
+    {label:'Tarefas pendentes',val:String(r.tarefasPendentes)},
+    {label:'Tarefas atrasadas',val:String(r.tarefasAtrasadas),cor:r.tarefasAtrasadas?'var(--neg)':'var(--text)'},
+    {label:'Projetos críticos',val:String(r.projetosCriticos),cor:r.projetosCriticos?'var(--neg)':'var(--text)'},
+    {label:'Aguardando',val:String(r.aguardando),cor:r.aguardando?'var(--warn)':'var(--text)'},
+    {label:'Próxima entrega',val:r.proximaEntrega?(r.proximaEntrega.dias===0?'hoje':r.proximaEntrega.dias+'d'):'—'},
+  ]);
+  const porStatus={}; T.projetos.forEach(p=>{porStatus[p.status]=(porStatus[p.status]||0)+1;});
+  const stSec=_relSection('Projetos por status', _relTable(['Status','Qtd'], Object.entries(porStatus).sort((a,b)=>b[1]-a[1]).map(([s,n])=>[escapeHTML((TRAB_PROJ_STATUS[s]||{label:s}).label),String(n)])));
+  const projSec=_relSection('Projetos ativos', _relTable(['Projeto','Status','Progresso','Prazo'],
+    r.projAtivosList.slice().sort((a,b)=>(TRAB_PRIOS[b.prioridade]?.ord||0)-(TRAB_PRIOS[a.prioridade]?.ord||0)).map(p=>{
+      const P=projetoProgress(p);
+      return [`${escapeHTML(p.nome||'')}${p.clienteId?'<div style="font-size:10px;color:var(--text3)">🏢 '+escapeHTML(cliNome(p.clienteId))+'</div>':''}`,
+        escapeHTML((TRAB_PROJ_STATUS[p.status]||{label:p.status}).label), P.defined?Math.round(P.pct)+'%':'—', escapeHTML(p.prazo||'—')];
+    })));
+  const atrasadas=T.tarefas.filter(tarefaAtrasada);
+  const atrasSec=atrasadas.length?_relSection('Tarefas atrasadas', _relTable(['Tarefa','Projeto','Prazo'],
+    atrasadas.map(t=>{const p=projGet(t.projetoId);return [escapeHTML(t.titulo||''), p?escapeHTML(p.nome||''):'—', escapeHTML(t.prazo||'')];}))):'';
+  return _relDoc('Relatório de Trabalho','Projetos & Tarefas', _relSection('Resumo executivo',kpis)+stSec+projSec+atrasSec);
 }
 
 // ═══════════════════════════════════════════════════
@@ -7518,7 +8082,8 @@ async function importarBackupJSON(input) {
     const ok = await uiConfirm(
       `Restaurar backup de <strong>${payload._exportedAt ? new Date(payload._exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida'}</strong>?<br><br>` +
       `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras · 🎯 ${(data.metas||[]).length} metas · 🧭 ${(data.decisoes||[]).length} decisões<br>` +
-      `🛍️ ${((data.hobbies&&data.hobbies.itens)||[]).length} desejos · 🏦 fundo ${fmt((data.hobbies&&data.hobbies.saldoFundo)||0)}<br><br>` +
+      `🛍️ ${((data.hobbies&&data.hobbies.itens)||[]).length} desejos · 🏦 fundo ${fmt((data.hobbies&&data.hobbies.saldoFundo)||0)}<br>` +
+      `💼 ${((data.trabalho&&data.trabalho.projetos)||[]).length} projetos · ✅ ${((data.trabalho&&data.trabalho.tarefas)||[]).length} tarefas · 🏢 ${((data.trabalho&&data.trabalho.clientes)||[]).length} clientes<br><br>` +
       `⚠️ Seus dados atuais serão <strong>substituídos</strong>.`,
       {icon:'📤', okText:'Restaurar'}
     );
