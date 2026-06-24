@@ -100,7 +100,8 @@ const DEFAULT = {
   metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null,
   hobbies: DEFAULT_HOBBIES,
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
-  decisoes: []
+  decisoes: [],
+  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} }
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -118,7 +119,8 @@ const BLANK = {
   metas: [], orcamentos: {}, reservaMult: 6, notasMes: {}, catsCustom: null, catsCustomEnt: null,
   hobbies: { aporteMensal:0, saldoFundo:0, cats: JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT)), itens: [] },
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
-  decisoes: []
+  decisoes: [],
+  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} }
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -361,6 +363,12 @@ function migrateData(d) {
   if(d.prefs.dashInicial==null)     d.prefs.dashInicial = 'dash';
   if(!Array.isArray(d.prefs.modulosFavoritos)) d.prefs.modulosFavoritos = [];
   if(typeof d.prefs.relatorios!=='object' || d.prefs.relatorios===null) d.prefs.relatorios = { ultimoTipo:'mensal', ultimoPeriodo:'', secoesPadrao:[] };
+
+  // ── Integrações (Fase 8) — isoladas por uid, sem tokens/segredos ──
+  if(typeof d.integracoes!=='object' || d.integracoes===null) d.integracoes={};
+  if(typeof d.integracoes.googleAgenda!=='object'||!d.integracoes.googleAgenda) d.integracoes.googleAgenda={modo:'links',ativo:true,ultimaAcao:'',observacoes:''};
+  if(typeof d.integracoes.importacao!=='object'||!d.integracoes.importacao) d.integracoes.importacao={ultimoTipo:'',ultimaImportacao:'',totalRegistros:0};
+  if(typeof d.integracoes.indicadores!=='object'||!d.integracoes.indicadores) d.integracoes.indicadores={fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null};
 
   // ── Módulo de Decisões (primeiro módulo fora de finanças) ──
   if(!Array.isArray(d.decisoes)) d.decisoes = [];
@@ -986,7 +994,7 @@ function switchRole(role) {
   // If currently on an admin-only page and switched to user, go to dash
   const active=document.querySelector('.page.on');
   const activeId=active?active.id.replace('page-',''):'dash';
-  const adminOnly=['admin','config','sysconfig','integracoes'];
+  const adminOnly=['admin','config','sysconfig'];
   if(!isAdmin && (adminOnly.includes(activeId) || adminOnly.includes(_activeNav))) goSide('geral');
 }
 
@@ -994,6 +1002,7 @@ function renderPage(id) {
   // Visão Geral e módulos planejados (placeholders)
   if(id==='geral')     { if(typeof renderGeralDash==='function') renderGeralDash(); return; }
   if(id==='decisoes')  { if(typeof renderDecisoes==='function') renderDecisoes(); return; }
+  if(id==='integracoes'){ if(typeof renderIntegracoes==='function') renderIntegracoes(); return; }
   if(typeof PLACEHOLDER_MODULES==='object' && PLACEHOLDER_MODULES[id]) { if(typeof renderPlaceholder==='function') renderPlaceholder(id); return; }
   // Fast renders — synchronous
   if(id==='dash')      { renderDashboard(); return; }
@@ -3919,6 +3928,7 @@ function renderObjetivos(){
             ${decBadge}
           </div>
         </div>
+        ${m.prazo?`<button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" title="Adicionar à Google Agenda" onclick="agendarMeta('${m.id}')">📅</button>`:''}
         <button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" onclick="toggleMetaExpand('${m.id}')">${exp?'▴ fechar':'▾ detalhes'}</button>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 4px">
@@ -4502,6 +4512,7 @@ function renderHobLista(){
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           ${!decRel?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDaCompra('${it.id}')">🧭 Criar decisão</button>`:''}
           ${!metaRel?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarMetaDaCompra('${it.id}')">🎯 Criar meta</button>`:''}
+          <button class="btn btn-ghost" style="height:32px;font-size:12px" title="Adicionar à Google Agenda" onclick="agendarCompra('${it.id}')">📅 Agendar compra</button>
           <div style="flex:1"></div>
           <button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeItemHobby('${it.id}')">🗑️ Excluir</button>
         </div>
@@ -4585,7 +4596,7 @@ function renderDashHobbies(){
       <button class="btn btn-ghost" style="height:30px;font-size:12px" onclick="goSide('hobbies')">Abrir →</button></div>
     <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:center">
       <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">Fundo do hobby</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">Fundo de Compras</div>
         <div style="font-size:18px;font-weight:800;color:var(--brand)">${fmt(h.saldoFundo||0)}</div>
         <div style="font-size:11px;color:var(--text3)">${(h.aporteMensal||0)>0?`+${fmt(h.aporteMensal)}/mês`:'sem aporte definido'}</div>
       </div>
@@ -4826,12 +4837,12 @@ const DEFAULT_MENU = [
   ]},
   { id:'pessoal', label:'Pessoal', icon:'👤', order:11, active:true, items:[
     { id:'perfil', label:'Meu Perfil', icon:'👤', page:'perfil', active:true },
+    { id:'integracoes', label:'Integrações', icon:'🔌', page:'integracoes', active:true },
   ]},
   { id:'sistema', label:'Sistema', icon:'⚙️', order:12, active:true, minRole:'superadmin', items:[
     { id:'admin',     label:'Usuários',         icon:'👥', page:'admin',     active:true, minRole:'superadmin' },
     { id:'config',    label:'Configurações',    icon:'⚙️', page:'config',    active:true, minRole:'superadmin' },
     { id:'sysconfig', label:'Identidade & Cores',icon:'🎨', page:'sysconfig', active:true, minRole:'superadmin' },
-    { id:'integracoes', label:'Integrações',    icon:'🔌', page:'integracoes', active:true, minRole:'superadmin' },
   ]},
 ];
 
@@ -4912,9 +4923,6 @@ const PLACEHOLDER_MODULES = {
   lazer: { icon:'🎮', titulo:'Lazer & Hobbies', section:'Lazer',
     desc:'Acompanhe hobbies, atividades de lazer e qualidade de vida. As aquisições de hobby agora vivem em Compras & Desejos; aqui ficará o acompanhamento de uso, prática e satisfação.',
     futuras:['Registro de hobbies e prática','Tempo dedicado e satisfação','Vínculo com Compras & Desejos','Metas de lazer'] },
-  integracoes: { icon:'🔌', titulo:'Integrações', section:'Sistema',
-    desc:'Conecte agenda, indicadores de mercado, importação de extratos e mais — sempre com consentimento, fonte e fallback manual.',
-    futuras:['Links "Adicionar à Google Agenda"','Importação CSV/OFX de extratos','Indicadores via Banco Central','Open Finance (com backend) no futuro'] },
   agenda: { icon:'📅', titulo:'Google Agenda', section:'Integrações',
     desc:'Comece por links de criação de evento (sem OAuth) e evolua para sincronização real com backend seguro.',
     futuras:['Adicionar faturas/decisões/metas à agenda','Lembretes financeiros','Sincronização via Cloud Function (futuro)'] },
@@ -5357,6 +5365,7 @@ function renderDecisoes(){
             ${metaNome?`<span style="font-size:10px;color:var(--text3)">🎯 ${escapeHTML(metaNome)}</span>`:''}
           </div>
         </div>
+        ${dec.prazo?`<button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" title="Adicionar à Google Agenda" onclick="agendarDecisao('${dec.id}')">📅</button>`:''}
         <button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" data-dec-act="toggle" data-dec-id="${attr(dec.id)}">${exp?'▴ fechar':'▾ detalhes'}</button>
       </div>
       <div id="dec-analise-${dec.id}" style="background:var(--card2);border-left:3px solid ${an.cor};border-radius:var(--r10);padding:8px 11px;margin-top:10px">
@@ -5803,6 +5812,451 @@ function exportRelCSV(){
     }
     if(typeof toast==='function') toast('CSV exportado',true,'⬇️');
   }catch(e){ if(typeof uiAlert==='function') uiAlert('Não foi possível exportar CSV: '+e.message,{icon:'❌'}); }
+}
+
+// ═══════════════════════════════════════════════════
+//  🔌 INTEGRAÇÕES SEGURAS (Fase 8) — frontend-only, sem backend/OAuth
+//  Tudo isolado em userData/{uid}. Nenhum token/segredo. CSV/OFX processado
+//  localmente no navegador (FileReader). Texto importado escapado na exibição.
+// ═══════════════════════════════════════════════════
+const INTEG_STATUS = {
+  disponivel:{label:'Disponível',cor:'var(--pos)'}, manual:{label:'Manual',cor:'var(--info)'},
+  planejado:{label:'Planejado',cor:'var(--text3)'}, backend:{label:'Exige backend/provedor',cor:'var(--warn)'},
+  erro:{label:'Erro',cor:'var(--neg)'}, desativado:{label:'Desativado',cor:'var(--text3)'},
+};
+const _MMM = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function _integ(){
+  if(typeof D.integracoes!=='object' || D.integracoes===null) D.integracoes={};
+  const I=D.integracoes;
+  if(typeof I.googleAgenda!=='object'||!I.googleAgenda) I.googleAgenda={modo:'links',ativo:true,ultimaAcao:'',observacoes:''};
+  if(typeof I.importacao!=='object'||!I.importacao) I.importacao={ultimoTipo:'',ultimaImportacao:'',totalRegistros:0};
+  if(typeof I.indicadores!=='object'||!I.indicadores) I.indicadores={fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null};
+  return I;
+}
+
+// ─────────────────────────────────────────────
+//  📅 GOOGLE AGENDA (links, sem OAuth, sem ler agenda)
+// ─────────────────────────────────────────────
+function _gcalDate(d){
+  // aceita Date | 'yyyy-mm-dd' | 'Mmm/aa' → 'YYYYMMDD'; null se inválido
+  if(!d) return null;
+  if(d instanceof Date){ if(isNaN(d)) return null; return d.toISOString().slice(0,10).replace(/-/g,''); }
+  const s=String(d).trim();
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m) return m[1]+m[2]+m[3];
+  m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); if(m) return m[3]+m[2]+m[1];
+  const pm=(typeof parseMes==='function')?parseMes(s):null;
+  if(pm&&pm.y&&pm.m) return String(pm.y)+String(pm.m).padStart(2,'0')+'01';
+  return null;
+}
+function _gcalPlus1(yyyymmdd){
+  const y=+yyyymmdd.slice(0,4), mo=+yyyymmdd.slice(4,6)-1, da=+yyyymmdd.slice(6,8);
+  const dt=new Date(Date.UTC(y,mo,da)); dt.setUTCDate(dt.getUTCDate()+1);
+  return dt.toISOString().slice(0,10).replace(/-/g,'');
+}
+function googleCalendarLink({title,details,location,startDate,endDate}){
+  const base='https://calendar.google.com/calendar/render?action=TEMPLATE';
+  const parts=['&text='+encodeURIComponent(title||'Lembrete')];
+  const ini=_gcalDate(startDate);
+  if(ini){ const fim=_gcalDate(endDate)||_gcalPlus1(ini); parts.push('&dates='+encodeURIComponent(ini+'/'+fim)); }
+  if(details)  parts.push('&details='+encodeURIComponent(details));
+  if(location) parts.push('&location='+encodeURIComponent(location));
+  return base+parts.join('');
+}
+function _abrirAgenda(opts){
+  const url=googleCalendarLink(opts);
+  window.open(url,'_blank','noopener,noreferrer');
+  const I=_integ(); I.googleAgenda.ultimaAcao=new Date().toISOString();
+  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
+}
+function agendarDecisao(id){
+  const d=(D.decisoes||[]).find(x=>x.id===id); if(!d) return;
+  _abrirAgenda({ title:`Decisão: ${d.titulo||'(sem título)'}`,
+    details:`Revisar e decidir.${d.descricao?' '+d.descricao:''}${d.custoEstimado>0?` Custo estimado: ${fmt(d.custoEstimado)}.`:''}`,
+    startDate:d.prazo });
+}
+function agendarMeta(id){
+  const m=(D.metas||[]).find(x=>x.id===id); if(!m) return;
+  _abrirAgenda({ title:`Meta: ${m.nome||'(sem nome)'}`,
+    details:`Acompanhar progresso da meta.${m.proximosPassos?' Próximos passos: '+m.proximosPassos:''}`,
+    startDate:m.prazo });
+}
+function agendarCompra(id){
+  const it=((_hob().itens)||[]).find(x=>x.id===id); if(!it) return;
+  const data=it.dataCompraPlanejada||it.melhorMomento||'';
+  _abrirAgenda({ title:`Comprar: ${it.nome||'item'}`,
+    details:`Compra planejada.${(typeof compraCusto==='function')?' Custo estimado: '+fmt(compraCusto(it))+'.':''}${it.loja?' Loja: '+it.loja+'.':''}`,
+    startDate:/^\d/.test(data)?data:'' });
+}
+function agendarRevisaoMensal(){
+  const hoje=new Date(); const prox=new Date(hoje.getFullYear(),hoje.getMonth()+1,1);
+  _abrirAgenda({ title:'Revisão mensal de finanças',
+    details:'Revisar entradas, faturas, reserva, metas e decisões do mês.', startDate:prox });
+}
+
+// ─────────────────────────────────────────────
+//  📊 INDICADORES via Banco Central (SGS) — público, sem chave
+// ─────────────────────────────────────────────
+// Reaproveita o bcbFetch existente (com proxies CORS). Séries SGS dos indicadores.
+const _IND_SGS = { selic:432, cdi:12, ipca:13522, usdbrl:1 };
+async function atualizarIndicadores(){
+  const I=_integ();
+  if(I.indicadores.fonte==='manual' && ['selic','cdi','ipca','usdbrl'].some(k=>I.indicadores[k]!=null)){
+    const ok = (typeof uiConfirm==='function') ? await uiConfirm('Atualizar indicadores pela API do Banco Central? Isso substituirá os valores manuais atuais.',{icon:'📊',okText:'Atualizar'}) : true;
+    if(!ok) return;
+  }
+  const ind=I.indicadores; let okN=0;
+  await Promise.all(Object.entries(_IND_SGS).map(async([k,code])=>{
+    try{ const r=(typeof bcbFetch==='function')?await bcbFetch(code,1):null;
+      const v=r?parseFloat(String(r.valor).replace(',','.')):NaN;
+      if(!isNaN(v)){ ind[k]=v; okN++; } }catch(e){}
+  }));
+  if(okN>0){ ind.fonte='bcb'; ind.ultimaAtualizacao=new Date().toISOString(); }
+  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
+  if(typeof toast==='function') toast(okN>0?`Indicadores atualizados (${okN}/4)`:'Não foi possível obter indicadores — use o modo manual', okN>0, okN>0?'📊':'⚠️');
+  renderIntegracoes();
+}
+function setIndicadorManual(k,v){
+  const I=_integ(); const n=(v===''||v==null)?null:parseFloat(String(v).replace(',','.'));
+  I.indicadores[k]=isNaN(n)?null:n; I.indicadores.fonte='manual'; I.indicadores.ultimaAtualizacao=new Date().toISOString();
+  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
+}
+function statusIndicadores(){
+  const ind=_integ().indicadores;
+  const algum=['selic','cdi','ipca','usdbrl'].some(k=>ind[k]!=null);
+  return { temDados:algum, fonte:ind.fonte, ultima:ind.ultimaAtualizacao };
+}
+
+// ─────────────────────────────────────────────
+//  📥 IMPORTAÇÃO CSV / OFX (local, sem upload)
+// ─────────────────────────────────────────────
+let _imp = null; // {tipoArquivo, destinoPadrao, headers, rows:[{...}], delimiter}
+
+const _CAT_KW = [
+  [/mercado|supermerc|atacad|carrefour|p[aã]o de a[çc]|big|assa[ií]|sams club|hortifruti|extra\b/i,'alimentacao'],
+  [/ifood|restaurante|lanch|mcdonald|burger|pizza|padaria|bar\b|cafeteria|starbucks/i,'alimentacao'],
+  [/uber|99app|99\b|cabify|combust|posto|gasolina|alcool|etanol|ipva|estacion|metr[oô]|pedagio|onibus/i,'transporte'],
+  [/farmacia|drogaria|droga|raia|pacheco|drogasil|hospital|clinica|laborat|exame/i,'saude'],
+  [/academia|smartfit|gym|crossfit|pilates|personal/i,'saude'],
+  [/netflix|spotify|youtube|prime|disney|hbo|max\b|globoplay|deezer|paramount|assinatura/i,'servicos'],
+  [/vivo|claro|tim\b|oi\b|internet|telefone|celular|energia|enel|cemig|light|copel|agua|sabesp|saneamento/i,'moradia'],
+  [/aluguel|condominio|imobiliaria|iptu/i,'moradia'],
+  [/escola|faculdade|universidade|curso|udemy|alura|coursera|mensalidade/i,'educacao'],
+  [/amazon|mercado livre|mercadolivre|kabum|magalu|magazine|aliexpress|shopee|americanas|casas bahia/i,'outros'],
+  [/cafe|starbucks|cinema|netflix|show|ingresso|game|steam|playstation|xbox/i,'lazer'],
+  [/imposto|darf|tribut|taxa|tarifa|anuidade/i,'impostos'],
+];
+const _ENT_KW = /sal[aá]rio|pagamento|pix recebid|ted recebid|transfer.*recebid|rendiment|provento|reembolso|estorno|dep[oó]sito|cr[eé]dito recebid/i;
+
+function _detectDelimiter(text){
+  const head=text.split(/\r?\n/).slice(0,5).join('\n');
+  const counts={';':(head.match(/;/g)||[]).length, ',':(head.match(/,/g)||[]).length, '\t':(head.match(/\t/g)||[]).length};
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+}
+function _splitCSVLine(line, delim){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){ const c=line[i];
+    if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c==='"') q=true; else if(c===delim){ out.push(cur); cur=''; } else cur+=c; }
+  }
+  out.push(cur); return out.map(s=>s.trim());
+}
+function _normalizeBRNumber(s){
+  if(s==null) return NaN;
+  let t=String(s).trim().replace(/\s/g,'').replace(/r\$/i,'').replace(/[^\d.,\-]/g,'');
+  let neg=false;
+  if(/^\(.*\)$/.test(String(s).trim())) neg=true; // (1.234,56) = negativo
+  if(t.indexOf('-')>0){ neg=true; } // valor com '-' ao final/meio
+  t=t.replace(/-/g,'');
+  if(t.indexOf(',')>-1 && t.indexOf('.')>-1){ t=t.replace(/\./g,'').replace(',','.'); } // 1.234,56
+  else if(t.indexOf(',')>-1){ t=t.replace(',','.'); } // 1234,56
+  // senão assume formato com ponto decimal (1234.56) ou inteiro
+  let n=parseFloat(t); if(isNaN(n)) return NaN;
+  if(neg || String(s).trim().startsWith('-')) n=-Math.abs(n);
+  return n;
+}
+function _parseDataImport(s){
+  if(!s) return null;
+  const t=String(s).trim();
+  let m=t.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m=t.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+  m=t.match(/^(\d{2})\/(\d{2})\/(\d{2})$/); if(m) return `20${m[3]}-${m[2]}-${m[1]}`;
+  m=t.match(/^(\d{8})$/); if(m) return `${m[1].slice(0,4)}-${m[1].slice(4,6)}-${m[1].slice(6,8)}`; // OFX YYYYMMDD
+  return null;
+}
+function _categoriza(desc, valor){
+  const d=(desc||'').toLowerCase();
+  if(valor>0 && _ENT_KW.test(d)) return {destino:'entrada', cat:'outros'};
+  for(const [re,cat] of _CAT_KW){ if(re.test(d)) return {destino:'saida', cat}; }
+  return {destino: valor>0?'entrada':'saida', cat:'outros'};
+}
+function importHash(row){
+  const desc=(row.desc||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,40);
+  return `${row.data||''}|${desc}|${Math.abs(row.valor||0).toFixed(2)}|${row.destino||''}`;
+}
+function _hashesExistentes(){
+  const set=new Set();
+  (D.entradas||[]).forEach(e=>set.add(`${e.mes||''}|${(e.nome||'').toLowerCase().slice(0,40)}|${Math.abs(e.valor||0).toFixed(2)}|entrada`));
+  (D.compras||[]).forEach(c=>set.add(`${(c.dataCompra||'')}|${(c.nome||'').toLowerCase().slice(0,40)}|${Math.abs(c.valor||0).toFixed(2)}|saida`));
+  return set;
+}
+
+// OFX simples (SGML): extrai <STMTTRN> blocos
+function _parseOFX(text){
+  const rows=[];
+  const blocos=text.split(/<STMTTRN>/i).slice(1);
+  const tag=(b,t)=>{ const m=b.match(new RegExp('<'+t+'>([^<\r\n]*)','i')); return m?m[1].trim():''; };
+  blocos.forEach(b=>{
+    const dt=_parseDataImport(tag(b,'DTPOSTED').slice(0,8));
+    const val=_normalizeBRNumber(tag(b,'TRNAMT'));
+    const memo=tag(b,'MEMO')||tag(b,'NAME')||'Transação';
+    if(dt && !isNaN(val)){ const cz=_categoriza(memo,val); rows.push({data:dt, desc:memo, valor:val, destino:cz.destino, cat:cz.cat, ignorar:false}); }
+  });
+  return rows;
+}
+
+function abrirImportador(){ _imp=null; renderIntegracoes(); document.getElementById('imp-file')?.click?.(); }
+function lerArquivoImport(input){
+  const file=input.files&&input.files[0]; if(!file) return;
+  const nome=file.name.toLowerCase();
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const text=String(reader.result||'');
+      let rows=[], headers=[], delim=',';
+      if(nome.endsWith('.ofx') || /<OFX>/i.test(text)){
+        rows=_parseOFX(text);
+        _imp={ tipoArquivo:'ofx', headers:['data','desc','valor'], delim:'', rows: _markDuplicados(rows) };
+      } else {
+        delim=_detectDelimiter(text);
+        const linhas=text.split(/\r?\n/).filter(l=>l.trim().length);
+        if(!linhas.length){ uiAlert('Arquivo vazio.',{icon:'📄'}); return; }
+        headers=_splitCSVLine(linhas[0],delim);
+        const dataRows=linhas.slice(1).map(l=>_splitCSVLine(l,delim));
+        // auto-detecta colunas
+        const lower=headers.map(h=>h.toLowerCase());
+        const ci={ data:lower.findIndex(h=>/data|date|dt/.test(h)), desc:lower.findIndex(h=>/desc|hist|memo|lan|estabele|t[ií]tulo|name/.test(h)), valor:lower.findIndex(h=>/valor|amount|value|montante|r\$/.test(h)) };
+        rows=dataRows.map(cols=>{
+          const dataRaw=ci.data>=0?cols[ci.data]:cols[0];
+          const descRaw=ci.desc>=0?cols[ci.desc]:cols[1];
+          const valRaw =ci.valor>=0?cols[ci.valor]:cols[cols.length-1];
+          const data=_parseDataImport(dataRaw)||'';
+          const valor=_normalizeBRNumber(valRaw);
+          const cz=_categoriza(descRaw, valor);
+          return { data, desc:(descRaw||'').slice(0,120), valor:isNaN(valor)?NaN:valor, destino:cz.destino, cat:cz.cat, ignorar:false };
+        });
+        _imp={ tipoArquivo:'csv', headers, delim, colIdx:ci, rows:_markDuplicados(rows) };
+      }
+      if(!_imp.rows.length){ uiAlert('Não encontrei transações no arquivo.',{icon:'📄'}); _imp=null; }
+      renderIntegracoes();
+    }catch(e){ uiAlert('Erro ao ler arquivo: '+e.message,{icon:'❌'}); }
+  };
+  reader.onerror=()=>uiAlert('Não foi possível ler o arquivo.',{icon:'❌'});
+  reader.readAsText(file,'UTF-8');
+}
+function _markDuplicados(rows){
+  const exist=_hashesExistentes(); const vistos=new Set();
+  return rows.map(r=>{
+    let status='valida';
+    if(isNaN(r.valor)||!r.data) status='invalida';
+    else { const h=importHash(r); if(exist.has(h)||vistos.has(h)) status='duplicada'; vistos.add(h); }
+    return {...r, status};
+  });
+}
+function setImpRow(i,campo,val){
+  if(!_imp||!_imp.rows[i]) return;
+  if(campo==='ignorar') _imp.rows[i].ignorar=val;
+  else if(campo==='destino') _imp.rows[i].destino=val;
+  else if(campo==='cat') _imp.rows[i].cat=val;
+  renderImpPreview();
+}
+function cancelarImportacao(){ _imp=null; renderIntegracoes(); }
+function confirmarImportacao(){
+  if(!_imp) return;
+  const validos=_imp.rows.filter(r=>!r.ignorar && r.status!=='invalida');
+  if(!validos.length){ uiAlert('Nenhuma linha válida para importar.',{icon:'📄'}); return; }
+  let nEnt=0, nSai=0;
+  validos.forEach(r=>{
+    const data=r.data; const dt=data?new Date(data+'T00:00:00'):new Date();
+    const dia=dt.getDate(); const mesLabel=`${_MMM[dt.getMonth()]}/${String(dt.getFullYear()).slice(2)}`;
+    const nome=(r.desc||'Importado').slice(0,80);
+    if(r.destino==='entrada'){
+      D.entradas.push({ id:genId('e'), nome, valor:Math.abs(r.valor), tipo:'unico', dia, cat:'outros', mes:mesLabel, ativo:true });
+      nEnt++;
+    } else {
+      D.compras.push({ id:genId('c'), nome, cat:(CATS[r.cat]?r.cat:'outros'), cartao:'', valor:Math.abs(r.valor), parcelas:1, dataCompra:data||dt.toISOString().slice(0,10), ativo:true });
+      nSai++;
+    }
+  });
+  const I=_integ();
+  I.importacao.ultimoTipo=_imp.tipoArquivo; I.importacao.ultimaImportacao=new Date().toISOString(); I.importacao.totalRegistros=(I.importacao.totalRegistros||0)+nEnt+nSai;
+  _imp=null;
+  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
+  if(typeof renderAll==='function') renderAll();
+  renderIntegracoes();
+  if(typeof toast==='function') toast(`Importado: ${nEnt} entrada(s), ${nSai} saída(s)`, true, '📥');
+}
+
+// ─────────────────────────────────────────────
+//  🖼️ RENDER — Central de Integrações
+// ─────────────────────────────────────────────
+function _integStatusBadge(st){ const s=INTEG_STATUS[st]||INTEG_STATUS.planejado; return `<span class="badge" style="background:var(--card3);color:${s.cor};font-size:10px;font-weight:700">${escapeHTML(s.label)}</span>`; }
+function _integCard(o){
+  return `<div class="rep-card" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r14);padding:16px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="font-size:14px;font-weight:800">${escapeHTML(o.icon)} ${escapeHTML(o.titulo)}</div>
+      ${_integStatusBadge(o.status)}
+    </div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">${escapeHTML(o.desc)}</div>
+    ${o.aviso?`<div style="font-size:11px;color:var(--warn);background:var(--warn-bg,rgba(245,158,11,.08));border-radius:8px;padding:7px 9px">⚠️ ${escapeHTML(o.aviso)}</div>`:''}
+    ${o.proximos?`<div style="font-size:11px;color:var(--text3)">Próximos passos: ${escapeHTML(o.proximos)}</div>`:''}
+    ${o.acoes||''}
+  </div>`;
+}
+
+function renderImpPreview(){
+  const el=document.getElementById('imp-preview'); if(!el) return;
+  if(!_imp){ el.innerHTML=''; return; }
+  const rows=_imp.rows;
+  const val=rows.filter(r=>r.status==='valida'&&!r.ignorar).length;
+  const inv=rows.filter(r=>r.status==='invalida').length;
+  const dup=rows.filter(r=>r.status==='duplicada').length;
+  const ign=rows.filter(r=>r.ignorar).length;
+  const catOpts=(sel)=>Object.keys(CATS).map(k=>`<option value="${k}"${k===sel?' selected':''}>${escapeHTML(CATS[k].label)}</option>`).join('');
+  const stCor={valida:'var(--pos)',invalida:'var(--neg)',duplicada:'var(--warn)'};
+  const stLabel={valida:'válida',invalida:'inválida',duplicada:'duplicada?'};
+  const linhas=rows.map((r,i)=>{
+    const ddup=r.status==='duplicada'?'opacity:.7':'';
+    return `<tr style="${ddup}">
+      <td style="padding:5px 6px;border-bottom:1px solid var(--border)"><input type="checkbox" ${r.ignorar?'checked':''} onchange="setImpRow(${i},'ignorar',this.checked)"></td>
+      <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-size:11px">${escapeHTML(r.data||'—')}</td>
+      <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-size:11px;max-width:220px">${escapeHTML(r.desc||'')}</td>
+      <td style="padding:5px 6px;border-bottom:1px solid var(--border);text-align:right;font-size:11px;color:${r.valor<0?'var(--neg)':'var(--pos)'}">${isNaN(r.valor)?'—':fmt(r.valor)}</td>
+      <td style="padding:5px 6px;border-bottom:1px solid var(--border)"><select onchange="setImpRow(${i},'destino',this.value)" style="height:28px;font-size:11px"><option value="entrada"${r.destino==='entrada'?' selected':''}>Entrada</option><option value="saida"${r.destino==='saida'?' selected':''}>Saída</option></select></td>
+      <td style="padding:5px 6px;border-bottom:1px solid var(--border)"><select onchange="setImpRow(${i},'cat',this.value)" style="height:28px;font-size:11px"${r.destino==='entrada'?' disabled':''}>${catOpts(r.cat)}</select></td>
+      <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-size:10px;color:${stCor[r.status]||'var(--text3)'}">${stLabel[r.status]||r.status}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 12px;font-size:12px">
+      <span>📋 <strong>${rows.length}</strong> linhas</span>
+      <span style="color:var(--pos)">✓ ${val} válidas</span>
+      <span style="color:var(--warn)">≈ ${dup} duplicadas</span>
+      <span style="color:var(--neg)">✗ ${inv} inválidas</span>
+      <span style="color:var(--text3)">⊘ ${ign} ignoradas</span>
+    </div>
+    <div style="overflow:auto;max-height:380px;border:1px solid var(--border);border-radius:var(--r10)">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="position:sticky;top:0;background:var(--card2)">
+          <th style="padding:6px;font-size:10px;color:var(--text2)">ign.</th><th style="padding:6px;text-align:left;font-size:10px;color:var(--text2)">Data</th>
+          <th style="padding:6px;text-align:left;font-size:10px;color:var(--text2)">Descrição</th><th style="padding:6px;text-align:right;font-size:10px;color:var(--text2)">Valor</th>
+          <th style="padding:6px;text-align:left;font-size:10px;color:var(--text2)">Destino</th><th style="padding:6px;text-align:left;font-size:10px;color:var(--text2)">Categoria</th>
+          <th style="padding:6px;text-align:left;font-size:10px;color:var(--text2)">Status</th>
+        </tr></thead><tbody>${linhas}</tbody></table>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-pri" onclick="confirmarImportacao()">✓ Confirmar e importar ${val}</button>
+      <button class="btn btn-ghost" onclick="cancelarImportacao()">Cancelar</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">🔒 O arquivo é lido apenas no seu navegador. Nada é enviado para servidor.</div>`;
+}
+
+function renderIntegracoes(){
+  const el=document.getElementById('integracoes-body'); if(!el) return;
+  _integ();
+  const ind=_integ().indicadores;
+  const stInd=statusIndicadores();
+  const fmtPct=v=>v==null?'—':(v.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%');
+  const fmtUsd=v=>v==null?'—':('R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:4}));
+
+  // Painel de indicadores
+  const indPanel=`<div class="panel mb"><div class="panel-head"><span class="panel-title">📊 Indicadores (Banco Central)</span>
+      <span class="panel-badge">${stInd.fonte==='bcb'?'fonte: BCB':'fonte: manual'}</span></div>
+    <div style="padding:16px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px">
+        ${[['selic','SELIC',fmtPct],['cdi','CDI',fmtPct],['ipca','IPCA',fmtPct],['usdbrl','USD/BRL',fmtUsd]].map(([k,lab,f])=>`
+          <div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r10);padding:11px 13px">
+            <div style="font-size:10px;color:var(--text2);text-transform:uppercase">${lab}</div>
+            <div style="font-size:17px;font-weight:800">${f(ind[k])}</div>
+            <input type="text" value="${ind[k]!=null?attr(String(ind[k])):''}" placeholder="manual" onchange="setIndicadorManual('${k}',this.value);renderIntegracoes()" style="height:26px;font-size:11px;width:100%;margin-top:5px">
+          </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-pri" style="height:34px" onclick="atualizarIndicadores()">↻ Atualizar pelo Banco Central</button>
+        <span style="font-size:11px;color:var(--text3)">${stInd.ultima?'Última atualização: '+new Date(stInd.ultima).toLocaleString('pt-BR'):'Sem atualização ainda'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">Fonte pública (API SGS do BCB), sem chave. Se o navegador bloquear (CORS) ou falhar, preencha manualmente — os indicadores são referência, não verdade absoluta.</div>
+    </div></div>`;
+
+  // Importação
+  const imp=_integ().importacao;
+  const impPanel=`<div class="panel mb"><div class="panel-head"><span class="panel-title">📥 Importar extrato CSV / OFX</span></div>
+    <div style="padding:16px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Importe extratos bancários ou faturas de cartão. O arquivo é processado <strong>localmente no navegador</strong> — nada é enviado para servidor. Você revisa tudo antes de gravar.</div>
+      <input type="file" id="imp-file" accept=".csv,.ofx,.txt,text/csv" style="display:none" onchange="lerArquivoImport(this)">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-pri" style="height:36px" onclick="document.getElementById('imp-file').click()">📁 Escolher arquivo CSV/OFX</button>
+        ${imp.ultimaImportacao?`<span style="font-size:11px;color:var(--text3)">Última importação: ${new Date(imp.ultimaImportacao).toLocaleString('pt-BR')} · ${imp.totalRegistros||0} registros no total</span>`:''}
+      </div>
+      <div id="imp-preview"></div>
+    </div></div>`;
+
+  // Cards de integração
+  const ga=_integ().googleAgenda;
+  const cards=[
+    _integCard({icon:'📅',titulo:'Google Agenda',status:'disponivel',
+      desc:'Crie eventos no Google Calendar por link, sem login Google e sem ler sua agenda. Disponível em Decisões, Metas e Compras com prazo/data.',
+      acoes:`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="agendarRevisaoMensal()">📅 Agendar revisão mensal</button></div>`,
+      proximos:'Leitura real da agenda exige OAuth + backend (roadmap).'}),
+    _integCard({icon:'📥',titulo:'Importação CSV / OFX',status:'disponivel',
+      desc:'Importe extratos e faturas via CSV ou OFX, com preview, detecção de duplicados e categorização automática. Tudo local.',
+      proximos:'Conciliação automática e mais formatos de banco.'}),
+    _integCard({icon:'📊',titulo:'Indicadores Banco Central',status: stInd.fonte==='bcb'?'disponivel':'manual',
+      desc:'SELIC, CDI, IPCA e USD/BRL via API pública do BCB, com preenchimento manual como fallback.',
+      proximos:'Histórico de indicadores e gráficos.'}),
+    _integCard({icon:'📈',titulo:'Dados de Mercado / B3',status:'backend',
+      desc:'Cotações de ações e fundos da B3. Não há fluxo frontend-only confiável (CORS / sem API pública estável).',
+      aviso:'Exige proxy/backend (Cloud Function ou Cloudflare Worker).',
+      proximos:'Atualização manual de ativos continua disponível na Carteira.'}),
+    _integCard({icon:'🏦',titulo:'Open Banking / Open Finance',status:'backend',
+      desc:'Sincronização real de saldos e transações. Exige provedor autorizado, backend, consentimento e política de privacidade.',
+      aviso:'Nunca pediremos sua senha bancária. Sem scraping. Sem armazenar credenciais.',
+      proximos:'Fase atual: importação CSV/OFX manual.'}),
+    _integCard({icon:'✉️',titulo:'Gmail',status:'backend',
+      desc:'Leitura de e-mails (faturas, comprovantes) exige OAuth com escopos mínimos e backend para guardar tokens com segurança.',
+      proximos:'Roadmap, após Cloud Functions.'}),
+    _integCard({icon:'📎',titulo:'Documentos / Anexos',status:'planejado',
+      desc:'Anexar notas fiscais e comprovantes — começando por links externos, depois Firebase Storage com regras por usuário.',
+      proximos:'Links externos → Storage por uid.'}),
+    _integCard({icon:'🔔',titulo:'Notificações',status:'manual',
+      desc:'Avisos internos (decisões/metas com prazo, importação pendente). Push real fica para uma fase futura.',
+      acoes:`<div id="integ-avisos"></div>`}),
+  ].join('');
+
+  el.innerHTML = indPanel + impPanel +
+    `<div class="panel"><div class="panel-head"><span class="panel-title">🔌 Integrações disponíveis e planejadas</span></div>
+      <div style="padding:16px"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">${cards}</div></div></div>`;
+
+  renderImpPreview();
+  _renderAvisosInternos();
+}
+
+// Notificações internas simples
+function _renderAvisosInternos(){
+  const el=document.getElementById('integ-avisos'); if(!el) return;
+  const avisos=[];
+  try{
+    const dr=(typeof _decResumoData==='function')?_decResumoData():null;
+    if(dr&&dr.prazoProx&&dr.prazoProx.dias<=14) avisos.push(`🧭 Decisão "${escapeHTML(dr.prazoProx.dec.titulo||'')}" com prazo em ${dr.prazoProx.dias}d.`);
+    const metasAtras=(D.metas||[]).filter(m=>m.ativa!==false && metaProgress(m).atrasada).length;
+    if(metasAtras>0) avisos.push(`🎯 ${metasAtras} meta(s) atrasada(s).`);
+    if(_imp) avisos.push('📥 Importação CSV pendente de confirmação.');
+    const ind=_integ().indicadores;
+    if(ind.ultimaAtualizacao){ const dias=Math.round((Date.now()-new Date(ind.ultimaAtualizacao))/86400000); if(dias>30) avisos.push('📊 Indicadores desatualizados (>30 dias).'); }
+  }catch(e){}
+  el.innerHTML = avisos.length
+    ? `<div style="display:grid;gap:5px;font-size:11.5px;color:var(--text2);margin-top:4px">${avisos.map(a=>`<div>${a}</div>`).join('')}</div>`
+    : `<div style="font-size:11.5px;color:var(--text3);margin-top:4px">Nenhum aviso no momento.</div>`;
 }
 
 // ═══════════════════════════════════════════════════
