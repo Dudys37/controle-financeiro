@@ -101,7 +101,9 @@ const DEFAULT = {
   hobbies: DEFAULT_HOBBIES,
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
   decisoes: [],
-  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} },
+  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null}, b3:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',ultimaReferenciaD1:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',identificadorInterno:''},resumo:{posicoes:0,movimentacoes:0,garantias:0,eventosProvisionados:0,ofertasPublicas:0,negociacoes:0},observacoes:''}, openFinance:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',escopos:[],instituicao:'',identificadorInterno:''},resumo:{contas:0,saldos:0,transacoes:0,cartoes:0,faturas:0,investimentos:0,creditos:0},observacoes:''} },
+  b3: { posicoes:[], movimentacoes:[], garantias:[], eventosProvisionados:[], ofertasPublicas:[], negociacoes:[], logsSincronizacao:[] },
+  openFinance: { contas:[], saldos:[], transacoes:[], cartoes:[], faturas:[], investimentos:[], creditos:[], logsSincronizacao:[] },
   trabalho: { projetos:[], tarefas:[], clientes:[] },
   carreira: { objetivos:[], competencias:[], cursos:[], networking:[], experiencias:[], planosRenda:[] },
   patrimonio: { bens:[], passivos:[], manutencoes:[], seguros:[], documentos:[] }
@@ -123,7 +125,9 @@ const BLANK = {
   hobbies: { aporteMensal:0, saldoFundo:0, cats: JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT)), itens: [] },
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
   decisoes: [],
-  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} },
+  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null}, b3:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',ultimaReferenciaD1:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',identificadorInterno:''},resumo:{posicoes:0,movimentacoes:0,garantias:0,eventosProvisionados:0,ofertasPublicas:0,negociacoes:0},observacoes:''}, openFinance:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',escopos:[],instituicao:'',identificadorInterno:''},resumo:{contas:0,saldos:0,transacoes:0,cartoes:0,faturas:0,investimentos:0,creditos:0},observacoes:''} },
+  b3: { posicoes:[], movimentacoes:[], garantias:[], eventosProvisionados:[], ofertasPublicas:[], negociacoes:[], logsSincronizacao:[] },
+  openFinance: { contas:[], saldos:[], transacoes:[], cartoes:[], faturas:[], investimentos:[], creditos:[], logsSincronizacao:[] },
   trabalho: { projetos:[], tarefas:[], clientes:[] },
   carreira: { objetivos:[], competencias:[], cursos:[], networking:[], experiencias:[], planosRenda:[] },
   patrimonio: { bens:[], passivos:[], manutencoes:[], seguros:[], documentos:[] }
@@ -376,6 +380,32 @@ function migrateData(d) {
   if(typeof d.integracoes.googleAgenda!=='object'||!d.integracoes.googleAgenda) d.integracoes.googleAgenda={modo:'links',ativo:true,ultimaAcao:'',observacoes:''};
   if(typeof d.integracoes.importacao!=='object'||!d.integracoes.importacao) d.integracoes.importacao={ultimoTipo:'',ultimaImportacao:'',totalRegistros:0};
   if(typeof d.integracoes.indicadores!=='object'||!d.integracoes.indicadores) d.integracoes.indicadores={fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null};
+
+  // ── Integrações reguladas B3 + Open Finance (Fase 13) — config local, SEM tokens/segredos ──
+  if(typeof d.integracoes.b3!=='object'||!d.integracoes.b3) d.integracoes.b3={};
+  { const b=d.integracoes.b3;
+    if(!b.status) b.status='nao_configurada'; if(!b.modo) b.modo='planejado_backend'; if(!b.ambiente) b.ambiente='nenhum';
+    if(b.ultimaSincronizacao==null) b.ultimaSincronizacao=''; if(b.ultimaReferenciaD1==null) b.ultimaReferenciaD1=''; if(!b.fonte) b.fonte='manual'; if(b.observacoes==null) b.observacoes='';
+    if(typeof b.consentimento!=='object'||!b.consentimento) b.consentimento={};
+    ['status','dataAutorizacao','dataRevogacao','dataExpiracao','identificadorInterno'].forEach(k=>{ if(b.consentimento[k]==null) b.consentimento[k]=(k==='status'?'nao_iniciado':''); });
+    if(typeof b.resumo!=='object'||!b.resumo) b.resumo={};
+    ['posicoes','movimentacoes','garantias','eventosProvisionados','ofertasPublicas','negociacoes'].forEach(k=>{ if(b.resumo[k]==null||isNaN(b.resumo[k])) b.resumo[k]=0; });
+  }
+  if(typeof d.integracoes.openFinance!=='object'||!d.integracoes.openFinance) d.integracoes.openFinance={};
+  { const o=d.integracoes.openFinance;
+    if(!o.status) o.status='nao_configurada'; if(!o.modo) o.modo='planejado_backend'; if(!o.ambiente) o.ambiente='nenhum';
+    if(o.ultimaSincronizacao==null) o.ultimaSincronizacao=''; if(!o.fonte) o.fonte='manual'; if(o.observacoes==null) o.observacoes='';
+    if(typeof o.consentimento!=='object'||!o.consentimento) o.consentimento={};
+    ['status','dataAutorizacao','dataRevogacao','dataExpiracao','instituicao','identificadorInterno'].forEach(k=>{ if(o.consentimento[k]==null) o.consentimento[k]=(k==='status'?'nao_iniciado':''); });
+    if(!Array.isArray(o.consentimento.escopos)) o.consentimento.escopos=[];
+    if(typeof o.resumo!=='object'||!o.resumo) o.resumo={};
+    ['contas','saldos','transacoes','cartoes','faturas','investimentos','creditos'].forEach(k=>{ if(o.resumo[k]==null||isNaN(o.resumo[k])) o.resumo[k]=0; });
+  }
+  // Dados importados/mock (originais), nunca tokens/credenciais
+  if(typeof d.b3!=='object'||!d.b3) d.b3={};
+  ['posicoes','movimentacoes','garantias','eventosProvisionados','ofertasPublicas','negociacoes','logsSincronizacao'].forEach(k=>{ if(!Array.isArray(d.b3[k])) d.b3[k]=[]; });
+  if(typeof d.openFinance!=='object'||!d.openFinance) d.openFinance={};
+  ['contas','saldos','transacoes','cartoes','faturas','investimentos','creditos','logsSincronizacao'].forEach(k=>{ if(!Array.isArray(d.openFinance[k])) d.openFinance[k]=[]; });
 
   // ── Trabalho & Projetos (Fase 9) — isolado por uid ──
   if(typeof d.trabalho!=='object' || d.trabalho===null) d.trabalho={};
@@ -5845,7 +5875,7 @@ function relDocGeral(){
   const oportSec=oport.length?_relSection('Oportunidades',
     `<div style="display:grid;gap:5px;font-size:12px;color:var(--text2)">${oport.map(o=>`<div>💡 ${escapeHTML(o)}</div>`).join('')}</div>`):'';
 
-  return _relDoc('Relatório Geral da Vida', D.meses[mi]||'', _relSection('Como está sua vida agora',kpis)+areas+alertas+passosSec+riscosSec+oportSec);
+  return _relDoc('Relatório Geral da Vida', D.meses[mi]||'', _relSection('Como está sua vida agora',kpis)+areas+alertas+passosSec+riscosSec+oportSec+(typeof relSecB3OF==='function'?relSecB3OF():''));
 }
 
 // ── Dispatcher ──
@@ -6286,7 +6316,8 @@ function renderIntegracoes(){
       acoes:`<div id="integ-avisos"></div>`}),
   ].join('');
 
-  el.innerHTML = indPanel + impPanel +
+  const b3ofPanels = (typeof renderB3Panel==='function'?renderB3Panel():'') + (typeof renderOFPanel==='function'?renderOFPanel():'');
+  el.innerHTML = indPanel + impPanel + b3ofPanels +
     `<div class="panel"><div class="panel-head"><span class="panel-title">🔌 Integrações disponíveis e planejadas</span></div>
       <div style="padding:16px"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">${cards}</div></div></div>`;
 
@@ -8026,6 +8057,366 @@ function relDocPatrimonio(){
 }
 
 // ═══════════════════════════════════════════════════
+//  🏛️ B3 + OPEN FINANCE (Fase 13) — ARQUITETURA / MOCK / STUB
+//  ⚠️ NÃO há integração real: sem backend, OAuth, mTLS, tokens, certificados,
+//  CPF, senha, pacote de acesso ou chamada real à B3/instituições. Tudo aqui é
+//  estrutura local, importação manual de JSON de teste, consentimento documental
+//  e stubs que retornam mode:'backend_required'. Dados em D.b3 / D.openFinance
+//  (userData/{uid}); NUNCA em systemConfig; NUNCA tokens/segredos em D.
+// ═══════════════════════════════════════════════════
+
+// Avisos obrigatórios (UI)
+const B3_AVISOS = [
+  'Integração real exige backend seguro.',
+  'Não informe sua senha B3 neste app.',
+  'O consentimento real ocorre na Área Logada da B3.',
+  'Os dados da B3 são D-1 (referência do dia anterior).',
+  'A API Guia deve ser usada para evitar chamadas desnecessárias.',
+];
+const OF_AVISOS = [
+  'Integração real exige backend seguro.',
+  'Não informe sua senha bancária neste app.',
+  'Este app não faz scraping de internet banking.',
+  'O consentimento real exige fluxo seguro autorizado.',
+  'Tokens nunca ficam no frontend.',
+];
+const CONSENT_LABELS = {
+  nao_iniciado:{label:'Não iniciado',cor:'var(--text3)'}, pendente:{label:'Pendente',cor:'var(--warn)'},
+  autorizado:{label:'Autorizado',cor:'var(--pos)'}, revogado:{label:'Revogado',cor:'var(--neg)'},
+  expirado:{label:'Expirado',cor:'var(--neg)'}, erro:{label:'Erro',cor:'var(--neg)'}, backend_necessario:{label:'Backend necessário',cor:'var(--info)'},
+};
+const B3_TIPOS = { posicao:'Posição', movimentacao:'Movimentação', garantias:'Garantias', eventosProvisionados:'Eventos provisionados', ofertasPublicas:'Ofertas públicas', negociacao:'Negociação' };
+const B3_TIPO_COL = { posicao:'posicoes', movimentacao:'movimentacoes', garantias:'garantias', eventosProvisionados:'eventosProvisionados', ofertasPublicas:'ofertasPublicas', negociacao:'negociacoes' };
+const OF_TIPOS = { contas:'Contas', saldos:'Saldos', transacoes:'Transações', cartoes:'Cartões', faturas:'Faturas', investimentos:'Investimentos', creditos:'Operações de crédito' };
+
+function _b3(){ if(typeof D.b3!=='object'||!D.b3) D.b3={}; ['posicoes','movimentacoes','garantias','eventosProvisionados','ofertasPublicas','negociacoes','logsSincronizacao'].forEach(k=>{ if(!Array.isArray(D.b3[k])) D.b3[k]=[]; }); return D.b3; }
+function _of(){ if(typeof D.openFinance!=='object'||!D.openFinance) D.openFinance={}; ['contas','saldos','transacoes','cartoes','faturas','investimentos','creditos','logsSincronizacao'].forEach(k=>{ if(!Array.isArray(D.openFinance[k])) D.openFinance[k]=[]; }); return D.openFinance; }
+function _b3cfg(){ return (D.integracoes&&D.integracoes.b3)||{}; }
+function _ofcfg(){ return (D.integracoes&&D.integracoes.openFinance)||{}; }
+
+// ── Retornos padronizados ──
+function _b3Resp(over){ return Object.assign({ok:true,provider:'b3',mode:'mock',source:'B3 Área do Investidor',updatedAt:new Date().toISOString(),referenceDate:'',data:{},error:null}, over||{}); }
+function _ofResp(over){ return Object.assign({ok:true,provider:'open_finance',mode:'mock',source:'Open Finance Brasil',updatedAt:new Date().toISOString(),referenceDate:'',data:{},error:null}, over||{}); }
+const B3_BACKEND_MSG = 'Integração real exige backend, pacote de acesso e contrato/licenciamento B3.';
+const OF_BACKEND_MSG = 'Integração Open Finance real exige backend seguro, consentimento, OAuth/mTLS e provedor autorizado.';
+
+// ── Utilidades seguras de parse ──
+function _num(v){ if(v==null) return 0; if(typeof v==='number') return isFinite(v)?v:0; const n=(typeof _normalizeBRNumber==='function')?_normalizeBRNumber(v):parseFloat(v); return isFinite(n)?n:0; }
+function _dt(v){ const p=(typeof _parseDataImport==='function')?_parseDataImport(v):null; return p||''; }
+function _str(v){ return v==null?'':String(v); }
+function _yesterdayISO(){ const d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
+function _todayISO(){ return new Date().toISOString().slice(0,10); }
+function _payloadToArray(payload){
+  if(Array.isArray(payload)) return payload;
+  if(payload && typeof payload==='object'){
+    for(const k of ['data','items','results','records','list','content']){ if(Array.isArray(payload[k])) return payload[k]; }
+  }
+  return null;
+}
+
+// ── Mapeadores (puros, conceituais — origem marcada) ──
+function mapPositionToInvestment(p){ return {
+  ativo:_str(p.ativo||p.ticker||p.symbol||p.nome||p.instrument||''), tipoAtivo:_str(p.tipoAtivo||p.tipo||p.assetType||p.category||''),
+  quantidade:_num(p.quantidade!=null?p.quantidade:(p.qtd!=null?p.qtd:p.quantity)), instituicao:_str(p.instituicao||p.participante||p.institution||p.broker||''),
+  valor:_num(p.valor!=null?p.valor:(p.valorBruto!=null?p.valorBruto:p.value)), dataReferencia:_dt(p.dataReferencia||p.referenceDate||p.data||p.date),
+  isin:_str(p.isin||p.ISIN||''), vencimento:_dt(p.vencimento||p.maturity||p.dueDate), origem:'B3', sincronizadoEm:new Date().toISOString() }; }
+function mapMovementToTransaction(m){ return {
+  data:_dt(m.data||m.date||m.referenceDate), descricao:_str(m.descricao||m.description||m.evento||m.movementType||''), tipo:_str(m.tipo||m.type||m.operationType||''),
+  ativo:_str(m.ativo||m.ticker||m.symbol||m.instrument||''), quantidade:_num(m.quantidade!=null?m.quantidade:m.quantity), valor:_num(m.valor!=null?m.valor:m.value),
+  evento:_str(m.evento||m.event||m.movementType||''), dataReferencia:_dt(m.dataReferencia||m.referenceDate), origem:'B3' }; }
+function mapAccountToFinance(a){ return {
+  conta:_str(a.conta||a.account||a.number||a.accountId||''), instituicao:_str(a.instituicao||a.institution||a.brand||a.bank||''), tipo:_str(a.tipo||a.type||a.accountType||''),
+  saldo:_num(a.saldo!=null?a.saldo:(a.balance!=null?a.balance:a.availableAmount)), moeda:_str(a.moeda||a.currency||'BRL'), dataReferencia:_dt(a.dataReferencia||a.referenceDate||a.data), origem:'Open Finance' }; }
+function mapTransactionToEntryOrExpense(t){ const valor=_num(t.valor!=null?t.valor:(t.amount!=null?t.amount:t.value)); const tipoRaw=_str(t.tipo||t.type||t.creditDebitType||'').toUpperCase();
+  const entrada = /CRED|CREDIT|ENTRADA|IN/.test(tipoRaw) || valor>0 && !/DEB|DEBIT|SAIDA|OUT/.test(tipoRaw);
+  return { direcao: entrada?'entrada':'saida', data:_dt(t.data||t.date||t.transactionDate), descricao:_str(t.descricao||t.description||t.merchant||''),
+    valor:Math.abs(valor), categoriaSugerida:_str(t.categoria||t.category||''), conta:_str(t.conta||t.account||t.accountId||''), origem:'Open Finance' }; }
+function mapCreditCardToCard(c){ return {
+  cartao:_str(c.cartao||c.card||c.name||c.brand||''), limite:_num(c.limite!=null?c.limite:c.creditLimit), faturaValor:_num(c.fatura!=null?c.fatura:(c.invoice!=null?c.invoice:c.billAmount)),
+  vencimento:_dt(c.vencimento||c.dueDate||c.invoiceDueDate), origem:'Open Finance' }; }
+
+// ── Normalização por tipo (para preview/armazenamento) ──
+function _normB3(tipo,row){
+  const base={ _origem:'B3', _importadoEm:new Date().toISOString() };
+  if(tipo==='posicao') return Object.assign(base, mapPositionToInvestment(row));
+  if(tipo==='movimentacao') return Object.assign(base, mapMovementToTransaction(row));
+  // garantias / eventos / ofertas / negociação: normalização genérica defensiva
+  return Object.assign(base, {
+    ativo:_str(row.ativo||row.ticker||row.symbol||row.nome||row.instrument||''), descricao:_str(row.descricao||row.description||row.evento||row.event||''),
+    quantidade:_num(row.quantidade!=null?row.quantidade:row.quantity), valor:_num(row.valor!=null?row.valor:row.value),
+    data:_dt(row.data||row.date||row.dataReferencia||row.referenceDate), instituicao:_str(row.instituicao||row.participante||row.institution||''), origem:'B3' });
+}
+function _normOF(tipo,row){
+  const base={ _origem:'Open Finance', _importadoEm:new Date().toISOString() };
+  if(tipo==='contas'||tipo==='saldos') return Object.assign(base, mapAccountToFinance(row));
+  if(tipo==='transacoes') return Object.assign(base, mapTransactionToEntryOrExpense(row));
+  if(tipo==='cartoes'||tipo==='faturas') return Object.assign(base, mapCreditCardToCard(row));
+  if(tipo==='investimentos') return Object.assign(base, { ativo:_str(row.ativo||row.instrument||row.nome||''), tipo:_str(row.tipo||row.type||''), quantidade:_num(row.quantidade!=null?row.quantidade:row.quantity), valor:_num(row.valor!=null?row.valor:row.value), instituicao:_str(row.instituicao||row.institution||''), origem:'Open Finance' });
+  // creditos
+  return Object.assign(base, { contrato:_str(row.contrato||row.contract||row.nome||''), tipo:_str(row.tipo||row.type||''), saldoDevedor:_num(row.saldoDevedor!=null?row.saldoDevedor:row.outstandingBalance), parcela:_num(row.parcela!=null?row.parcela:row.installmentAmount), instituicao:_str(row.instituicao||row.institution||''), origem:'Open Finance' });
+}
+
+// ── Logs resumidos (sem payload sensível completo) ──
+function _b3Log(status,origem,info){ _b3().logsSincronizacao.unshift({ data:new Date().toISOString(), status, origem:origem||'mock', info:_str(info).slice(0,120) }); if(_b3().logsSincronizacao.length>50) _b3().logsSincronizacao.length=50; }
+function _ofLog(status,origem,info){ _of().logsSincronizacao.unshift({ data:new Date().toISOString(), status, origem:origem||'mock', info:_str(info).slice(0,120) }); if(_of().logsSincronizacao.length>50) _of().logsSincronizacao.length=50; }
+
+// ── Recalcular resumos ──
+function _b3RecalcResumo(){ const b=_b3(), c=_b3cfg(); if(!c.resumo) return;
+  c.resumo.posicoes=b.posicoes.length; c.resumo.movimentacoes=b.movimentacoes.length; c.resumo.garantias=b.garantias.length;
+  c.resumo.eventosProvisionados=b.eventosProvisionados.length; c.resumo.ofertasPublicas=b.ofertasPublicas.length; c.resumo.negociacoes=b.negociacoes.length; }
+function _ofRecalcResumo(){ const o=_of(), c=_ofcfg(); if(!c.resumo) return;
+  c.resumo.contas=o.contas.length; c.resumo.saldos=o.saldos.length; c.resumo.transacoes=o.transacoes.length;
+  c.resumo.cartoes=o.cartoes.length; c.resumo.faturas=o.faturas.length; c.resumo.investimentos=o.investimentos.length; c.resumo.creditos=o.creditos.length; }
+
+// ═══ B3Service ═══
+const B3Service = {
+  status(){ const c=_b3cfg(); const cs=(c.consentimento&&c.consentimento.status)||'nao_iniciado';
+    let sync='backend_necessario';
+    if(cs==='revogado') sync='consentimento_revogado'; else if(cs==='nao_iniciado'||cs==='pendente') sync='consentimento_ausente';
+    else if(c.ultimaReferenciaD1===_yesterdayISO()) sync='atualizado'; else if(c.ultimaSincronizacao) sync='desatualizado'; else sync='aguardando_D1';
+    return _b3Resp({ mode: c.modo==='api'?'api':'mock', referenceDate:c.ultimaReferenciaD1||'', data:{ statusIntegracao:c.status, consentimento:cs, sincronizacao:sync, resumo:c.resumo } }); },
+  // Stubs de sincronização: SEMPRE backend_required (sem chamada real)
+  syncGuide(){ _b3Log('backend_required','guia','Simulação: API Guia exige backend'); return _b3Resp({ok:false,mode:'backend_required',data:null,error:B3_BACKEND_MSG}); },
+  syncPositions(){ _b3Log('backend_required','position','Simulação: Position exige backend'); return _b3Resp({ok:false,mode:'backend_required',data:null,error:B3_BACKEND_MSG}); },
+  syncMovements(){ _b3Log('backend_required','movement','Simulação: Movement exige backend'); return _b3Resp({ok:false,mode:'backend_required',data:null,error:B3_BACKEND_MSG}); },
+  importMockPayload(tipo, arr){ const col=B3_TIPO_COL[tipo]; if(!col) return _b3Resp({ok:false,mode:'manual',data:null,error:'Tipo B3 inválido.'});
+    const b=_b3(); const norm=arr.map(r=>_normB3(tipo,r));
+    // dedupe simples por ativo+instituicao+data
+    const seen=new Set(b[col].map(x=>`${x.ativo||''}|${x.instituicao||''}|${x.data||x.dataReferencia||''}`));
+    let add=0; norm.forEach(x=>{ const key=`${x.ativo||''}|${x.instituicao||''}|${x.data||x.dataReferencia||''}`; if(!seen.has(key)){ b[col].push(x); seen.add(key); add++; } });
+    _b3RecalcResumo(); const c=_b3cfg(); c.fonte='manual'; c.ultimaSincronizacao=new Date().toISOString(); c.ultimaReferenciaD1=_yesterdayISO(); if(c.status==='nao_configurada') c.status='mock_importado';
+    _b3Log('mock_importado',tipo,`${add} novo(s) de ${arr.length}`);
+    return _b3Resp({mode:'mock',referenceDate:c.ultimaReferenciaD1,data:{tipo,adicionados:add,recebidos:arr.length}}); },
+  mapPositionToInvestment, mapMovementToTransaction,
+};
+
+// ═══ OpenFinanceService ═══
+const OpenFinanceService = {
+  status(){ const c=_ofcfg(); const cs=(c.consentimento&&c.consentimento.status)||'nao_iniciado';
+    let sync='backend_necessario';
+    if(cs==='revogado') sync='consentimento_revogado'; else if(cs==='expirado') sync='consentimento_expirado';
+    else if(cs==='nao_iniciado'||cs==='pendente') sync='consentimento_ausente'; else if(c.ultimaSincronizacao) sync='desatualizado'; else sync='backend_necessario';
+    return _ofResp({ mode: c.modo==='api'?'api':'mock', data:{ statusIntegracao:c.status, consentimento:cs, sincronizacao:sync, instituicao:(c.consentimento&&c.consentimento.instituicao)||'', resumo:c.resumo } }); },
+  startConsentStub(){ const c=_ofcfg(); if(c.consentimento){ c.consentimento.status='backend_necessario'; } _ofLog('backend_required','consent','Início de consentimento exige fluxo seguro/backend');
+    return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
+  revokeLocalConsent(){ const c=_ofcfg(); if(c.consentimento){ c.consentimento.status='revogado'; c.consentimento.dataRevogacao=new Date().toISOString(); } _ofLog('revogado','consent','Consentimento marcado como revogado (local)');
+    return _ofResp({mode:'manual',data:{consentimento:'revogado'}}); },
+  syncAccounts(){ _ofLog('backend_required','accounts','Simulação: contas exige backend'); return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
+  syncBalances(){ _ofLog('backend_required','balances','Simulação: saldos exige backend'); return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
+  syncTransactions(){ _ofLog('backend_required','transactions','Simulação: transações exige backend'); return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
+  syncCreditCards(){ _ofLog('backend_required','cards','Simulação: cartões exige backend'); return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
+  importMockPayload(tipo, arr){ if(!OF_TIPOS[tipo]) return _ofResp({ok:false,mode:'manual',data:null,error:'Tipo Open Finance inválido.'});
+    const o=_of(); const norm=arr.map(r=>_normOF(tipo,r));
+    const keyOf=x=>`${x.conta||x.cartao||x.ativo||x.contrato||''}|${x.instituicao||''}|${x.data||x.dataReferencia||x.vencimento||''}|${x.valor||x.saldo||x.saldoDevedor||''}`;
+    const seen=new Set(o[tipo].map(keyOf)); let add=0;
+    norm.forEach(x=>{ const k=keyOf(x); if(!seen.has(k)){ o[tipo].push(x); seen.add(k); add++; } });
+    _ofRecalcResumo(); const c=_ofcfg(); c.fonte='manual'; c.ultimaSincronizacao=new Date().toISOString(); if(c.status==='nao_configurada') c.status='mock_importado';
+    _ofLog('mock_importado',tipo,`${add} novo(s) de ${arr.length}`);
+    return _ofResp({mode:'mock',data:{tipo,adicionados:add,recebidos:arr.length}}); },
+  mapAccountToFinance, mapTransactionToEntryOrExpense, mapCreditCardToCard,
+};
+
+// ── Estado de UI ──
+let _b3UI={ open:false, tipo:'posicao', preview:null, err:'', info:'' };
+let _ofUI={ open:false, tipo:'contas', preview:null, err:'', info:'' };
+
+// ── Ações B3 (UI) ──
+function b3ToggleImport(){ _b3UI.open=!_b3UI.open; _b3UI.preview=null; _b3UI.err=''; renderIntegracoes(); }
+function b3SetTipo(v){ _b3UI.tipo=v; _b3UI.preview=null; _b3UI.err=''; renderIntegracoes(); }
+function b3Info(k){ _b3UI.info=(_b3UI.info===k?'':k); renderIntegracoes(); }
+function b3Validar(){ const ta=document.getElementById('b3-mock-json'); const raw=ta?ta.value:''; _b3UI.preview=null; _b3UI.err='';
+  let parsed; try{ parsed=JSON.parse(raw); }catch(e){ _b3UI.err='JSON inválido: '+(e.message||'erro de parse'); renderIntegracoes(); return; }
+  const arr=_payloadToArray(parsed); if(!arr||!arr.length){ _b3UI.err='Esperado um array (ou objeto com "data"/"items") não-vazio.'; renderIntegracoes(); return; }
+  if(!arr.every(r=>r&&typeof r==='object'&&!Array.isArray(r))){ _b3UI.err='Cada item do array deve ser um objeto.'; renderIntegracoes(); return; }
+  _b3UI.preview={ tipo:_b3UI.tipo, raw:arr, norm:arr.slice(0,50).map(r=>_normB3(_b3UI.tipo,r)), total:arr.length }; renderIntegracoes(); }
+async function b3Confirmar(){ if(!_b3UI.preview) return; const {tipo,raw,total}=_b3UI.preview;
+  if(!await uiConfirm(`Importar <strong>${total}</strong> registro(s) de <strong>${escapeHTML(B3_TIPOS[tipo]||tipo)}</strong> para os dados locais B3? Nada será enviado a servidores e sua carteira não será alterada automaticamente.`,{icon:'🏛️',okText:'Importar'})) return;
+  const r=B3Service.importMockPayload(tipo, raw); _b3UI.preview=null; _b3UI.open=false; scheduleAutoSave(); renderIntegracoes();
+  toast(r.ok?`B3: ${r.data.adicionados} importado(s)`:'Falha na importação', r.ok, '🏛️'); }
+async function b3LimparDados(){ if(!await uiConfirm('Limpar <strong>todos</strong> os dados B3 importados localmente? Configuração e consentimento são preservados.',{icon:'🧹',okText:'Limpar'})) return;
+  const b=_b3(); ['posicoes','movimentacoes','garantias','eventosProvisionados','ofertasPublicas','negociacoes'].forEach(k=>b[k]=[]); _b3RecalcResumo(); _b3Log('limpeza','manual','Dados B3 importados limpos'); scheduleAutoSave(); renderIntegracoes(); toast('Dados B3 limpos',true,'🧹'); }
+async function b3RevogarConsent(){ if(!await uiConfirm('Marcar o consentimento B3 como <strong>revogado</strong> (controle local)? A revogação real ocorre na Área Logada da B3.',{icon:'🚫',okText:'Marcar revogado'})) return;
+  const c=_b3cfg(); if(c.consentimento){ c.consentimento.status='revogado'; c.consentimento.dataRevogacao=new Date().toISOString(); } _b3Log('revogado','consent','Consentimento B3 revogado (local)'); scheduleAutoSave(); renderIntegracoes(); toast('Consentimento B3: revogado (local)',true,'🚫'); }
+function b3SimularSync(){ const r=B3Service.syncGuide(); scheduleAutoSave(); renderIntegracoes();
+  uiConfirm(`<strong>Simulação de sincronização B3</strong><br><br>${escapeHTML(r.error||'')}<br><br>A API Guia evita chamadas desnecessárias e os dados são D-1. A sincronização real depende de backend seguro, pacote de acesso e licenciamento B3 (apenas pessoa jurídica).`,{icon:'🏛️',okText:'Entendi',cancelText:''}); }
+function b3AtualizarStatus(){ _b3RecalcResumo(); scheduleAutoSave(); renderIntegracoes(); const r=B3Service.status(); toast('Status B3 atualizado: '+(r.data.sincronizacao||''),true,'🔄'); }
+
+// ── Ações Open Finance (UI) ──
+function ofToggleImport(){ _ofUI.open=!_ofUI.open; _ofUI.preview=null; _ofUI.err=''; renderIntegracoes(); }
+function ofSetTipo(v){ _ofUI.tipo=v; _ofUI.preview=null; _ofUI.err=''; renderIntegracoes(); }
+function ofInfo(k){ _ofUI.info=(_ofUI.info===k?'':k); renderIntegracoes(); }
+function ofValidar(){ const ta=document.getElementById('of-mock-json'); const raw=ta?ta.value:''; _ofUI.preview=null; _ofUI.err='';
+  let parsed; try{ parsed=JSON.parse(raw); }catch(e){ _ofUI.err='JSON inválido: '+(e.message||'erro de parse'); renderIntegracoes(); return; }
+  const arr=_payloadToArray(parsed); if(!arr||!arr.length){ _ofUI.err='Esperado um array (ou objeto com "data"/"items") não-vazio.'; renderIntegracoes(); return; }
+  if(!arr.every(r=>r&&typeof r==='object'&&!Array.isArray(r))){ _ofUI.err='Cada item do array deve ser um objeto.'; renderIntegracoes(); return; }
+  _ofUI.preview={ tipo:_ofUI.tipo, raw:arr, norm:arr.slice(0,50).map(r=>_normOF(_ofUI.tipo,r)), total:arr.length }; renderIntegracoes(); }
+async function ofConfirmar(){ if(!_ofUI.preview) return; const {tipo,raw,total}=_ofUI.preview;
+  if(!await uiConfirm(`Importar <strong>${total}</strong> registro(s) de <strong>${escapeHTML(OF_TIPOS[tipo]||tipo)}</strong> para os dados locais Open Finance? Nada será enviado a servidores e nenhum lançamento definitivo é criado em Finanças sem sua confirmação.`,{icon:'🏦',okText:'Importar'})) return;
+  const r=OpenFinanceService.importMockPayload(tipo, raw); _ofUI.preview=null; _ofUI.open=false; scheduleAutoSave(); renderIntegracoes();
+  toast(r.ok?`Open Finance: ${r.data.adicionados} importado(s)`:'Falha na importação', r.ok, '🏦'); }
+async function ofLimparDados(){ if(!await uiConfirm('Limpar <strong>todos</strong> os dados Open Finance importados localmente? Configuração e consentimento são preservados.',{icon:'🧹',okText:'Limpar'})) return;
+  const o=_of(); ['contas','saldos','transacoes','cartoes','faturas','investimentos','creditos'].forEach(k=>o[k]=[]); _ofRecalcResumo(); _ofLog('limpeza','manual','Dados Open Finance importados limpos'); scheduleAutoSave(); renderIntegracoes(); toast('Dados Open Finance limpos',true,'🧹'); }
+async function ofRevogarConsent(){ if(!await uiConfirm('Marcar o consentimento Open Finance como <strong>revogado</strong> (controle local)? A revogação real exige fluxo seguro/provedor.',{icon:'🚫',okText:'Marcar revogado'})) return;
+  OpenFinanceService.revokeLocalConsent(); scheduleAutoSave(); renderIntegracoes(); toast('Consentimento Open Finance: revogado (local)',true,'🚫'); }
+function ofSimularSync(){ const r=OpenFinanceService.syncTransactions(); scheduleAutoSave(); renderIntegracoes();
+  uiConfirm(`<strong>Simulação de sincronização Open Finance</strong><br><br>${escapeHTML(r.error||'')}<br><br>O consentimento real ocorre via fluxo seguro autorizado; este app não coleta senha bancária nem faz scraping, e tokens nunca ficam no frontend.`,{icon:'🏦',okText:'Entendi',cancelText:''}); }
+function ofAtualizarStatus(){ _ofRecalcResumo(); scheduleAutoSave(); renderIntegracoes(); const r=OpenFinanceService.status(); toast('Status Open Finance atualizado: '+(r.data.sincronizacao||''),true,'🔄'); }
+
+// ── Render: roadmap visual ──
+function _roadmapVisual(etapaAtiva){
+  const etapas=['Documentação recebida','Arquitetura preparada','Ambiente de testes / certificação','Backend seguro','Consentimento real','Produção'];
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${etapas.map((e,i)=>{
+    const done=i<=etapaAtiva; return `<span style="font-size:10px;padding:3px 8px;border-radius:20px;background:${done?'var(--brand)':'var(--card3)'};color:${done?'#001':'var(--text3)'};font-weight:${done?'700':'500'}">${i+1}. ${escapeHTML(e)}</span>`;
+  }).join('<span style="color:var(--text3);align-self:center">›</span>')}</div>`;
+}
+function _avisosBox(avisos){ return `<div style="background:var(--card3);border-radius:var(--r10);padding:9px 12px;margin-top:10px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:5px">⚠️ Avisos</div><ul style="margin:0;padding-left:16px;font-size:11px;color:var(--text2);line-height:1.6">${avisos.map(a=>`<li>${escapeHTML(a)}</li>`).join('')}</ul></div>`; }
+function _kv(k,v,cor){ return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0"><span style="color:var(--text3)">${escapeHTML(k)}</span><strong style="color:${cor||'var(--text)'}">${escapeHTML(String(v))}</strong></div>`; }
+
+function _previewTable(norm,total,tipo){
+  if(!norm||!norm.length) return '';
+  const cols=Object.keys(norm[0]).filter(k=>!k.startsWith('_')).slice(0,6);
+  const head=cols.map(c=>`<th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text3);text-transform:uppercase">${escapeHTML(c)}</th>`).join('');
+  const rows=norm.slice(0,8).map(r=>`<tr>${cols.map(c=>{ let v=r[c]; if(typeof v==='number') v=String(v); return `<td style="padding:4px 8px;font-size:11px;border-top:1px solid var(--border)">${escapeHTML(String(v||''))}</td>`; }).join('')}</tr>`).join('');
+  return `<div style="margin-top:10px;overflow-x:auto"><div style="font-size:11px;color:var(--text2);margin-bottom:6px">Pré-visualização (${Math.min(8,norm.length)} de ${total}) — origem marcada, valores/datas normalizados, textos escapados:</div>
+    <table style="width:100%;border-collapse:collapse"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function _b3InfoBlock(){
+  if(_b3UI.info==='req') return `<div style="background:var(--card3);border-radius:var(--r10);padding:12px;margin-top:10px;font-size:11.5px;line-height:1.7;color:var(--text2)">
+    <strong>Requisitos B3 (Área Logada do Investidor)</strong><ul style="margin:6px 0 0;padding-left:18px">
+    <li>Consentimento/autorização do investidor (na Área Logada da B3).</li><li>Licenciamento/contratação B3 — apenas pessoa jurídica.</li>
+    <li>Início pela API <em>Pacote de Acesso</em>; acesso via portal B3 For Developers.</li><li>Self-assessment de governança, proteção de dados e segurança.</li>
+    <li>Tarifação por investidor autorizado; dados em D-1; API Guia para racionalizar chamadas.</li><li>Backend seguro para tokens/certificados — nunca no frontend.</li></ul></div>`;
+  if(_b3UI.info==='arch') return `<div style="background:var(--card3);border-radius:var(--r10);padding:12px;margin-top:10px;font-size:11.5px;line-height:1.7;color:var(--text2)">
+    <strong>Arquitetura B3 (futura)</strong><ul style="margin:6px 0 0;padding-left:18px">
+    <li>Frontend chama apenas endpoints internos do backend (ex.: <code>POST /b3/sync-guide</code>).</li>
+    <li>Backend (Cloudflare Worker / Cloud Functions) guarda segredos, faz auth B3, consulta API Guia antes de Position/Movement, trata D-1, consentimento e rate limit.</li>
+    <li>Dados originais ficam em <code>D.b3</code> (userData/{uid}); derivados para carteira só com confirmação.</li></ul>
+    <div style="margin-top:6px">APIs: Pacote de Acesso · API Guia · Position · Movement · PublicOffers · Collateral · ProvisionedEvents · Negociação.</div></div>`;
+  return '';
+}
+function _ofInfoBlock(){
+  if(_ofUI.info==='req') return `<div style="background:var(--card3);border-radius:var(--r10);padding:12px;margin-top:10px;font-size:11.5px;line-height:1.7;color:var(--text2)">
+    <strong>Requisitos Open Finance Brasil</strong><ul style="margin:6px 0 0;padding-left:18px">
+    <li>Fluxo seguro de consentimento + autenticação/autorização adequadas.</li><li>Provedor autorizado; backend seguro (OAuth/mTLS).</li>
+    <li>O app não pede senha de banco e não faz scraping.</li><li>Usuário entende quais dados serão acessados e o status do consentimento.</li>
+    <li>Tokens/certificados nunca no frontend; logs sem dados sensíveis.</li></ul></div>`;
+  if(_ofUI.info==='arch') return `<div style="background:var(--card3);border-radius:var(--r10);padding:12px;margin-top:10px;font-size:11.5px;line-height:1.7;color:var(--text2)">
+    <strong>Arquitetura Open Finance (futura)</strong><ul style="margin:6px 0 0;padding-left:18px">
+    <li>Backend/provedor trata autorização, troca/renovação/revogação/expiração de tokens, erros e rate limits.</li>
+    <li>Frontend chama apenas endpoints internos (ex.: <code>POST /open-finance/sync-transactions</code>).</li>
+    <li>Dados originais em <code>D.openFinance</code> (userData/{uid}); lançamentos em Finanças só com preview + confirmação.</li></ul></div>`;
+  return '';
+}
+
+// ── Painel B3 ──
+function renderB3Panel(){
+  const c=_b3cfg(), b=_b3(); const st=B3Service.status().data;
+  const cs=(c.consentimento&&c.consentimento.status)||'nao_iniciado'; const cl=CONSENT_LABELS[cs]||CONSENT_LABELS.nao_iniciado;
+  const tem=(b.posicoes.length+b.movimentacoes.length+b.garantias.length+b.eventosProvisionados.length+b.ofertasPublicas.length+b.negociacoes.length)>0;
+  const importBox=_b3UI.open?`<div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r12);padding:13px;margin-top:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <select onchange="b3SetTipo(this.value)" style="height:32px;font-size:12px">${Object.entries(B3_TIPOS).map(([k,v])=>`<option value="${attr(k)}"${k===_b3UI.tipo?' selected':''}>${escapeHTML(v)}</option>`).join('')}</select>
+      <span style="font-size:11px;color:var(--text3)">Cole um JSON de teste (array de objetos). Processado localmente.</span></div>
+    <textarea id="b3-mock-json" rows="5" style="width:100%;font-family:var(--font-mono);font-size:11px;resize:vertical" placeholder='[ { "ativo": "PETR4", "quantidade": 100, "valor": 3850.00, "instituicao": "Corretora X", "dataReferencia": "2026-06-23" } ]'></textarea>
+    ${_b3UI.err?`<div style="color:var(--neg);font-size:11px;margin-top:6px">⚠️ ${escapeHTML(_b3UI.err)}</div>`:''}
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-pri" style="height:32px;font-size:12px" onclick="b3Validar()">🔍 Validar & pré-visualizar</button>
+      ${_b3UI.preview?`<button class="btn btn-pos" style="height:32px;font-size:12px" onclick="b3Confirmar()">✓ Confirmar importação (${_b3UI.preview.total})</button>`:''}</div>
+    ${_b3UI.preview?_previewTable(_b3UI.preview.norm,_b3UI.preview.total,_b3UI.preview.tipo):''}
+  </div>`:'';
+  return `<div class="panel mb"><div class="panel-head"><span class="panel-title">🏛️ B3 — Área do Investidor</span>
+    <span class="badge" style="background:var(--card3);color:${cl.cor};font-size:11px">consentimento: ${escapeHTML(cl.label)}</span></div>
+    <div style="padding:14px 16px">
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">Integração com a Área Logada do Investidor: depende de consentimento do investidor, licenciamento/contratação B3 e <strong>pacote de acesso</strong>, com <strong>backend seguro</strong>. Não pode ser feita com segurança apenas no GitHub Pages. Hoje o app suporta planejamento, importação manual/mock, estrutura local e o futuro backend.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 18px">
+        ${_kv('Status', c.status||'—')}${_kv('Sincronização', st.sincronizacao||'—', st.sincronizacao==='atualizado'?'var(--pos)':'var(--warn)')}
+        ${_kv('Ambiente', c.ambiente||'nenhum')}${_kv('Fonte', c.fonte||'manual')}
+        ${_kv('Última sincronização', c.ultimaSincronizacao?new Date(c.ultimaSincronizacao).toLocaleString('pt-BR'):'—')}${_kv('Referência (D-1)', c.ultimaReferenciaD1||'—')}
+        ${_kv('Posições', (c.resumo&&c.resumo.posicoes)||0)}${_kv('Movimentações', (c.resumo&&c.resumo.movimentacoes)||0)}
+        ${_kv('Garantias', (c.resumo&&c.resumo.garantias)||0)}${_kv('Negociações', (c.resumo&&c.resumo.negociacoes)||0)}
+      </div>
+      ${_avisosBox(B3_AVISOS)}
+      ${_roadmapVisual(1)}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3Info('req')">📋 Ver requisitos</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3Info('arch')">🧭 Ver arquitetura</button>
+        <button class="btn ${_b3UI.open?'btn-pri':'btn-ghost'}" style="height:32px;font-size:12px" onclick="b3ToggleImport()">📥 Importar JSON de teste</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3SimularSync()">🔄 Simular sincronização</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3AtualizarStatus()">♻️ Atualizar status</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3RevogarConsent()">🚫 Consentimento revogado</button>
+        ${tem?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3LimparDados()">🧹 Limpar dados importados</button>`:''}
+      </div>
+      ${_b3InfoBlock()}
+      ${importBox}
+    </div></div>`;
+}
+
+// ── Painel Open Finance ──
+function renderOFPanel(){
+  const c=_ofcfg(), o=_of(); const st=OpenFinanceService.status().data;
+  const cs=(c.consentimento&&c.consentimento.status)||'nao_iniciado'; const cl=CONSENT_LABELS[cs]||CONSENT_LABELS.nao_iniciado;
+  const tem=(o.contas.length+o.saldos.length+o.transacoes.length+o.cartoes.length+o.faturas.length+o.investimentos.length+o.creditos.length)>0;
+  const escopos=(c.consentimento&&c.consentimento.escopos)||[];
+  const importBox=_ofUI.open?`<div style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r12);padding:13px;margin-top:12px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <select onchange="ofSetTipo(this.value)" style="height:32px;font-size:12px">${Object.entries(OF_TIPOS).map(([k,v])=>`<option value="${attr(k)}"${k===_ofUI.tipo?' selected':''}>${escapeHTML(v)}</option>`).join('')}</select>
+      <span style="font-size:11px;color:var(--text3)">Cole um JSON de teste (array de objetos). Processado localmente.</span></div>
+    <textarea id="of-mock-json" rows="5" style="width:100%;font-family:var(--font-mono);font-size:11px;resize:vertical" placeholder='[ { "conta": "0001-2", "instituicao": "Banco X", "tipo": "corrente", "saldo": 2540.75, "moeda": "BRL", "dataReferencia": "2026-06-23" } ]'></textarea>
+    ${_ofUI.err?`<div style="color:var(--neg);font-size:11px;margin-top:6px">⚠️ ${escapeHTML(_ofUI.err)}</div>`:''}
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-pri" style="height:32px;font-size:12px" onclick="ofValidar()">🔍 Validar & pré-visualizar</button>
+      ${_ofUI.preview?`<button class="btn btn-pos" style="height:32px;font-size:12px" onclick="ofConfirmar()">✓ Confirmar importação (${_ofUI.preview.total})</button>`:''}</div>
+    ${_ofUI.preview?_previewTable(_ofUI.preview.norm,_ofUI.preview.total,_ofUI.preview.tipo):''}
+  </div>`:'';
+  return `<div class="panel mb"><div class="panel-head"><span class="panel-title">🏦 Open Banking / Open Finance</span>
+    <span class="badge" style="background:var(--card3);color:${cl.cor};font-size:11px">consentimento: ${escapeHTML(cl.label)}</span></div>
+    <div style="padding:14px 16px">
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">Integração real exige <strong>consentimento</strong> e <strong>backend seguro</strong> com provedor autorizado — não é possível apenas com frontend estático. O app <strong>não coleta senha bancária</strong> e <strong>não faz scraping</strong>. Hoje suporta planejamento, importação manual/mock, estrutura local e o futuro backend/provedor.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 18px">
+        ${_kv('Status', c.status||'—')}${_kv('Sincronização', st.sincronizacao||'—', st.sincronizacao==='atualizado'?'var(--pos)':'var(--warn)')}
+        ${_kv('Ambiente', c.ambiente||'nenhum')}${_kv('Fonte', c.fonte||'manual')}
+        ${_kv('Instituição', (c.consentimento&&c.consentimento.instituicao)||'—')}${_kv('Última sincronização', c.ultimaSincronizacao?new Date(c.ultimaSincronizacao).toLocaleString('pt-BR'):'—')}
+        ${_kv('Contas', (c.resumo&&c.resumo.contas)||0)}${_kv('Transações', (c.resumo&&c.resumo.transacoes)||0)}
+        ${_kv('Cartões', (c.resumo&&c.resumo.cartoes)||0)}${_kv('Faturas', (c.resumo&&c.resumo.faturas)||0)}
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">Escopos autorizados localmente: ${escopos.length?escapeHTML(escopos.join(', ')):'—'}</div>
+      ${_avisosBox(OF_AVISOS)}
+      ${_roadmapVisual(1)}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="ofInfo('req')">📋 Ver requisitos</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="ofInfo('arch')">🧭 Ver arquitetura</button>
+        <button class="btn ${_ofUI.open?'btn-pri':'btn-ghost'}" style="height:32px;font-size:12px" onclick="ofToggleImport()">📥 Importar JSON de teste</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="ofSimularSync()">🔄 Simular sincronização</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="ofAtualizarStatus()">♻️ Atualizar status</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="ofRevogarConsent()">🚫 Consentimento revogado</button>
+        ${tem?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="ofLimparDados()">🧹 Limpar dados importados</button>`:''}
+      </div>
+      ${_ofInfoBlock()}
+      ${importBox}
+    </div></div>`;
+}
+
+// ── Seção de relatório (B3/OF importados/simulados) ──
+function relSecB3OF(){
+  const b=_b3(), o=_of();
+  const b3n=b.posicoes.length+b.movimentacoes.length, ofn=o.contas.length+o.transacoes.length+o.cartoes.length+o.faturas.length;
+  if(b3n+ofn===0) return '';
+  let html='';
+  if(b3n>0){ const c=_b3cfg();
+    html+=_relSection('Dados B3 (importados/simulados)', _relKpis([
+      {label:'Posições',val:String(b.posicoes.length)},{label:'Movimentações',val:String(b.movimentacoes.length)},
+      {label:'Referência D-1',val:c.ultimaReferenciaD1||'—'},{label:'Fonte',val:(c.fonte||'manual')+' / mock'},
+    ])+`<div style="font-size:11px;color:var(--text3);margin-top:6px">⚠️ Dados importados/simulados — não refletem integração B3 real.</div>`); }
+  if(ofn>0){ const c=_ofcfg();
+    html+=_relSection('Dados Open Finance (importados/simulados)', _relKpis([
+      {label:'Contas',val:String(o.contas.length)},{label:'Transações',val:String(o.transacoes.length)},
+      {label:'Cartões',val:String(o.cartoes.length)},{label:'Faturas',val:String(o.faturas.length)},
+    ])+`<div style="font-size:11px;color:var(--text3);margin-top:6px">⚠️ Dados importados/simulados — não refletem integração Open Finance real.</div>`); }
+  return html;
+}
+
+// ═══════════════════════════════════════════════════
 //  🏷️ CATEGORIAS EDITÁVEIS (Onda 2)
 // ═══════════════════════════════════════════════════
 function _resolveCor(cor){
@@ -9287,7 +9678,9 @@ async function importarBackupJSON(input) {
       `🛍️ ${((data.hobbies&&data.hobbies.itens)||[]).length} desejos · 🏦 fundo ${fmt((data.hobbies&&data.hobbies.saldoFundo)||0)}<br>` +
       `💼 ${((data.trabalho&&data.trabalho.projetos)||[]).length} projetos · ✅ ${((data.trabalho&&data.trabalho.tarefas)||[]).length} tarefas · 🏢 ${((data.trabalho&&data.trabalho.clientes)||[]).length} clientes<br>` +
       `🚀 ${((data.carreira&&data.carreira.objetivos)||[]).length} objetivos · 🧠 ${((data.carreira&&data.carreira.competencias)||[]).length} competências · 🎓 ${((data.carreira&&data.carreira.cursos)||[]).length} cursos · 🤝 ${((data.carreira&&data.carreira.networking)||[]).length} contatos · 📜 ${((data.carreira&&data.carreira.experiencias)||[]).length} experiências<br>` +
-      `📦 ${((data.patrimonio&&data.patrimonio.bens)||[]).length} bens · 💳 ${((data.patrimonio&&data.patrimonio.passivos)||[]).length} passivos · 🔧 ${((data.patrimonio&&data.patrimonio.manutencoes)||[]).length} manutenções · 🛡️ ${((data.patrimonio&&data.patrimonio.seguros)||[]).length} seguros · 📄 ${((data.patrimonio&&data.patrimonio.documentos)||[]).length} documentos<br><br>` +
+      `📦 ${((data.patrimonio&&data.patrimonio.bens)||[]).length} bens · 💳 ${((data.patrimonio&&data.patrimonio.passivos)||[]).length} passivos · 🔧 ${((data.patrimonio&&data.patrimonio.manutencoes)||[]).length} manutenções · 🛡️ ${((data.patrimonio&&data.patrimonio.seguros)||[]).length} seguros · 📄 ${((data.patrimonio&&data.patrimonio.documentos)||[]).length} documentos<br>` +
+      `🏛️ B3: ${((data.b3&&data.b3.posicoes)||[]).length} posições · ${((data.b3&&data.b3.movimentacoes)||[]).length} movimentações · ${((data.b3&&data.b3.garantias)||[]).length} garantias · ${((data.b3&&data.b3.eventosProvisionados)||[]).length} eventos · ${((data.b3&&data.b3.negociacoes)||[]).length} negociações · consent: ${(data.integracoes&&data.integracoes.b3&&data.integracoes.b3.consentimento&&data.integracoes.b3.consentimento.status)||'—'}<br>` +
+      `🏦 Open Finance: ${((data.openFinance&&data.openFinance.contas)||[]).length} contas · ${((data.openFinance&&data.openFinance.transacoes)||[]).length} transações · ${((data.openFinance&&data.openFinance.cartoes)||[]).length} cartões · ${((data.openFinance&&data.openFinance.faturas)||[]).length} faturas · consent: ${(data.integracoes&&data.integracoes.openFinance&&data.integracoes.openFinance.consentimento&&data.integracoes.openFinance.consentimento.status)||'—'}<br><br>` +
       `⚠️ Seus dados atuais serão <strong>substituídos</strong>.`,
       {icon:'📤', okText:'Restaurar'}
     );

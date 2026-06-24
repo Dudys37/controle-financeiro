@@ -33,6 +33,7 @@ $FILES = @(
     @{ local = "index.html"; remote = "index.html" },
     @{ local = "app.html";   remote = "app.html" },
     @{ local = "app.js";     remote = "app.js" },
+    @{ local = "utils.js";   remote = "utils.js" },
     @{ local = "README.md";  remote = "README.md" }
 )
 

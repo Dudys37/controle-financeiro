@@ -176,6 +176,95 @@ node --check app.js
 node tests/smoke-core.js     # carrega utils.js + app.js e valida helpers + integração
 ```
 
+## 9.1. Fase 12.1 — correções técnicas (pós-modularização)
+
+Antes da arquitetura regulada, foram corrigidos bloqueios: `deploy.ps1` agora publica
+`utils.js` (sem ele o app quebra em produção); `tests/smoke-core.js` usa `path.join(__dirname,'..')`
+coerente com a pasta `tests/`; **Firestore Rules** ajustadas para cadastro público seguro
+(`users/{uid}`: `create` por dono com `role:'user'` e apenas os 5 campos esperados, ou por
+admin; `read` dono/admin; `update/delete` só admin; `private/**` só dono; bloqueio final
+`if false` preservado) — corrige o cadastro sem abrir brecha de escalonamento de privilégio;
+`toast` passou de `innerHTML` para `textContent`; e os `innerHTML` de perfil (e-mail/UID) agora
+usam `escapeHTML`. `auth.js` permanece neutralizado, fora do deploy e do `.gitignore` (recomendado
+`git rm auth.js`). A modularização é **inicial** — `utils.js` é a primeira extração; próximas
+recomendadas: constantes, relatórios, integrações, navegação/sidebar e módulos por domínio.
+
+## 9.2. Integrações reguladas B3 + Open Finance (Fase 13 — arquitetura/mock)
+
+> ⚠️ **Não há integração real.** Sem backend, OAuth, mTLS, tokens, certificados, pacote de
+> acesso, CPF, senha ou chamada real. Esta fase entrega **estrutura local, importação manual
+> de JSON de teste, consentimento documental e stubs** que retornam `mode:'backend_required'`.
+
+**O que os manuais B3 indicam** (considerado na arquitetura): integração pela Área Logada do
+Investidor; o investidor concede **consentimento** (e pode revogar na Área Logada da B3); o
+licenciado recebe dados mediante autorização; APIs **Pacote de Acesso, API Guia, Position,
+Movement, PublicOffers, Collateral, ProvisionedEvents e Negociação**; dados em **D-1**; a
+**API Guia** racionaliza chamadas (não consultar o mesmo investidor várias vezes ao dia);
+certificação inicia no **B3 For Developers** pela API Pacote de Acesso; produção exige
+**contratação (apenas pessoa jurídica)**, **self-assessment** de governança/segurança e há
+**tarifação por investidor autorizado**; o app **não armazena credenciais** nem pede CPF/senha B3.
+
+**O que o manual Open Finance indica**: integração real exige **fluxo seguro de consentimento**,
+autenticação/autorização adequadas e **provedor autorizado**; o frontend estático **não pode**
+guardar tokens/secrets/certificados; o app **não pede senha bancária** e **não faz scraping**; o
+usuário precisa entender quais dados serão acessados e ver o status do consentimento; o backend
+futuro trata autorização, troca/renovação/revogação/expiração de tokens, erros, rate limits e
+logs sem dados sensíveis.
+
+**Por que não é frontend-only / por que precisa backend seguro:** tokens, client secrets,
+certificados e mTLS jamais podem residir no GitHub Pages; consentimento e tarifação exigem
+governança; logs não podem conter dados sensíveis. Por isso os serviços são **stubs** e a
+sincronização real é deliberadamente bloqueada (`backend_required`).
+
+**Estruturas locais (em `userData/{uid}`, nunca em `systemConfig`, nunca tokens):**
+- `D.integracoes.b3` = `{ status, modo, ambiente, ultimaSincronizacao, ultimaReferenciaD1, fonte, consentimento{status,dataAutorizacao,dataRevogacao,dataExpiracao,identificadorInterno}, resumo{posicoes,movimentacoes,garantias,eventosProvisionados,ofertasPublicas,negociacoes}, observacoes }`.
+- `D.b3` = `{ posicoes, movimentacoes, garantias, eventosProvisionados, ofertasPublicas, negociacoes, logsSincronizacao }` (dados importados/mock).
+- `D.integracoes.openFinance` = `{ status, modo, ambiente, ultimaSincronizacao, fonte, consentimento{status,dataAutorizacao,dataRevogacao,dataExpiracao,escopos[],instituicao,identificadorInterno}, resumo{contas,saldos,transacoes,cartoes,faturas,investimentos,creditos}, observacoes }`.
+- `D.openFinance` = `{ contas, saldos, transacoes, cartoes, faturas, investimentos, creditos, logsSincronizacao }`.
+
+**Camadas de serviço (`b3of_mod.js`):** `B3Service` (`status`, `syncGuide`, `syncPositions`,
+`syncMovements`, `importMockPayload`, `mapPositionToInvestment`, `mapMovementToTransaction`) e
+`OpenFinanceService` (`status`, `startConsentStub`, `revokeLocalConsent`, `syncAccounts`,
+`syncBalances`, `syncTransactions`, `syncCreditCards`, `importMockPayload`, `mapAccountToFinance`,
+`mapTransactionToEntryOrExpense`, `mapCreditCardToCard`). Retorno padronizado
+`{ ok, provider, mode('mock'|'manual'|'backend_required'|'api'), source, updatedAt, referenceDate, data, error }`.
+Toda sincronização real retorna `backend_required` com mensagem explicativa.
+
+**Consentimento (local/documental):** estados `nao_iniciado | pendente | autorizado | revogado |
+expirado | erro | backend_necessario`. O app só reflete status; **não** realiza nem cancela
+consentimento real (isso ocorre na Área Logada da B3 / fluxo Open Finance autorizado).
+
+**D-1 / API Guia (conceitual):** `B3Service.status()` deriva `atualizado | desatualizado |
+aguardando_D1 | consentimento_ausente | consentimento_revogado | backend_necessario`; a referência
+D-1 é gravada em `ultimaReferenciaD1`. A lógica de "uma sincronização por dia, Guia primeiro" é
+conceitual — sem chamada real.
+
+**Importação mock JSON:** o usuário escolhe o tipo, cola um array JSON, o app valida formato
+mínimo, **pré-visualiza** (textos escapados, números/datas normalizados, origem marcada), e só
+então confirma a gravação em `D.b3`/`D.openFinance` com dedupe. **Nada é enviado a servidores** e
+**nenhum dado é commitado em carteira/finanças automaticamente** — apenas sugestões/mapeamento.
+
+**Backend futuro (Cloudflare Worker / Cloud Functions):** guarda segredos/certificados/tokens
+fora do frontend; autentica o usuário e valida ownership por `uid`; consulta a **API Guia** antes
+de Position/Movement; trata D-1, consentimento revogado/expirado e rate limit; loga sem dados
+sensíveis; e **nunca** retorna segredos. Contratos previstos:
+
+```
+GET  /integrations/status
+GET  /b3/status          POST /b3/sync-guide   POST /b3/sync-positions
+POST /b3/sync-movements  POST /b3/import-mock  POST /b3/revoke-local
+GET  /open-finance/status        POST /open-finance/start-consent
+POST /open-finance/sync-accounts POST /open-finance/sync-transactions
+POST /open-finance/sync-credit-cards POST /open-finance/sync-investments
+POST /open-finance/import-mock   POST /open-finance/revoke-local
+```
+
+Resposta backend esperada (futuro): `{ ok, provider, source, updatedAt, stale, data, error }`.
+
+**Ainda depende de terceiros:** B3 → contratação/licenciamento (PJ), pacote de acesso,
+self-assessment e certificação no B3 For Developers. Open Finance → provedor autorizado,
+backend seguro com OAuth/mTLS e fluxo de consentimento.
+
 ## 10. Limitações atuais / dívida técnica remanescente
 
 - `app.js` ainda é grande (~9,4k linhas); a modularização é incremental e seguirá o roadmap acima.

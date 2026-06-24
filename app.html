@@ -1991,7 +1991,7 @@ let _user=null,_role=null,_userDoc=null,_resetUid='',_resetEmail='';
 /* ── Toast ── */
 function toast(msg,ok=true){
   const t=document.getElementById('toast');if(!t)return;
-  t.innerHTML=(ok?'✓':'✕')+' '+msg;
+  t.textContent=(ok?'✓ ':'✕ ')+msg;
   t.className='show '+(ok?'ok':'err');
   clearTimeout(t._tid);
   t._tid=setTimeout(()=>t.className='',3500);
@@ -2066,8 +2066,8 @@ window._renderPerfil=function(){
   // Stats (coluna esquerda, dentro do painel resumo)
   const ps=document.getElementById('perfil-stats');
   if(ps)ps.innerHTML=[
-    {l:'UID',v:`<span style="font-size:10px;font-family:var(--font-mono);color:var(--text2)">${_user.uid.slice(0,16)}...</span>`},
-    {l:'E-mail',v:email},
+    {l:'UID',v:`<span style="font-size:10px;font-family:var(--font-mono);color:var(--text2)">${escapeHTML(_user.uid.slice(0,16))}...</span>`},
+    {l:'E-mail',v:escapeHTML(email)},
     {l:'Entradas',v:`${D.entradas.filter(e=>e.ativo).length} fontes ativas`},
     {l:'Meses planejados',v:`${getActiveMeses().length} meses`},
     {l:'Ativos na carteira',v:`${D.ativos.length} itens`},
