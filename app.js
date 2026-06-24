@@ -103,7 +103,8 @@ const DEFAULT = {
   decisoes: [],
   integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} },
   trabalho: { projetos:[], tarefas:[], clientes:[] },
-  carreira: { objetivos:[], competencias:[], cursos:[], networking:[], experiencias:[], planosRenda:[] }
+  carreira: { objetivos:[], competencias:[], cursos:[], networking:[], experiencias:[], planosRenda:[] },
+  patrimonio: { bens:[], passivos:[], manutencoes:[], seguros:[], documentos:[] }
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -124,7 +125,8 @@ const BLANK = {
   decisoes: [],
   integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} },
   trabalho: { projetos:[], tarefas:[], clientes:[] },
-  carreira: { objetivos:[], competencias:[], cursos:[], networking:[], experiencias:[], planosRenda:[] }
+  carreira: { objetivos:[], competencias:[], cursos:[], networking:[], experiencias:[], planosRenda:[] },
+  patrimonio: { bens:[], passivos:[], manutencoes:[], seguros:[], documentos:[] }
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -348,6 +350,7 @@ function migrateData(d) {
     if(!m.prioridade) m.prioridade = 'media';
     if(!m.unidade) m.unidade = 'dinheiro';             // metas antigas são financeiras
     if(m.progressoManual===undefined) m.progressoManual = null;
+    if(m.relacionadaABemId==null) m.relacionadaABemId = '';
     if(!m.impactoFinanceiro) m.impactoFinanceiro = 'medio';
     if(m.descricao==null) m.descricao = '';
     if(m.proximosPassos==null) m.proximosPassos = '';
@@ -438,6 +441,34 @@ function migrateData(d) {
     if(!p.status) p.status='planejado';
     if(p.ativo==null) p.ativo=true; if(!p.dataCriacao) p.dataCriacao=_cag(); if(p.dataAtualizacao==null) p.dataAtualizacao=p.dataCriacao; });
 
+  // ── Patrimônio & Bens (Fase 11) — isolado por uid ──
+  if(typeof d.patrimonio!=='object' || d.patrimonio===null) d.patrimonio={};
+  ['bens','passivos','manutencoes','seguros','documentos'].forEach(k=>{ if(!Array.isArray(d.patrimonio[k])) d.patrimonio[k]=[]; });
+  d.patrimonio.bens.forEach(b=>{ if(!b.id) b.id='bem_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['nome','descricao','tipo','dataAquisicao','localizacao','lojaOrigem','notaFiscalUrl','documentoUrl','garantiaAte','seguroId','relacionadaACompraId','relacionadaAMetaId','relacionadaADecisaoId','observacoes'].forEach(k=>{ if(b[k]==null) b[k]=''; });
+    if(!b.categoria) b.categoria='equipamento'; if(!b.status) b.status='ativo'; if(!b.prioridade) b.prioridade='media'; if(!b.metodoValor) b.metodoValor='manual';
+    ['valorCompra','valorAtual','valorEstimado','depreciacaoAnualPct','vidaUtilAnos'].forEach(k=>{ if(b[k]==null||isNaN(b[k])) b[k]=0; });
+    if(b.ativo==null) b.ativo=true; if(!b.dataCriacao) b.dataCriacao=_cag(); if(b.dataAtualizacao==null) b.dataAtualizacao=b.dataCriacao; });
+  d.patrimonio.passivos.forEach(p=>{ if(!p.id) p.id='pas_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['nome','descricao','bemId','inicio','fimPrevisto','credor','observacoes'].forEach(k=>{ if(p[k]==null) p[k]=''; });
+    if(!p.tipo) p.tipo='financiamento'; if(!p.status) p.status='ativo';
+    ['valorOriginal','saldoDevedor','parcelaMensal','taxaJuros'].forEach(k=>{ if(p[k]==null||isNaN(p[k])) p[k]=0; });
+    if(p.ativo==null) p.ativo=true; if(!p.dataCriacao) p.dataCriacao=_cag(); if(p.dataAtualizacao==null) p.dataAtualizacao=p.dataCriacao; });
+  d.patrimonio.manutencoes.forEach(m=>{ if(!m.id) m.id='man_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['bemId','titulo','descricao','dataPrevista','dataRealizada','fornecedor','link','observacoes'].forEach(k=>{ if(m[k]==null) m[k]=''; });
+    if(!m.tipo) m.tipo='preventiva'; if(!m.status) m.status='planejada';
+    ['custoEstimado','custoReal'].forEach(k=>{ if(m[k]==null||isNaN(m[k])) m[k]=0; });
+    if(m.ativa==null) m.ativa=true; if(!m.dataCriacao) m.dataCriacao=_cag(); if(m.dataAtualizacao==null) m.dataAtualizacao=m.dataCriacao; });
+  d.patrimonio.seguros.forEach(s=>{ if(!s.id) s.id='seg_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['nome','bemId','seguradora','apolice','inicio','vencimento','documentoUrl','observacoes'].forEach(k=>{ if(s[k]==null) s[k]=''; });
+    if(!s.tipo) s.tipo='bem'; if(!s.status) s.status='ativo';
+    ['valorCobertura','custoMensal','custoAnual'].forEach(k=>{ if(s[k]==null||isNaN(s[k])) s[k]=0; });
+    if(s.ativo==null) s.ativo=true; if(!s.dataCriacao) s.dataCriacao=_cag(); if(s.dataAtualizacao==null) s.dataAtualizacao=s.dataCriacao; });
+  d.patrimonio.documentos.forEach(doc=>{ if(!doc.id) doc.id='doc_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['titulo','bemId','url','emissor','dataDocumento','vencimento','observacoes'].forEach(k=>{ if(doc[k]==null) doc[k]=''; });
+    if(!doc.tipo) doc.tipo='nota_fiscal'; if(doc.ativo==null) doc.ativo=true;
+    if(!doc.dataCriacao) doc.dataCriacao=_cag(); if(doc.dataAtualizacao==null) doc.dataAtualizacao=doc.dataCriacao; });
+
   // ── Módulo de Decisões (primeiro módulo fora de finanças) ──
   if(!Array.isArray(d.decisoes)) d.decisoes = [];
   d.decisoes.forEach(dec=>{
@@ -455,7 +486,7 @@ function migrateData(d) {
     if(!dec.recorrencia) dec.recorrencia = 'nenhuma';
     if(dec.valorRecorrente==null || isNaN(dec.valorRecorrente)) dec.valorRecorrente = 0;
     ['impactoFinanceiro','impactoProfissional','impactoPessoal','impactoLazer'].forEach(k=>{ if(!dec[k]) dec[k]='medio'; });
-    ['beneficios','riscos','alternativas','decisaoFinal','observacoes','relacionadaACompraId','relacionadaAMetaId','relacionadaAProjetoId','relacionadaACarreiraId'].forEach(k=>{ if(dec[k]==null) dec[k]=''; });
+    ['beneficios','riscos','alternativas','decisaoFinal','observacoes','relacionadaACompraId','relacionadaAMetaId','relacionadaAProjetoId','relacionadaACarreiraId','relacionadaABemId'].forEach(k=>{ if(dec[k]==null) dec[k]=''; });
     if(dec.ativa==null) dec.ativa = true;
   });
 
@@ -1073,6 +1104,7 @@ function renderPage(id) {
   if(id==='integracoes'){ if(typeof renderIntegracoes==='function') renderIntegracoes(); return; }
   if(id==='trabalho')   { if(typeof renderTrabalho==='function') renderTrabalho(); return; }
   if(id==='carreira')   { if(typeof renderCarreira==='function') renderCarreira(); return; }
+  if(id==='patrimonio') { if(typeof renderPatrimonio==='function') renderPatrimonio(); return; }
   if(typeof PLACEHOLDER_MODULES==='object' && PLACEHOLDER_MODULES[id]) { if(typeof renderPlaceholder==='function') renderPlaceholder(id); return; }
   // Fast renders — synchronous
   if(id==='dash')      { renderDashboard(); return; }
@@ -4583,6 +4615,7 @@ function renderHobLista(){
           ${!decRel?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDaCompra('${it.id}')">🧭 Criar decisão</button>`:''}
           ${!metaRel?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarMetaDaCompra('${it.id}')">🎯 Criar meta</button>`:''}
           <button class="btn btn-ghost" style="height:32px;font-size:12px" title="Adicionar à Google Agenda" onclick="agendarCompra('${it.id}')">📅 Agendar compra</button>
+          <button class="btn btn-ghost" style="height:32px;font-size:12px" title="Cadastrar como bem patrimonial" onclick="criarBemDaCompra('${it.id}')">📦 Transformar em bem</button>
           <div style="flex:1"></div>
           <button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeItemHobby('${it.id}')">🗑️ Excluir</button>
         </div>
@@ -4981,9 +5014,6 @@ const PLACEHOLDER_MODULES = {
   planejamento: { icon:'🗓️', titulo:'Planejamento Pessoal', section:'Planejamento',
     desc:'Organize objetivos de curto, médio e longo prazo, hábitos, rotinas e revisões semanais/mensais.',
     futuras:['Objetivos por horizonte','Hábitos e rotinas','Checklists semanais/mensais','Revisão de vida'] },
-  patrimonio: { icon:'📦', titulo:'Patrimônio', section:'Patrimônio',
-    desc:'Registre bens, equipamentos, veículos, garantias, notas fiscais e manutenções, com valor estimado e histórico.',
-    futuras:['Bens, veículos e equipamentos','Garantias e notas fiscais','Manutenções e seguros','Histórico de aquisições'] },
   lazer: { icon:'🎮', titulo:'Lazer & Hobbies', section:'Lazer',
     desc:'Acompanhe hobbies, atividades de lazer e qualidade de vida. As aquisições de hobby agora vivem em Compras & Desejos; aqui ficará o acompanhamento de uso, prática e satisfação.',
     futuras:['Registro de hobbies e prática','Tempo dedicado e satisfação','Vínculo com Compras & Desejos','Metas de lazer'] },
@@ -5093,6 +5123,8 @@ function renderGeralDash(){
       sub:(()=>{ try{ const r=trabalhoResumoData(); const parts=[]; if(r.tarefasPendentes) parts.push(`${r.tarefasPendentes} tarefa(s) pendente(s)`); if(r.tarefasAtrasadas) parts.push(`${r.tarefasAtrasadas} atrasada(s)`); if(r.projetosCriticos) parts.push(`${r.projetosCriticos} crítico(s)`); if(r.aguardando) parts.push(`${r.aguardando} aguardando`); if(r.proximaEntrega) parts.push(`próxima entrega: ${r.proximaEntrega.dias===0?'hoje':r.proximaEntrega.dias+'d'}`); return parts.length?escapeHTML(parts.join(' · ')):'Nenhum projeto ativo'; }catch(e){ return 'Organize seus projetos e tarefas'; } })()}),
     _gcard({icon:'🚀', label:'Carreira', valor:(typeof carreiraResumoData==='function'?String(carreiraResumoData().objetivosAtivos):'0'), cor:'#6366f1', page:'carreira',
       sub:(()=>{ try{ const r=carreiraResumoData(); const parts=[]; if(r.maiorGap) parts.push(`maior gap: ${r.maiorGap.skill.nome||''} (${r.maiorGap.gap})`); if(r.cursosAndamento) parts.push(`${r.cursosAndamento} curso(s) em andamento`); if(r.contatosARetomar) parts.push(`${r.contatosARetomar} contato(s) a retomar`); if(r.proximoPrazo) parts.push(`próximo prazo: ${r.proximoPrazo.dias===0?'hoje':r.proximoPrazo.dias+'d'}`); return parts.length?escapeHTML(parts.join(' · ')):'Defina seus objetivos de carreira'; }catch(e){ return 'Planeje sua evolução profissional'; } })()}),
+    _gcard({icon:'📦', label:'Patrimônio líquido', valor:(typeof patrimonioResumoData==='function'?fmt(patrimonioResumoData().liquido):'—'), cor:'#f59e0b', page:'patrimonio',
+      sub:(()=>{ try{ const r=patrimonioResumoData(); const parts=[]; parts.push(`${r.bensAtivos} bem(ns) · bruto ${fmt(r.bruto)}`); if(r.passivosTotal>0) parts.push(`dívidas ${fmt(r.passivosTotal)}`); if(r.garantiasVencendo) parts.push(`${r.garantiasVencendo} garantia(s) vencendo`); if(r.segurosVencendo) parts.push(`${r.segurosVencendo} seguro(s) vencendo`); if(r.manutencoesProximas) parts.push(`${r.manutencoesProximas} manutenção(ões) próxima(s)`); return escapeHTML(parts.join(' · ')); }catch(e){ return 'Cadastre seus bens e dívidas'; } })()}),
   ].join('');
 
   // Alertas
@@ -5121,6 +5153,7 @@ function renderGeralDash(){
     if(tr.projetosCriticos>0) passos.push(`Dar atenção a ${tr.projetosCriticos} projeto(s) crítico(s).`);
   }catch(e){}
   try{ if(typeof carreiraProximosPassos==='function'){ carreiraProximosPassos().slice(0,2).forEach(p=>passos.push(p)); } }catch(e){}
+  try{ const pr=patrimonioResumoData(); if(pr.garantiasVencendo>0) passos.push(`Verificar ${pr.garantiasVencendo} garantia(s) vencendo.`); if(pr.segurosVencendo>0) passos.push(`Renovar/avaliar ${pr.segurosVencendo} seguro(s) vencendo.`); if(pr.manutencoesProximas>0) passos.push(`Agendar ${pr.manutencoesProximas} manutenção(ões) próxima(s).`); }catch(e){}
   if(!passos.length) passos.push('Tudo em dia por aqui. Que tal registrar um novo objetivo ou decisão?');
 
   const passosHtml=`
@@ -5236,7 +5269,7 @@ function addDecisao(){
     custoEstimado:0, recorrencia:'nenhuma', valorRecorrente:0,
     impactoFinanceiro:'medio', impactoProfissional:'baixo', impactoPessoal:'medio', impactoLazer:'baixo',
     beneficios:'', riscos:'', alternativas:'', decisaoFinal:'', observacoes:'',
-    relacionadaACompraId:'', relacionadaAMetaId:'', relacionadaAProjetoId:'', relacionadaACarreiraId:'', ativa:true };
+    relacionadaACompraId:'', relacionadaAMetaId:'', relacionadaAProjetoId:'', relacionadaACarreiraId:'', relacionadaABemId:'', ativa:true };
   _decs().unshift(dec);
   _decExpanded[dec.id]=true;
   if(typeof scheduleAutoSave==='function') scheduleAutoSave();
@@ -5560,6 +5593,7 @@ const _REL_TIPOS = [
   {id:'compras',  label:'Compras & Desejos',   icon:'🛒'},
   {id:'trabalho', label:'Trabalho & Projetos',  icon:'💼'},
   {id:'carreira', label:'Carreira',            icon:'🚀'},
+  {id:'patrimonio',label:'Patrimônio',          icon:'📦'},
   {id:'geral',    label:'Geral da Vida',       icon:'🏠'},
 ];
 const _REL_COMPRA_ST = { desejado:'Desejado', em_analise:'Em análise', adiado:'Adiado', comprado:'Comprado', descartado:'Descartado' };
@@ -5795,6 +5829,7 @@ function relDocGeral(){
     <div>🛒 <strong>Compras &amp; desejos:</strong> ${fmt(cr.totalAberto)} em aberto${cr.proximo?`, próximo: ${escapeHTML(cr.proximo.nome||'')}`:''}.</div>
     ${(()=>{ try{ const tr=trabalhoResumoData(); return `<div>💼 <strong>Trabalho:</strong> ${tr.projetosAtivos} projeto(s) ativo(s), ${tr.tarefasPendentes} tarefa(s) pendente(s)${tr.tarefasAtrasadas?`, ${tr.tarefasAtrasadas} atrasada(s)`:''}${tr.proximaEntrega?`. Próxima entrega: ${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}`:''}.</div>`; }catch(e){ return ''; } })()}
     ${(()=>{ try{ const cr=carreiraResumoData(); return `<div>🚀 <strong>Carreira:</strong> ${cr.objetivosAtivos} objetivo(s) ativo(s)${cr.maiorGap?`, maior gap: ${escapeHTML(cr.maiorGap.skill.nome||'')} (${cr.maiorGap.gap})`:''}${cr.cursosAndamento?`, ${cr.cursosAndamento} curso(s) em andamento`:''}${cr.contatosARetomar?`, ${cr.contatosARetomar} contato(s) a retomar`:''}.</div>`; }catch(e){ return ''; } })()}
+    ${(()=>{ try{ const pr=patrimonioResumoData(); return `<div>📦 <strong>Patrimônio:</strong> líquido ${fmt(pr.liquido)} (bruto ${fmt(pr.bruto)}${pr.passivosTotal>0?`, dívidas ${fmt(pr.passivosTotal)}`:''})${pr.garantiasVencendo?`, ${pr.garantiasVencendo} garantia(s) vencendo`:''}${pr.segurosVencendo?`, ${pr.segurosVencendo} seguro(s) vencendo`:''}.</div>`; }catch(e){ return ''; } })()}
   </div>`);
 
   const alertas=insights.length?_relSection('Alertas importantes',
@@ -5841,6 +5876,7 @@ function renderRelatorioAtivo(){
     else if(_relTipo==='compras'){ html=relDocCompras(); }
     else if(_relTipo==='trabalho'){ html=relDocTrabalho(); }
     else if(_relTipo==='carreira'){ html=relDocCarreira(); }
+    else if(_relTipo==='patrimonio'){ html=relDocPatrimonio(); }
     else if(_relTipo==='geral'){ html=relDocGeral(); }
   }catch(e){ html=_relDoc('Relatório', '', _relEmpty('Não foi possível gerar este relatório com os dados atuais.')); console.error('rel',e); }
   el.innerHTML=html;
@@ -7500,6 +7536,572 @@ function relDocCarreira(){
 }
 
 // ═══════════════════════════════════════════════════
+//  📦 PATRIMÔNIO & BENS (Fase 11)
+//  Dados em D.patrimonio (userData/{uid}). Texto livre escapado.
+//  patLiquido() = bens − passivos (distinto de patrimonioLiquido() das finanças).
+//  Reaproveita helpers globais: _safeUrl, _isPast, _diasAte, _abrirAgenda, _selOpts,
+//  _metaVincBadge, _decVincBadge, _compraVincBadge, TRAB_PRIOS, escapeHTML, attr, fmt.
+// ═══════════════════════════════════════════════════
+const PAT_BEM_CATS = ['imovel','veiculo','equipamento','tecnologia','setup','relogio','movel','eletrodomestico','item_de_valor','investimento_fisico','documento','outro'];
+const PAT_BEM_STATUS = { ativo:{label:'Ativo',cor:'var(--pos)'}, em_manutencao:{label:'Em manutenção',cor:'var(--warn)'}, planejado:{label:'Planejado',cor:'var(--info)'}, vendido:{label:'Vendido',cor:'var(--text3)'}, doado:{label:'Doado',cor:'var(--text3)'}, perdido:{label:'Perdido',cor:'var(--neg)'}, descartado:{label:'Descartado',cor:'var(--text3)'} };
+const PAT_VALOR_METODOS = { manual:{label:'Manual'}, valor_compra:{label:'Valor de compra'}, depreciacao:{label:'Depreciação'}, estimado:{label:'Estimado'}, tabela_fipe_futuro:{label:'FIPE (roadmap)'}, mercado_futuro:{label:'Mercado (roadmap)'} };
+const PAT_PAS_TIPOS = ['financiamento','emprestimo','parcelamento','consorcio','divida','manutencao_parcelada','outro'];
+const PAT_PAS_STATUS = { ativo:{label:'Ativo',cor:'var(--warn)'}, quitado:{label:'Quitado',cor:'var(--pos)'}, renegociado:{label:'Renegociado',cor:'var(--info)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'} };
+const PAT_MAN_TIPOS = ['preventiva','corretiva','revisao','limpeza','garantia','upgrade','outro'];
+const PAT_MAN_STATUS = { planejada:{label:'Planejada',cor:'var(--info)'}, em_andamento:{label:'Em andamento',cor:'var(--warn)'}, realizada:{label:'Realizada',cor:'var(--pos)'}, adiada:{label:'Adiada',cor:'var(--text3)'}, cancelada:{label:'Cancelada',cor:'var(--text3)'} };
+const PAT_SEG_TIPOS = ['bem','veiculo','imovel','equipamento','vida','residencial','outro'];
+const PAT_SEG_STATUS = { ativo:{label:'Ativo',cor:'var(--pos)'}, vencido:{label:'Vencido',cor:'var(--neg)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'}, renovado:{label:'Renovado',cor:'var(--info)'} };
+const PAT_DOC_TIPOS = ['nota_fiscal','garantia','contrato','seguro','manual','certificado','documento_pessoal','outro'];
+
+function _pat(){
+  if(typeof D.patrimonio!=='object'||D.patrimonio===null) D.patrimonio={};
+  ['bens','passivos','manutencoes','seguros','documentos'].forEach(k=>{ if(!Array.isArray(D.patrimonio[k])) D.patrimonio[k]=[]; });
+  return D.patrimonio;
+}
+function bemGet(id){ return _pat().bens.find(x=>x.id===id); }
+function pasGet(id){ return _pat().passivos.find(x=>x.id===id); }
+function manGet(id){ return _pat().manutencoes.find(x=>x.id===id); }
+function segGet(id){ return _pat().seguros.find(x=>x.id===id); }
+function patDocGet(id){ return _pat().documentos.find(x=>x.id===id); }
+function bemNome(id){ const b=bemGet(id); return b?b.nome:''; }
+
+// ── Cálculos ──
+function patDepreciacao(bem){
+  const compra=+bem.valorCompra||0; if(compra<=0) return 0;
+  const taxa=Math.max(0,Math.min(100,+bem.depreciacaoAnualPct||0))/100;
+  let anos=0;
+  if(/^\d{4}-\d{2}-\d{2}/.test(bem.dataAquisicao||'')){ anos=Math.max(0,(Date.now()-new Date(bem.dataAquisicao+'T00:00:00'))/(365.25*86400000)); }
+  if(taxa>0){ return Math.max(0, Math.round(compra*Math.pow(1-taxa,anos))); }
+  if((+bem.vidaUtilAnos||0)>0){ const resid=Math.max(0,1-(anos/(+bem.vidaUtilAnos))); return Math.max(0,Math.round(compra*resid)); }
+  return compra;
+}
+function patValorBem(bem){
+  if(!bem) return 0;
+  if((+bem.valorAtual||0)>0) return +bem.valorAtual;
+  if(bem.metodoValor==='depreciacao') return patDepreciacao(bem);
+  if((+bem.valorEstimado||0)>0) return +bem.valorEstimado;
+  return Math.max(0,+bem.valorCompra||0);
+}
+function _bemContaNoPatrimonio(bem){ return bem.ativo!==false && !['vendido','doado','perdido','descartado'].includes(bem.status); }
+function patGarantiaVencendo(bem,dias){ dias=dias||60; const d=_diasAte(bem.garantiaAte); if(d==null) return {tem:false}; return {tem:(d<=dias), dias:d, vencida:d<0}; }
+function patSeguroVencendo(seg,dias){ dias=dias||60; const d=_diasAte(seg.vencimento); if(d==null) return {tem:false}; return {tem:(d<=dias && seg.status!=='cancelado'), dias:d, vencida:d<0}; }
+function patManutencaoProxima(man,dias){ dias=dias||30; if(['realizada','cancelada'].includes(man.status)) return {tem:false}; const d=_diasAte(man.dataPrevista); if(d==null) return {tem:false}; return {tem:(d<=dias), dias:d, vencida:d<0}; }
+function patLiquido(){
+  const P=_pat();
+  const bruto=P.bens.filter(_bemContaNoPatrimonio).reduce((s,b)=>s+patValorBem(b),0);
+  const passivos=P.passivos.filter(p=>p.ativo!==false && p.status==='ativo').reduce((s,p)=>s+Math.max(0,+p.saldoDevedor||0),0);
+  return { bruto, passivos, liquido:bruto-passivos };
+}
+function patrimonioResumoData(){
+  const P=_pat(); const pl=patLiquido();
+  const bensAtivos=P.bens.filter(_bemContaNoPatrimonio);
+  const garantias=bensAtivos.filter(b=>{ const g=patGarantiaVencendo(b,60); return g.tem; });
+  const segVenc=P.seguros.filter(s=>{ const v=patSeguroVencendo(s,60); return v.tem; });
+  const manProx=P.manutencoes.filter(m=>{ const x=patManutencaoProxima(m,30); return x.tem; });
+  const passivosAtivos=P.passivos.filter(p=>p.ativo!==false && p.status==='ativo');
+  let maiorBem=null; bensAtivos.forEach(b=>{ const v=patValorBem(b); if(!maiorBem||v>maiorBem.valor) maiorBem={bem:b,valor:v}; });
+  return { bruto:pl.bruto, passivosTotal:pl.passivos, liquido:pl.liquido, bensAtivos:bensAtivos.length,
+    garantiasVencendo:garantias.length, segurosVencendo:segVenc.length, manutencoesProximas:manProx.length,
+    passivosAtivos:passivosAtivos.length, maiorBem, garantiasList:garantias, segurosList:segVenc, manutencoesList:manProx };
+}
+
+// ── Estado de UI ──
+let _patAba='bens';
+let _patExpanded={};
+let _patF={ bem:{busca:'',cat:'',status:'',prio:'',ord:'valor'}, pas:{busca:'',tipo:'',status:'',ord:'saldo'}, man:{busca:'',status:'',tipo:'',ord:'data'} };
+function setPatAba(a){ _patAba=a; renderPatrimonio(); }
+function togglePatExpand(id){ _patExpanded[id]=!_patExpanded[id]; renderPatrimonio(); }
+function setPatF(g,k,v){ _patF[g][k]=v; renderPatrimonio(); }
+
+// ── CRUD: Bens ──
+function addBem(){
+  const ag=new Date().toISOString();
+  const b={ id:'bem_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Novo bem', descricao:'', categoria:'equipamento', tipo:'', status:'ativo', prioridade:'media',
+    dataAquisicao:'', valorCompra:0, valorAtual:0, valorEstimado:0, metodoValor:'manual', depreciacaoAnualPct:0, vidaUtilAnos:0,
+    localizacao:'', lojaOrigem:'', notaFiscalUrl:'', documentoUrl:'', garantiaAte:'', seguroId:'',
+    relacionadaACompraId:'', relacionadaAMetaId:'', relacionadaADecisaoId:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _pat().bens.unshift(b); _patExpanded[b.id]=true; _patAba='bens'; scheduleAutoSave(); renderPatrimonio();
+}
+function setBemField(id,f,v){ const b=bemGet(id); if(!b) return;
+  if(['valorCompra','valorAtual','valorEstimado','depreciacaoAnualPct','vidaUtilAnos'].includes(f)) v=Math.max(0,parseFloat(v)||0);
+  b[f]=v; b.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderPatrimonio(); }
+async function removeBem(id){ const b=bemGet(id);
+  if(!await uiConfirm(`Remover o bem <strong>"${escapeHTML(b&&b.nome||'')}"</strong>? Passivos/manutenções/seguros vinculados ficarão sem bem.`,{icon:'📦',okText:'Remover'})) return;
+  _pat().bens=_pat().bens.filter(x=>x.id!==id);
+  ['passivos','manutencoes','seguros','documentos'].forEach(col=>_pat()[col].forEach(x=>{ if(x.bemId===id) x.bemId=''; }));
+  delete _patExpanded[id]; scheduleAutoSave(); renderPatrimonio(); toast('Bem removido',true,'🗑️'); }
+
+// ── CRUD: Passivos ──
+function addPassivo(bemId){
+  const ag=new Date().toISOString();
+  const p={ id:'pas_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Novo passivo', descricao:'', tipo:'financiamento', status:'ativo', bemId:bemId||'',
+    valorOriginal:0, saldoDevedor:0, parcelaMensal:0, taxaJuros:0, inicio:'', fimPrevisto:'', credor:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _pat().passivos.unshift(p); _patExpanded[p.id]=true; _patAba='passivos'; scheduleAutoSave(); renderPatrimonio();
+}
+function setPasField(id,f,v){ const p=pasGet(id); if(!p) return;
+  if(['valorOriginal','saldoDevedor','parcelaMensal','taxaJuros'].includes(f)) v=Math.max(0,parseFloat(v)||0);
+  p[f]=v; p.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderPatrimonio(); }
+async function removePassivo(id){ const p=pasGet(id);
+  if(!await uiConfirm(`Remover o passivo <strong>"${escapeHTML(p&&p.nome||'')}"</strong>?`,{icon:'💳',okText:'Remover'})) return;
+  _pat().passivos=_pat().passivos.filter(x=>x.id!==id); delete _patExpanded[id]; scheduleAutoSave(); renderPatrimonio(); toast('Passivo removido',true,'🗑️'); }
+
+// ── CRUD: Manutenções ──
+function addManutencao(bemId){
+  const ag=new Date().toISOString();
+  const m={ id:'man_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    bemId:bemId||'', titulo:'Nova manutenção', descricao:'', tipo:'preventiva', status:'planejada',
+    dataPrevista:'', dataRealizada:'', custoEstimado:0, custoReal:0, fornecedor:'', link:'', observacoes:'', ativa:true, dataCriacao:ag, dataAtualizacao:ag };
+  _pat().manutencoes.unshift(m); _patExpanded[m.id]=true; _patAba='manutencoes'; scheduleAutoSave(); renderPatrimonio();
+}
+function setManField(id,f,v){ const m=manGet(id); if(!m) return;
+  if(['custoEstimado','custoReal'].includes(f)) v=Math.max(0,parseFloat(v)||0);
+  m[f]=v; m.dataAtualizacao=new Date().toISOString();
+  if(f==='status'&&v==='realizada'&&!m.dataRealizada) m.dataRealizada=new Date().toISOString().slice(0,10);
+  scheduleAutoSave(); renderPatrimonio(); }
+async function removeManutencao(id){ const m=manGet(id);
+  if(!await uiConfirm(`Remover a manutenção <strong>"${escapeHTML(m&&m.titulo||'')}"</strong>?`,{icon:'🔧',okText:'Remover'})) return;
+  _pat().manutencoes=_pat().manutencoes.filter(x=>x.id!==id); delete _patExpanded[id]; scheduleAutoSave(); renderPatrimonio(); toast('Manutenção removida',true,'🗑️'); }
+
+// ── CRUD: Seguros ──
+function addSeguro(bemId){
+  const ag=new Date().toISOString();
+  const s={ id:'seg_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Novo seguro', bemId:bemId||'', seguradora:'', apolice:'', tipo:'bem', status:'ativo',
+    inicio:'', vencimento:'', valorCobertura:0, custoMensal:0, custoAnual:0, documentoUrl:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _pat().seguros.unshift(s); _patExpanded[s.id]=true; _patAba='seguros'; scheduleAutoSave(); renderPatrimonio();
+}
+function setSegField(id,f,v){ const s=segGet(id); if(!s) return;
+  if(['valorCobertura','custoMensal','custoAnual'].includes(f)) v=Math.max(0,parseFloat(v)||0);
+  s[f]=v; s.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderPatrimonio(); }
+async function removeSeguro(id){ const s=segGet(id);
+  if(!await uiConfirm(`Remover o seguro <strong>"${escapeHTML(s&&s.nome||'')}"</strong>?`,{icon:'🛡️',okText:'Remover'})) return;
+  _pat().seguros=_pat().seguros.filter(x=>x.id!==id);
+  _pat().bens.forEach(b=>{ if(b.seguroId===id) b.seguroId=''; });
+  delete _patExpanded[id]; scheduleAutoSave(); renderPatrimonio(); toast('Seguro removido',true,'🗑️'); }
+
+// ── CRUD: Documentos (apenas links) ──
+function addDocumento(bemId){
+  const ag=new Date().toISOString();
+  const doc={ id:'doc_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:'Novo documento', tipo:'nota_fiscal', bemId:bemId||'', url:'', emissor:'', dataDocumento:'', vencimento:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _pat().documentos.unshift(doc); _patExpanded[doc.id]=true; _patAba='documentos'; scheduleAutoSave(); renderPatrimonio();
+}
+function setDocField(id,f,v){ const doc=patDocGet(id); if(!doc) return; doc[f]=v; doc.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderPatrimonio(); }
+async function removeDocumento(id){ const doc=patDocGet(id);
+  if(!await uiConfirm(`Remover o documento <strong>"${escapeHTML(doc&&doc.titulo||'')}"</strong>?`,{icon:'📄',okText:'Remover'})) return;
+  _pat().documentos=_pat().documentos.filter(x=>x.id!==id); delete _patExpanded[id]; scheduleAutoSave(); renderPatrimonio(); toast('Documento removido',true,'🗑️'); }
+
+// ── Agenda ──
+function agendarGarantia(id){ const b=bemGet(id); if(!b) return; _abrirAgenda({title:`Garantia vence: ${b.nome||'bem'}`, details:`A garantia deste bem está próxima do vencimento.${b.lojaOrigem?' Loja: '+b.lojaOrigem+'.':''}`, startDate:b.garantiaAte}); }
+function agendarSeguro(id){ const s=segGet(id); if(!s) return; _abrirAgenda({title:`Seguro vence: ${s.nome||''}`, details:`Renovar/avaliar seguro.${s.seguradora?' Seguradora: '+s.seguradora+'.':''}`, startDate:s.vencimento}); }
+function agendarManutencao(id){ const m=manGet(id); if(!m) return; _abrirAgenda({title:`Manutenção: ${m.titulo||''}`, details:`${m.tipo||'manutenção'}.${m.fornecedor?' Fornecedor: '+m.fornecedor+'.':''}`, startDate:m.dataPrevista}); }
+function agendarRevisaoPatrimonial(){ const hoje=new Date(); const prox=new Date(hoje.getFullYear(),hoje.getMonth()+3,1); _abrirAgenda({title:'Revisão patrimonial', details:'Revisar bens, valores, garantias, seguros, manutenções e patrimônio líquido.', startDate:prox}); }
+
+// ── Integração Metas / Decisões ──
+function criarMetaDeBem(id){ const b=bemGet(id); if(!b) return;
+  if(b.relacionadaAMetaId && (D.metas||[]).some(m=>m.id===b.relacionadaAMetaId)){ go('metas'); toast('Bem já tem meta vinculada',true,'🎯'); return; }
+  if(!Array.isArray(D.metas)) D.metas=[]; const ag=new Date().toISOString();
+  const alvo=(+b.valorEstimado||0)||(+b.valorCompra||0)||patValorBem(b);
+  const meta={ id:'meta_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:`Patrimônio: ${b.nome||'bem'}`, descricao:b.descricao||'', icon:'📦', dominio:'patrimonio', categoria:'', status:'em_andamento', prioridade:b.prioridade||'media',
+    unidade:'dinheiro', prazo:'', valorAlvo:alvo, valorAtual:0, progressoManual:null, fonte:'manual', ativoNome:'', cor:'#f59e0b',
+    impactoFinanceiro:'medio', proximosPassos:'', observacoes:'', relacionadaADecisaoId:'', relacionadaACompraId:b.relacionadaACompraId||'', relacionadaABemId:b.id, dataCriacao:ag, dataAtualizacao:ag, ativa:true };
+  D.metas.unshift(meta); b.relacionadaAMetaId=meta.id; b.dataAtualizacao=ag; scheduleAutoSave(); toast('Meta criada e vinculada',true,'🎯'); go('metas'); }
+function criarDecisaoDeBem(id){ const b=bemGet(id); if(!b) return;
+  if(b.relacionadaADecisaoId && (D.decisoes||[]).some(d=>d.id===b.relacionadaADecisaoId)){ go('decisoes'); toast('Bem já tem decisão vinculada',true,'🧭'); return; }
+  if(!Array.isArray(D.decisoes)) D.decisoes=[]; const ag=new Date().toISOString();
+  const custo=(+b.valorEstimado||0)||(+b.valorCompra||0)||patValorBem(b);
+  const dec={ id:'dec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:`Avaliar patrimônio: ${b.nome||'bem'}`, descricao:b.descricao||'', categoria:'patrimonio', status:'em_analise', prioridade:b.prioridade||'media',
+    prazo:'', dataCriacao:ag, dataAtualizacao:ag, dataDecisao:'', custoEstimado:custo, recorrencia:'nenhuma', valorRecorrente:0,
+    impactoFinanceiro:'alto', impactoProfissional:'baixo', impactoPessoal:'medio', impactoLazer:'baixo',
+    beneficios:'', riscos:'', alternativas:'', decisaoFinal:'', observacoes:'',
+    relacionadaACompraId:b.relacionadaACompraId||'', relacionadaAMetaId:b.relacionadaAMetaId||'', relacionadaAProjetoId:'', relacionadaACarreiraId:'', relacionadaABemId:b.id, ativa:true };
+  D.decisoes.unshift(dec); b.relacionadaADecisaoId=dec.id; b.dataAtualizacao=ag; scheduleAutoSave(); toast('Decisão criada e vinculada',true,'🧭'); go('decisoes'); }
+
+// ── Integração Compras → Bem (chamada do módulo Compras) ──
+function criarBemDaCompra(id){ const it=((_hob().itens)||[]).find(x=>x.id===id); if(!it) return;
+  if(it.relacionadaABemId && (_pat().bens).some(b=>b.id===it.relacionadaABemId)){ go('patrimonio'); toast('Esta compra já virou um bem',true,'📦'); return; }
+  const ag=new Date().toISOString(); const custo=(typeof compraCusto==='function')?compraCusto(it):(it.preco||0);
+  const catMap={tecnologia:'tecnologia',carreira:'equipamento',patrimonio:'item_de_valor',casa:'movel',saude:'item_de_valor'};
+  const b={ id:'bem_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:it.nome||'Bem', descricao:it.descricao||it.justificativa||'', categoria:catMap[it.dominio]||'equipamento', tipo:'', status:'ativo', prioridade:'media',
+    dataAquisicao:it.dataCompraRealizada||'', valorCompra:custo, valorAtual:custo, valorEstimado:0, metodoValor:'valor_compra', depreciacaoAnualPct:0, vidaUtilAnos:0,
+    localizacao:'', lojaOrigem:it.loja||'', notaFiscalUrl:'', documentoUrl:'', garantiaAte:'', seguroId:'',
+    relacionadaACompraId:it.id, relacionadaAMetaId:it.relacionadaAMetaId||'', relacionadaADecisaoId:it.relacionadaADecisaoId||'', observacoes:it.notas||'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _pat().bens.unshift(b); it.relacionadaABemId=b.id; it.dataAtualizacao=ag;
+  scheduleAutoSave(); toast('Bem criado a partir da compra',true,'📦'); go('patrimonio'); }
+
+// ── Integração Finanças (sugestões, com confirmação) ──
+async function criarSaidaFixaPassivo(id){ const p=pasGet(id); if(!p) return;
+  if((+p.parcelaMensal||0)<=0){ toast('Defina a parcela mensal primeiro',false,'💵'); return; }
+  if(!await uiConfirm(`Criar saída fixa de <strong>${fmt(p.parcelaMensal)}</strong>/mês para "${escapeHTML(p.nome||'')}"? Você poderá editar depois em Finanças.`,{icon:'💳',okText:'Criar saída fixa'})) return;
+  if(!Array.isArray(D.fixas)) D.fixas=[];
+  D.fixas.push({id:genId('f'), nome:`${p.nome||'Passivo'} (parcela)`, cat:'outros', valor:+p.parcelaMensal||0, ativo:true});
+  scheduleAutoSave(); toast('Saída fixa criada',true,'✅'); }
+async function criarSaidaFixaSeguro(id){ const s=segGet(id); if(!s) return;
+  const mensal=(+s.custoMensal||0)||((+s.custoAnual||0)/12);
+  if(mensal<=0){ toast('Defina o custo do seguro primeiro',false,'💵'); return; }
+  if(!await uiConfirm(`Criar saída fixa de <strong>${fmt(Math.round(mensal))}</strong>/mês para o seguro "${escapeHTML(s.nome||'')}"?`,{icon:'🛡️',okText:'Criar saída fixa'})) return;
+  if(!Array.isArray(D.fixas)) D.fixas=[];
+  D.fixas.push({id:genId('f'), nome:`Seguro ${s.nome||''}`.trim(), cat:'servicos', valor:Math.round(mensal), ativo:true});
+  scheduleAutoSave(); toast('Saída fixa criada',true,'✅'); }
+
+// ── Helpers de render ──
+function _patBadge(label,cor){ return `<span class="badge" style="background:var(--card3);color:${cor};font-size:10px">${escapeHTML(label)}</span>`; }
+function _fL(t){ return `<label class="flabel" style="font-size:10px">${t}</label>`; }
+function _bemOptions(sel){ return _pat().bens.map(b=>`<option value="${attr(b.id)}"${b.id===sel?' selected':''}>${escapeHTML(b.nome||'')}</option>`).join(''); }
+function _bemVincBadge(bemId){ if(!bemId) return ''; const b=bemGet(bemId); if(!b) return ''; return `<span style="font-size:10px;color:var(--text3)">📦 ${escapeHTML(b.nome||'')}</span>`; }
+
+function renderPatrimonio(){
+  const el=document.getElementById('patrimonio-body'); if(!el) return;
+  _pat();
+  const r=patrimonioResumoData();
+  const rc=(icon,label,val,cor)=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:11px 13px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">${icon} ${label}</div>
+    <div style="font-size:17px;font-weight:800;color:${cor||'var(--text)'};margin-top:2px">${val}</div></div>`;
+  const resumo=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:16px">
+    ${rc('💰','Patrimônio bruto',fmt(r.bruto),'var(--text)')}
+    ${rc('💳','Passivos',fmt(r.passivosTotal),r.passivosTotal>0?'var(--neg)':'var(--text)')}
+    ${rc('📊','Patrimônio líquido',fmt(r.liquido),r.liquido>=0?'var(--pos)':'var(--neg)')}
+    ${rc('📦','Bens ativos',r.bensAtivos,'var(--info)')}
+    ${rc('🛡️','Garantias vencendo',r.garantiasVencendo,r.garantiasVencendo>0?'var(--warn)':'var(--text)')}
+    ${rc('🔧','Manutenções próximas',r.manutencoesProximas,r.manutencoesProximas>0?'var(--warn)':'var(--text)')}
+    ${rc('📋','Seguros vencendo',r.segurosVencendo,r.segurosVencendo>0?'var(--warn)':'var(--text)')}
+    ${rc('🏆','Maior bem',r.maiorBem?escapeHTML((r.maiorBem.bem.nome||'').slice(0,12))+' ('+fmt(r.maiorBem.valor)+')':'—','var(--violet)')}
+  </div>`;
+  const aba=(id,label)=>`<button class="btn ${_patAba===id?'btn-pri':'btn-ghost'}" style="height:32px;font-size:12px" onclick="setPatAba('${id}')">${label}</button>`;
+  const tabs=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    ${aba('bens','📦 Bens')}${aba('passivos','💳 Passivos')}${aba('manutencoes','🔧 Manutenções')}${aba('seguros','🛡️ Seguros')}${aba('documentos','📄 Documentos')}${aba('resumo','📊 Resumo')}</div>`;
+  let c='';
+  if(_patAba==='bens') c=_renderBens();
+  else if(_patAba==='passivos') c=_renderPassivos();
+  else if(_patAba==='manutencoes') c=_renderManutencoes();
+  else if(_patAba==='seguros') c=_renderSeguros();
+  else if(_patAba==='documentos') c=_renderDocumentos();
+  else c=_renderResumoPat(r);
+  el.innerHTML = resumo + tabs + c;
+}
+
+function _patEmpty(icon,txt,btn,fn){ return `<div class="panel"><div class="empty" style="padding:26px"><div class="empty-icon">${icon}</div><div class="empty-text">${txt}</div>${fn?`<button class="btn btn-pri" style="margin-top:12px" onclick="${fn}">${btn}</button>`:''}</div></div>`; }
+
+function _renderBens(){
+  const P=_pat(), f=_patF.bem;
+  let lista=P.bens.slice();
+  if(f.cat) lista=lista.filter(b=>b.categoria===f.cat);
+  if(f.status) lista=lista.filter(b=>b.status===f.status);
+  if(f.prio) lista=lista.filter(b=>b.prioridade===f.prio);
+  if(f.busca){ const q=f.busca.toLowerCase(); lista=lista.filter(b=>['nome','descricao','localizacao','observacoes','lojaOrigem','categoria'].some(k=>(b[k]||'').toLowerCase().includes(q))); }
+  const ord={ valor:(a,b)=>patValorBem(b)-patValorBem(a), compra:(a,b)=>(b.valorCompra||0)-(a.valorCompra||0),
+    aquisicao:(a,b)=>(b.dataAquisicao||'').localeCompare(a.dataAquisicao||''), garantia:(a,b)=>(a.garantiaAte||'~').localeCompare(b.garantiaAte||'~'),
+    categoria:(a,b)=>(a.categoria||'').localeCompare(b.categoria||''), status:(a,b)=>(a.status||'').localeCompare(b.status||'') };
+  lista.sort(ord[f.ord]||ord.valor);
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(f.busca)}" oninput="setPatF('bem','busca',this.value)" placeholder="🔍 Buscar bens" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setPatF('bem','cat',this.value)" style="height:34px;font-size:12px"><option value="">Categoria: todas</option>${_selOpts(PAT_BEM_CATS,f.cat)}</select>
+    <select onchange="setPatF('bem','status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${_selOpts(PAT_BEM_STATUS,f.status)}</select>
+    <select onchange="setPatF('bem','prio',this.value)" style="height:34px;font-size:12px"><option value="">Prioridade: todas</option>${_selOpts(TRAB_PRIOS,f.prio)}</select>
+    <select onchange="setPatF('bem','ord',this.value)" style="height:34px;font-size:12px"><option value="valor"${f.ord==='valor'?' selected':''}>Ordenar: valor atual</option><option value="compra"${f.ord==='compra'?' selected':''}>Ordenar: valor compra</option><option value="aquisicao"${f.ord==='aquisicao'?' selected':''}>Ordenar: aquisição</option><option value="garantia"${f.ord==='garantia'?' selected':''}>Ordenar: garantia</option><option value="categoria"${f.ord==='categoria'?' selected':''}>Ordenar: categoria</option></select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addBem()">+ Novo bem</button></div>`;
+  if(!P.bens.length) return filtros+_patEmpty('📦','Nenhum bem cadastrado. Registre equipamentos, veículos, imóveis e itens de valor para acompanhar seu patrimônio, garantias, seguros e manutenções.','+ Cadastrar primeiro bem','addBem()');
+  if(!lista.length) return filtros+_patEmpty('🔍','Nenhum bem nesse filtro.');
+  const cards=lista.map(b=>{
+    const stt=PAT_BEM_STATUS[b.status]||PAT_BEM_STATUS.ativo, pr=TRAB_PRIOS[b.prioridade]||TRAB_PRIOS.media, exp=_patExpanded[b.id];
+    const val=patValorBem(b), gar=patGarantiaVencendo(b,60), seg=b.seguroId?segGet(b.seguroId):null;
+    const passiv=P.passivos.filter(p=>p.bemId===b.id && p.status==='ativo'), saldoPas=passiv.reduce((s,p)=>s+(+p.saldoDevedor||0),0);
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+      <div class="field" style="margin:0">${_fL('Descrição')}<textarea oninput="setBemField('${b.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(b.descricao)}</textarea></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fL('Categoria')}<select onchange="setBemField('${b.id}','categoria',this.value)">${_selOpts(PAT_BEM_CATS,b.categoria)}</select></div>
+        <div class="field" style="margin:0">${_fL('Status')}<select onchange="setBemField('${b.id}','status',this.value)">${_selOpts(PAT_BEM_STATUS,b.status)}</select></div>
+        <div class="field" style="margin:0">${_fL('Prioridade')}<select onchange="setBemField('${b.id}','prioridade',this.value)">${_selOpts(TRAB_PRIOS,b.prioridade)}</select></div>
+        <div class="field" style="margin:0">${_fL('Aquisição')}<input type="date" value="${attr(b.dataAquisicao)}" onchange="setBemField('${b.id}','dataAquisicao',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Valor de compra (R$)')}<input type="number" min="0" step="50" value="${b.valorCompra||0}" onchange="setBemField('${b.id}','valorCompra',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Valor atual (R$)')}<input type="number" min="0" step="50" value="${b.valorAtual||0}" onchange="setBemField('${b.id}','valorAtual',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Método de valor')}<select onchange="setBemField('${b.id}','metodoValor',this.value)">${_selOpts(PAT_VALOR_METODOS,b.metodoValor)}</select></div>
+        <div class="field" style="margin:0">${_fL('Depreciação anual (%)')}<input type="number" min="0" max="100" step="1" value="${b.depreciacaoAnualPct||0}" onchange="setBemField('${b.id}','depreciacaoAnualPct',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Localização')}<input type="text" value="${attr(b.localizacao)}" onchange="setBemField('${b.id}','localizacao',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Loja de origem')}<input type="text" value="${attr(b.lojaOrigem)}" onchange="setBemField('${b.id}','lojaOrigem',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Garantia até')}<input type="date" value="${attr(b.garantiaAte)}" onchange="setBemField('${b.id}','garantiaAte',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Seguro vinculado')}<select onchange="setBemField('${b.id}','seguroId',this.value)"><option value="">— nenhum —</option>${P.seguros.map(s=>`<option value="${attr(s.id)}"${s.id===b.seguroId?' selected':''}>${escapeHTML(s.nome||'')}</option>`).join('')}</select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+        <div class="field" style="margin:0">${_fL('Nota fiscal (URL)')}<input type="url" value="${attr(b.notaFiscalUrl)}" onchange="setBemField('${b.id}','notaFiscalUrl',this.value)" placeholder="https://..."></div>
+        <div class="field" style="margin:0">${_fL('Documento (URL)')}<input type="url" value="${attr(b.documentoUrl)}" onchange="setBemField('${b.id}','documentoUrl',this.value)" placeholder="https://..."></div>
+        <div class="field" style="margin:0">${_fL('Vincular a meta')}<select onchange="setBemField('${b.id}','relacionadaAMetaId',this.value)"><option value="">— nenhuma —</option>${(D.metas||[]).map(m=>`<option value="${attr(m.id)}"${m.id===b.relacionadaAMetaId?' selected':''}>${escapeHTML((typeof metaDom==='function'?metaDom(m.dominio).icon+' ':'')+(m.nome||''))}</option>`).join('')}</select></div>
+        <div class="field" style="margin:0">${_fL('Vincular a decisão')}<select onchange="setBemField('${b.id}','relacionadaADecisaoId',this.value)"><option value="">— nenhuma —</option>${(D.decisoes||[]).map(d=>`<option value="${attr(d.id)}"${d.id===b.relacionadaADecisaoId?' selected':''}>${escapeHTML(d.titulo||'')}</option>`).join('')}</select></div>
+      </div>
+      <div class="field" style="margin:0">${_fL('Observações')}<textarea oninput="setBemField('${b.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(b.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="addManutencao('${b.id}')">🔧 + Manutenção</button>
+        <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="addSeguro('${b.id}')">🛡️ + Seguro</button>
+        ${!b.relacionadaAMetaId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarMetaDeBem('${b.id}')">🎯 Criar meta</button>`:''}
+        ${!b.relacionadaADecisaoId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDeBem('${b.id}')">🧭 Criar decisão</button>`:''}
+        ${b.garantiaAte?`<button class="btn btn-ghost" style="height:32px;font-size:12px" title="Agendar fim da garantia" onclick="agendarGarantia('${b.id}')">📅 Garantia</button>`:''}
+        ${_safeUrl(b.notaFiscalUrl)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(b.notaFiscalUrl))}" target="_blank" rel="noopener noreferrer">🧾 Nota</a>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeBem('${b.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${gar.tem?'var(--warn)':pr.cor};border-radius:var(--r14);padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(b.nome||'')}" onchange="setBemField('${b.id}','nome',this.value)" placeholder="Nome do bem" style="font-weight:700;font-size:14px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            ${_patBadge(stt.label,stt.cor)}<span style="font-size:10px;color:var(--text3)">${escapeHTML((b.categoria||'').replace(/_/g,' '))}</span>
+            <span style="font-size:11px;color:var(--text);font-weight:700">${fmt(val)}</span>
+            ${b.garantiaAte?`<span style="font-size:10px;color:${gar.vencida?'var(--neg)':gar.tem?'var(--warn)':'var(--text3)'}">${gar.vencida?'⚠ garantia vencida':gar.tem?'⚠ garantia '+b.garantiaAte:'garantia '+b.garantiaAte}</span>`:''}
+            ${seg?`<span style="font-size:10px;color:var(--text3)">🛡️ ${escapeHTML(seg.nome||'')}</span>`:''}
+            ${saldoPas>0?`<span style="font-size:10px;color:var(--warn)">💳 deve ${fmt(saldoPas)}</span>`:''}
+            ${_compraVincBadge(b.relacionadaACompraId)}${_metaVincBadge(b.relacionadaAMetaId)}${_decVincBadge(b.relacionadaADecisaoId)}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" onclick="togglePatExpand('${b.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return filtros+cards;
+}
+
+function _renderPassivos(){
+  const P=_pat(), f=_patF.pas;
+  let lista=P.passivos.slice();
+  if(f.tipo) lista=lista.filter(p=>p.tipo===f.tipo);
+  if(f.status) lista=lista.filter(p=>p.status===f.status);
+  if(f.busca){ const q=f.busca.toLowerCase(); lista=lista.filter(p=>['nome','descricao','credor','observacoes'].some(k=>(p[k]||'').toLowerCase().includes(q))); }
+  const ord={ saldo:(a,b)=>(b.saldoDevedor||0)-(a.saldoDevedor||0), parcela:(a,b)=>(b.parcelaMensal||0)-(a.parcelaMensal||0),
+    fim:(a,b)=>(a.fimPrevisto||'~').localeCompare(b.fimPrevisto||'~'), original:(a,b)=>(b.valorOriginal||0)-(a.valorOriginal||0) };
+  lista.sort(ord[f.ord]||ord.saldo);
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(f.busca)}" oninput="setPatF('pas','busca',this.value)" placeholder="🔍 Buscar passivos" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setPatF('pas','tipo',this.value)" style="height:34px;font-size:12px"><option value="">Tipo: todos</option>${_selOpts(PAT_PAS_TIPOS,f.tipo)}</select>
+    <select onchange="setPatF('pas','status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${_selOpts(PAT_PAS_STATUS,f.status)}</select>
+    <select onchange="setPatF('pas','ord',this.value)" style="height:34px;font-size:12px"><option value="saldo"${f.ord==='saldo'?' selected':''}>Ordenar: saldo</option><option value="parcela"${f.ord==='parcela'?' selected':''}>Ordenar: parcela</option><option value="fim"${f.ord==='fim'?' selected':''}>Ordenar: fim previsto</option><option value="original"${f.ord==='original'?' selected':''}>Ordenar: valor original</option></select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addPassivo('')">+ Novo passivo</button></div>`;
+  if(!P.passivos.length) return filtros+_patEmpty('💳','Nenhum passivo cadastrado. Registre financiamentos, empréstimos e parcelamentos para calcular seu patrimônio líquido.','+ Cadastrar primeiro passivo','addPassivo(\'\')');
+  if(!lista.length) return filtros+_patEmpty('🔍','Nenhum passivo nesse filtro.');
+  const cards=lista.map(p=>{
+    const stt=PAT_PAS_STATUS[p.status]||PAT_PAS_STATUS.ativo, exp=_patExpanded[p.id], bem=p.bemId?bemGet(p.bemId):null;
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+      <div class="field" style="margin:0">${_fL('Descrição')}<textarea oninput="setPasField('${p.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(p.descricao)}</textarea></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fL('Tipo')}<select onchange="setPasField('${p.id}','tipo',this.value)">${_selOpts(PAT_PAS_TIPOS,p.tipo)}</select></div>
+        <div class="field" style="margin:0">${_fL('Status')}<select onchange="setPasField('${p.id}','status',this.value)">${_selOpts(PAT_PAS_STATUS,p.status)}</select></div>
+        <div class="field" style="margin:0">${_fL('Bem vinculado')}<select onchange="setPasField('${p.id}','bemId',this.value)"><option value="">— nenhum —</option>${_bemOptions(p.bemId)}</select></div>
+        <div class="field" style="margin:0">${_fL('Valor original (R$)')}<input type="number" min="0" step="100" value="${p.valorOriginal||0}" onchange="setPasField('${p.id}','valorOriginal',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Saldo devedor (R$)')}<input type="number" min="0" step="100" value="${p.saldoDevedor||0}" onchange="setPasField('${p.id}','saldoDevedor',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Parcela mensal (R$)')}<input type="number" min="0" step="10" value="${p.parcelaMensal||0}" onchange="setPasField('${p.id}','parcelaMensal',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Taxa de juros (% a.m.)')}<input type="number" min="0" step="0.1" value="${p.taxaJuros||0}" onchange="setPasField('${p.id}','taxaJuros',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Início')}<input type="date" value="${attr(p.inicio)}" onchange="setPasField('${p.id}','inicio',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Fim previsto')}<input type="date" value="${attr(p.fimPrevisto)}" onchange="setPasField('${p.id}','fimPrevisto',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Credor')}<input type="text" value="${attr(p.credor)}" onchange="setPasField('${p.id}','credor',this.value)"></div>
+      </div>
+      <div class="field" style="margin:0">${_fL('Observações')}<textarea oninput="setPasField('${p.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(p.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${p.parcelaMensal>0?`<button class="btn btn-ghost" style="height:32px;font-size:12px" title="Sugerir saída fixa em Finanças" onclick="criarSaidaFixaPassivo('${p.id}')">💵 Criar saída fixa</button>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removePassivo('${p.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${stt.cor};border-radius:var(--r14);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(p.nome||'')}" onchange="setPasField('${p.id}','nome',this.value)" placeholder="Nome do passivo" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            ${_patBadge(stt.label,stt.cor)}<span style="font-size:10px;color:var(--text3)">${escapeHTML((p.tipo||'').replace(/_/g,' '))}</span>
+            <span style="font-size:11px;color:var(--neg);font-weight:700">saldo ${fmt(p.saldoDevedor||0)}</span>
+            ${p.parcelaMensal>0?`<span style="font-size:10px;color:var(--text3)">${fmt(p.parcelaMensal)}/mês</span>`:''}
+            ${bem?_bemVincBadge(bem.id):''}
+            ${p.fimPrevisto?`<span style="font-size:10px;color:var(--text3)">até ${escapeHTML(p.fimPrevisto)}</span>`:''}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="togglePatExpand('${p.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return filtros+cards;
+}
+
+function _renderManutencoes(){
+  const P=_pat(), f=_patF.man;
+  let lista=P.manutencoes.slice();
+  if(f.status) lista=lista.filter(m=>m.status===f.status);
+  if(f.tipo) lista=lista.filter(m=>m.tipo===f.tipo);
+  if(f.busca){ const q=f.busca.toLowerCase(); lista=lista.filter(m=>['titulo','descricao','fornecedor','observacoes'].some(k=>(m[k]||'').toLowerCase().includes(q))); }
+  const ord={ data:(a,b)=>(a.dataPrevista||'~').localeCompare(b.dataPrevista||'~'), custo:(a,b)=>(b.custoEstimado||0)-(a.custoEstimado||0), status:(a,b)=>(a.status||'').localeCompare(b.status||'') };
+  lista.sort(ord[f.ord]||ord.data);
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(f.busca)}" oninput="setPatF('man','busca',this.value)" placeholder="🔍 Buscar manutenções" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setPatF('man','status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${_selOpts(PAT_MAN_STATUS,f.status)}</select>
+    <select onchange="setPatF('man','tipo',this.value)" style="height:34px;font-size:12px"><option value="">Tipo: todos</option>${_selOpts(PAT_MAN_TIPOS,f.tipo)}</select>
+    <select onchange="setPatF('man','ord',this.value)" style="height:34px;font-size:12px"><option value="data"${f.ord==='data'?' selected':''}>Ordenar: data prevista</option><option value="custo"${f.ord==='custo'?' selected':''}>Ordenar: custo</option><option value="status"${f.ord==='status'?' selected':''}>Ordenar: status</option></select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addManutencao('')">+ Nova manutenção</button></div>`;
+  if(!P.manutencoes.length) return filtros+_patEmpty('🔧','Nenhuma manutenção registrada. Planeje revisões, consertos e upgrades dos seus bens, com prazos e custos.','+ Registrar manutenção','addManutencao(\'\')');
+  if(!lista.length) return filtros+_patEmpty('🔍','Nenhuma manutenção nesse filtro.');
+  const cards=lista.map(m=>{
+    const stt=PAT_MAN_STATUS[m.status]||PAT_MAN_STATUS.planejada, prox=patManutencaoProxima(m,30), exp=_patExpanded[m.id], bem=m.bemId?bemGet(m.bemId):null;
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+      <div class="field" style="margin:0">${_fL('Descrição')}<textarea oninput="setManField('${m.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(m.descricao)}</textarea></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fL('Bem')}<select onchange="setManField('${m.id}','bemId',this.value)"><option value="">— nenhum —</option>${_bemOptions(m.bemId)}</select></div>
+        <div class="field" style="margin:0">${_fL('Tipo')}<select onchange="setManField('${m.id}','tipo',this.value)">${_selOpts(PAT_MAN_TIPOS,m.tipo)}</select></div>
+        <div class="field" style="margin:0">${_fL('Status')}<select onchange="setManField('${m.id}','status',this.value)">${_selOpts(PAT_MAN_STATUS,m.status)}</select></div>
+        <div class="field" style="margin:0">${_fL('Data prevista')}<input type="date" value="${attr(m.dataPrevista)}" onchange="setManField('${m.id}','dataPrevista',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Data realizada')}<input type="date" value="${attr(m.dataRealizada)}" onchange="setManField('${m.id}','dataRealizada',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Custo estimado (R$)')}<input type="number" min="0" step="10" value="${m.custoEstimado||0}" onchange="setManField('${m.id}','custoEstimado',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Custo real (R$)')}<input type="number" min="0" step="10" value="${m.custoReal||0}" onchange="setManField('${m.id}','custoReal',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Fornecedor')}<input type="text" value="${attr(m.fornecedor)}" onchange="setManField('${m.id}','fornecedor',this.value)"></div>
+      </div>
+      <div class="field" style="margin:0">${_fL('Link')}<input type="url" value="${attr(m.link)}" onchange="setManField('${m.id}','link',this.value)" placeholder="https://..."></div>
+      <div class="field" style="margin:0">${_fL('Observações')}<textarea oninput="setManField('${m.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(m.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${m.dataPrevista?`<button class="btn btn-ghost" style="height:32px;font-size:12px" title="Adicionar à Google Agenda" onclick="agendarManutencao('${m.id}')">📅 Agendar</button>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeManutencao('${m.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${prox.tem?'var(--warn)':stt.cor};border-radius:var(--r14);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(m.titulo||'')}" onchange="setManField('${m.id}','titulo',this.value)" placeholder="Título da manutenção" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            ${_patBadge(stt.label,prox.tem?'var(--warn)':stt.cor)}<span style="font-size:10px;color:var(--text3)">${escapeHTML((m.tipo||''))}</span>
+            ${bem?_bemVincBadge(bem.id):''}
+            ${m.dataPrevista?`<span style="font-size:10px;color:${prox.vencida?'var(--neg)':prox.tem?'var(--warn)':'var(--text3)'}">${prox.vencida?'⚠ atrasada ':prox.tem?'⚠ ':''}${escapeHTML(m.dataPrevista)}</span>`:''}
+            ${m.custoEstimado>0?`<span style="font-size:10px;color:var(--text3)">${fmt(m.custoEstimado)}</span>`:''}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="togglePatExpand('${m.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return filtros+cards;
+}
+
+function _renderSeguros(){
+  const P=_pat();
+  const novo=`<div style="margin-bottom:14px"><button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addSeguro('')">+ Novo seguro</button></div>`;
+  if(!P.seguros.length) return novo+_patEmpty('🛡️','Nenhum seguro cadastrado. Acompanhe apólices, coberturas, custos e vencimentos dos seus seguros.');
+  const cards=P.seguros.map(s=>{
+    const stt=PAT_SEG_STATUS[s.status]||PAT_SEG_STATUS.ativo, venc=patSeguroVencendo(s,60), exp=_patExpanded[s.id], bem=s.bemId?bemGet(s.bemId):null;
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fL('Bem vinculado')}<select onchange="setSegField('${s.id}','bemId',this.value)"><option value="">— nenhum —</option>${_bemOptions(s.bemId)}</select></div>
+        <div class="field" style="margin:0">${_fL('Tipo')}<select onchange="setSegField('${s.id}','tipo',this.value)">${_selOpts(PAT_SEG_TIPOS,s.tipo)}</select></div>
+        <div class="field" style="margin:0">${_fL('Status')}<select onchange="setSegField('${s.id}','status',this.value)">${_selOpts(PAT_SEG_STATUS,s.status)}</select></div>
+        <div class="field" style="margin:0">${_fL('Seguradora')}<input type="text" value="${attr(s.seguradora)}" onchange="setSegField('${s.id}','seguradora',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Apólice')}<input type="text" value="${attr(s.apolice)}" onchange="setSegField('${s.id}','apolice',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Início')}<input type="date" value="${attr(s.inicio)}" onchange="setSegField('${s.id}','inicio',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Vencimento')}<input type="date" value="${attr(s.vencimento)}" onchange="setSegField('${s.id}','vencimento',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Cobertura (R$)')}<input type="number" min="0" step="100" value="${s.valorCobertura||0}" onchange="setSegField('${s.id}','valorCobertura',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Custo mensal (R$)')}<input type="number" min="0" step="10" value="${s.custoMensal||0}" onchange="setSegField('${s.id}','custoMensal',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Custo anual (R$)')}<input type="number" min="0" step="50" value="${s.custoAnual||0}" onchange="setSegField('${s.id}','custoAnual',this.value)"></div>
+      </div>
+      <div class="field" style="margin:0">${_fL('Documento (URL)')}<input type="url" value="${attr(s.documentoUrl)}" onchange="setSegField('${s.id}','documentoUrl',this.value)" placeholder="https://..."></div>
+      <div class="field" style="margin:0">${_fL('Observações')}<textarea oninput="setSegField('${s.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(s.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${s.vencimento?`<button class="btn btn-ghost" style="height:32px;font-size:12px" title="Agendar vencimento" onclick="agendarSeguro('${s.id}')">📅 Vencimento</button>`:''}
+        ${(s.custoMensal>0||s.custoAnual>0)?`<button class="btn btn-ghost" style="height:32px;font-size:12px" title="Sugerir saída fixa" onclick="criarSaidaFixaSeguro('${s.id}')">💵 Criar saída fixa</button>`:''}
+        ${_safeUrl(s.documentoUrl)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(s.documentoUrl))}" target="_blank" rel="noopener noreferrer">📄 Apólice</a>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeSeguro('${s.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${venc.tem?'var(--warn)':stt.cor};border-radius:var(--r12);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(s.nome||'')}" onchange="setSegField('${s.id}','nome',this.value)" placeholder="Nome do seguro" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            ${_patBadge(stt.label,venc.tem?'var(--warn)':stt.cor)}<span style="font-size:10px;color:var(--text3)">${escapeHTML((s.tipo||''))}</span>
+            ${s.seguradora?`<span style="font-size:10px;color:var(--text3)">${escapeHTML(s.seguradora)}</span>`:''}
+            ${bem?_bemVincBadge(bem.id):''}
+            ${s.vencimento?`<span style="font-size:10px;color:${venc.vencida?'var(--neg)':venc.tem?'var(--warn)':'var(--text3)'}">${venc.vencida?'⚠ vencido ':venc.tem?'⚠ vence ':'vence '}${escapeHTML(s.vencimento)}</span>`:''}
+          </div>
+        </div>
+        ${s.vencimento?`<button class="btn btn-ghost" style="height:28px;font-size:12px;flex-shrink:0" title="Agendar vencimento" onclick="agendarSeguro('${s.id}')">📅</button>`:''}
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="togglePatExpand('${s.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return novo+cards;
+}
+
+function _renderDocumentos(){
+  const P=_pat();
+  const novo=`<div style="margin-bottom:14px"><button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addDocumento('')">+ Novo documento</button></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">🔒 Apenas links manuais e metadados — nenhum arquivo é enviado. Links são validados e abrem com segurança.</div>`;
+  if(!P.documentos.length) return novo+_patEmpty('📄','Nenhum documento vinculado. Guarde links de notas fiscais, garantias, contratos e manuais (sem upload de arquivo).');
+  const cards=P.documentos.map(doc=>{
+    const exp=_patExpanded[doc.id], bem=doc.bemId?bemGet(doc.bemId):null, venc=doc.vencimento&&_isPast(doc.vencimento);
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:grid;gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fL('Tipo')}<select onchange="setDocField('${doc.id}','tipo',this.value)">${_selOpts(PAT_DOC_TIPOS,doc.tipo)}</select></div>
+        <div class="field" style="margin:0">${_fL('Bem vinculado')}<select onchange="setDocField('${doc.id}','bemId',this.value)"><option value="">— nenhum —</option>${_bemOptions(doc.bemId)}</select></div>
+        <div class="field" style="margin:0">${_fL('Emissor')}<input type="text" value="${attr(doc.emissor)}" onchange="setDocField('${doc.id}','emissor',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Data do documento')}<input type="date" value="${attr(doc.dataDocumento)}" onchange="setDocField('${doc.id}','dataDocumento',this.value)"></div>
+        <div class="field" style="margin:0">${_fL('Vencimento')}<input type="date" value="${attr(doc.vencimento)}" onchange="setDocField('${doc.id}','vencimento',this.value)"></div>
+      </div>
+      <div class="field" style="margin:0">${_fL('URL do documento')}<input type="url" value="${attr(doc.url)}" onchange="setDocField('${doc.id}','url',this.value)" placeholder="https://..."></div>
+      <div class="field" style="margin:0">${_fL('Observações')}<textarea oninput="setDocField('${doc.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(doc.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${_safeUrl(doc.url)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(doc.url))}" target="_blank" rel="noopener noreferrer">🔗 Abrir documento</a>`:'<span style="font-size:11px;color:var(--text3)">URL inválida ou vazia</span>'}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeDocumento('${doc.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(doc.titulo||'')}" onchange="setDocField('${doc.id}','titulo',this.value)" placeholder="Título do documento" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            <span style="font-size:10px;color:var(--text3)">${escapeHTML((doc.tipo||'').replace(/_/g,' '))}</span>
+            ${bem?_bemVincBadge(bem.id):''}
+            ${doc.vencimento?`<span style="font-size:10px;color:${venc?'var(--neg)':'var(--text3)'}">${venc?'⚠ vencido ':'vence '}${escapeHTML(doc.vencimento)}</span>`:''}
+            ${_safeUrl(doc.url)?'<span style="font-size:10px;color:var(--pos)">🔗 link ok</span>':(doc.url?'<span style="font-size:10px;color:var(--neg)">link inválido</span>':'')}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="togglePatExpand('${doc.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return novo+cards;
+}
+
+function _renderResumoPat(r){
+  const P=_pat();
+  const porCat={}; P.bens.filter(_bemContaNoPatrimonio).forEach(b=>{ porCat[b.categoria]=(porCat[b.categoria]||0)+patValorBem(b); });
+  const catRows=Object.entries(porCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)"><span>${escapeHTML(c.replace(/_/g,' '))}</span><strong>${fmt(v)}</strong></div>`).join('')||'<div style="font-size:12px;color:var(--text3)">Nenhum bem ativo.</div>';
+  const topBens=P.bens.filter(_bemContaNoPatrimonio).map(b=>({b,v:patValorBem(b)})).sort((a,b)=>b.v-a.v).slice(0,5)
+    .map(x=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)"><span>${escapeHTML(x.b.nome||'')}</span><strong>${fmt(x.v)}</strong></div>`).join('')||'<div style="font-size:12px;color:var(--text3)">—</div>';
+  const alertas=[];
+  r.garantiasList.forEach(b=>{ const g=patGarantiaVencendo(b,60); alertas.push(`🛡️ Garantia de "${escapeHTML(b.nome||'')}" ${g.vencida?'venceu':'vence em '+g.dias+'d'}.`); });
+  r.segurosList.forEach(s=>{ const v=patSeguroVencendo(s,60); alertas.push(`📋 Seguro "${escapeHTML(s.nome||'')}" ${v.vencida?'venceu':'vence em '+v.dias+'d'}.`); });
+  r.manutencoesList.forEach(m=>{ const x=patManutencaoProxima(m,30); alertas.push(`🔧 Manutenção "${escapeHTML(m.titulo||'')}" ${x.vencida?'atrasada':'em '+x.dias+'d'}.`); });
+  const panel=(titulo,body)=>`<div class="panel mb"><div class="panel-head"><span class="panel-title">${titulo}</span></div><div style="padding:14px 16px">${body}</div></div>`;
+  return `
+    ${panel('💰 Composição do patrimônio', `<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:10px"><span>Patrimônio bruto</span><strong>${fmt(r.bruto)}</strong></div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:10px;color:var(--neg)"><span>(−) Passivos ativos</span><strong>${fmt(r.passivosTotal)}</strong></div>
+      <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:800;border-top:2px solid var(--border);padding-top:10px"><span>Patrimônio líquido</span><strong style="color:${r.liquido>=0?'var(--pos)':'var(--neg)'}">${fmt(r.liquido)}</strong></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">Visão patrimonial de bens − dívidas. Não confunde com a carteira de investimentos (Dashboard Financeiro).</div>`)}
+    ${panel('📦 Bens por categoria', catRows)}
+    ${panel('🏆 Bens de maior valor', topBens)}
+    ${alertas.length?panel('⚠️ Precisa de atenção', `<div style="display:grid;gap:6px;font-size:12px">${alertas.map(a=>`<div>${a}</div>`).join('')}</div>`):''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost" style="height:34px;font-size:12px" onclick="agendarRevisaoPatrimonial()">📅 Agendar revisão patrimonial</button></div>`;
+}
+
+// ── Relatório de Patrimônio ──
+function relDocPatrimonio(){
+  const P=_pat(), r=patrimonioResumoData();
+  const total=P.bens.length+P.passivos.length+P.manutencoes.length+P.seguros.length+P.documentos.length;
+  if(!total) return _relDoc('Relatório de Patrimônio','Bens & patrimônio líquido', _relEmpty('Nenhum dado patrimonial cadastrado ainda.'));
+  const kpis=_relKpis([
+    {label:'Patrimônio bruto',val:fmt(r.bruto)}, {label:'Passivos',val:fmt(r.passivosTotal),cor:r.passivosTotal>0?'var(--neg)':'var(--text)'},
+    {label:'Patrimônio líquido',val:fmt(r.liquido),cor:r.liquido>=0?'var(--pos)':'var(--neg)'}, {label:'Bens ativos',val:String(r.bensAtivos)},
+    {label:'Garantias vencendo',val:String(r.garantiasVencendo),cor:r.garantiasVencendo?'var(--warn)':'var(--text)'}, {label:'Seguros vencendo',val:String(r.segurosVencendo),cor:r.segurosVencendo?'var(--warn)':'var(--text)'},
+  ]);
+  const porCat={}; P.bens.filter(_bemContaNoPatrimonio).forEach(b=>{ porCat[b.categoria]=(porCat[b.categoria]||0)+patValorBem(b); });
+  const catSec=Object.keys(porCat).length?_relSection('Bens por categoria', _relTable(['Categoria','Valor'], Object.entries(porCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>[escapeHTML(c.replace(/_/g,' ')), fmt(v)]))):'';
+  const topSec=_relSection('Bens de maior valor', _relTable(['Bem','Categoria','Valor','Garantia'],
+    P.bens.filter(_bemContaNoPatrimonio).map(b=>({b,v:patValorBem(b)})).sort((a,b)=>b.v-a.v).slice(0,10).map(x=>[escapeHTML(x.b.nome||''), escapeHTML((x.b.categoria||'').replace(/_/g,' ')), fmt(x.v), escapeHTML(x.b.garantiaAte||'—')])));
+  const pasSec=P.passivos.filter(p=>p.status==='ativo').length?_relSection('Passivos ativos', _relTable(['Passivo','Tipo','Saldo','Parcela'],
+    P.passivos.filter(p=>p.status==='ativo').map(p=>[escapeHTML(p.nome||''), escapeHTML((p.tipo||'').replace(/_/g,' ')), fmt(p.saldoDevedor||0), p.parcelaMensal>0?fmt(p.parcelaMensal)+'/mês':'—']))):'';
+  const alertas=[]; r.garantiasList.forEach(b=>alertas.push([escapeHTML(b.nome||''),'Garantia',escapeHTML(b.garantiaAte||'')]));
+  r.segurosList.forEach(s=>alertas.push([escapeHTML(s.nome||''),'Seguro',escapeHTML(s.vencimento||'')]));
+  r.manutencoesList.forEach(m=>alertas.push([escapeHTML(m.titulo||''),'Manutenção',escapeHTML(m.dataPrevista||'')]));
+  const alertSec=alertas.length?_relSection('Vencendo / próximos', _relTable(['Item','Tipo','Data'],alertas)):'';
+  const docs=P.documentos.filter(d=>_safeUrl(d.url));
+  const docSec=docs.length?_relSection('Documentos vinculados', _relTable(['Documento','Tipo','Emissor'],docs.map(d=>[escapeHTML(d.titulo||''),escapeHTML((d.tipo||'').replace(/_/g,' ')),escapeHTML(d.emissor||'—')]))):'';
+  return _relDoc('Relatório de Patrimônio','Bens & patrimônio líquido', _relSection('Resumo patrimonial',kpis)+catSec+topSec+pasSec+alertSec+docSec);
+}
+
+// ═══════════════════════════════════════════════════
 //  🏷️ CATEGORIAS EDITÁVEIS (Onda 2)
 // ═══════════════════════════════════════════════════
 function _resolveCor(cor){
@@ -8760,7 +9362,8 @@ async function importarBackupJSON(input) {
       `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras · 🎯 ${(data.metas||[]).length} metas · 🧭 ${(data.decisoes||[]).length} decisões<br>` +
       `🛍️ ${((data.hobbies&&data.hobbies.itens)||[]).length} desejos · 🏦 fundo ${fmt((data.hobbies&&data.hobbies.saldoFundo)||0)}<br>` +
       `💼 ${((data.trabalho&&data.trabalho.projetos)||[]).length} projetos · ✅ ${((data.trabalho&&data.trabalho.tarefas)||[]).length} tarefas · 🏢 ${((data.trabalho&&data.trabalho.clientes)||[]).length} clientes<br>` +
-      `🚀 ${((data.carreira&&data.carreira.objetivos)||[]).length} objetivos · 🧠 ${((data.carreira&&data.carreira.competencias)||[]).length} competências · 🎓 ${((data.carreira&&data.carreira.cursos)||[]).length} cursos · 🤝 ${((data.carreira&&data.carreira.networking)||[]).length} contatos · 📜 ${((data.carreira&&data.carreira.experiencias)||[]).length} experiências<br><br>` +
+      `🚀 ${((data.carreira&&data.carreira.objetivos)||[]).length} objetivos · 🧠 ${((data.carreira&&data.carreira.competencias)||[]).length} competências · 🎓 ${((data.carreira&&data.carreira.cursos)||[]).length} cursos · 🤝 ${((data.carreira&&data.carreira.networking)||[]).length} contatos · 📜 ${((data.carreira&&data.carreira.experiencias)||[]).length} experiências<br>` +
+      `📦 ${((data.patrimonio&&data.patrimonio.bens)||[]).length} bens · 💳 ${((data.patrimonio&&data.patrimonio.passivos)||[]).length} passivos · 🔧 ${((data.patrimonio&&data.patrimonio.manutencoes)||[]).length} manutenções · 🛡️ ${((data.patrimonio&&data.patrimonio.seguros)||[]).length} seguros · 📄 ${((data.patrimonio&&data.patrimonio.documentos)||[]).length} documentos<br><br>` +
       `⚠️ Seus dados atuais serão <strong>substituídos</strong>.`,
       {icon:'📤', okText:'Restaurar'}
     );
