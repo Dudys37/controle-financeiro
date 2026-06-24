@@ -102,7 +102,8 @@ const DEFAULT = {
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
   decisoes: [],
   integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} },
-  trabalho: { projetos:[], tarefas:[], clientes:[] }
+  trabalho: { projetos:[], tarefas:[], clientes:[] },
+  carreira: { objetivos:[], competencias:[], cursos:[], networking:[], experiencias:[], planosRenda:[] }
 };
 
 // ── TEMPLATE EM BRANCO ────────────────────────────
@@ -122,7 +123,8 @@ const BLANK = {
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
   decisoes: [],
   integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null} },
-  trabalho: { projetos:[], tarefas:[], clientes:[] }
+  trabalho: { projetos:[], tarefas:[], clientes:[] },
+  carreira: { objetivos:[], competencias:[], cursos:[], networking:[], experiencias:[], planosRenda:[] }
 };
 
 // ── ESTADO ────────────────────────────────────────
@@ -403,6 +405,39 @@ function migrateData(d) {
     if(!c.dataCriacao) c.dataCriacao=new Date().toISOString(); if(c.dataAtualizacao==null) c.dataAtualizacao=c.dataCriacao;
   });
 
+  // ── Carreira & Desenvolvimento (Fase 10) — isolado por uid ──
+  if(typeof d.carreira!=='object' || d.carreira===null) d.carreira={};
+  ['objetivos','competencias','cursos','networking','experiencias','planosRenda'].forEach(k=>{ if(!Array.isArray(d.carreira[k])) d.carreira[k]=[]; });
+  const _cag=()=>new Date().toISOString();
+  d.carreira.objetivos.forEach(o=>{ if(!o.id) o.id='car_obj_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['titulo','descricao','prazo','area','nivelAtual','nivelDesejado','proximoPasso','relacionadaAMetaId','relacionadaADecisaoId','relacionadaAProjetoId','observacoes'].forEach(k=>{ if(o[k]==null) o[k]=''; });
+    if(!o.horizonte) o.horizonte='medio_prazo'; if(!o.status) o.status='em_andamento'; if(!o.prioridade) o.prioridade='media';
+    if(!o.impactoFinanceiro) o.impactoFinanceiro='medio'; if(!o.impactoProfissional) o.impactoProfissional='alto';
+    if(o.ativo==null) o.ativo=true; if(!o.dataCriacao) o.dataCriacao=_cag(); if(o.dataAtualizacao==null) o.dataAtualizacao=o.dataCriacao; });
+  d.carreira.competencias.forEach(s=>{ if(!s.id) s.id='skill_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['nome','evidencia','planoAcao','relacionadaAMetaId','relacionadaAProjetoId','observacoes'].forEach(k=>{ if(s[k]==null) s[k]=''; });
+    if(!s.categoria) s.categoria='produto'; if(s.nivelAtual==null||isNaN(s.nivelAtual)) s.nivelAtual=1; if(s.nivelDesejado==null||isNaN(s.nivelDesejado)) s.nivelDesejado=3;
+    if(!s.prioridade) s.prioridade='media'; if(!s.status) s.status='desenvolvendo';
+    if(s.ativo==null) s.ativo=true; if(!s.dataCriacao) s.dataCriacao=_cag(); if(s.dataAtualizacao==null) s.dataAtualizacao=s.dataCriacao; });
+  d.carreira.cursos.forEach(c=>{ if(!c.id) c.id='curso_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['nome','plataforma','dataInicio','prazo','dataConclusao','link','certificadoUrl','relacionadaAMetaId','relacionadaACompraId','relacionadaADecisaoId','observacoes'].forEach(k=>{ if(c[k]==null) c[k]=''; });
+    if(!c.tipo) c.tipo='curso'; if(!c.status) c.status='planejado'; if(!c.prioridade) c.prioridade='media';
+    if(c.cargaHoraria==null||isNaN(c.cargaHoraria)) c.cargaHoraria=0; if(c.custo==null||isNaN(c.custo)) c.custo=0;
+    if(c.ativo==null) c.ativo=true; if(!c.dataCriacao) c.dataCriacao=_cag(); if(c.dataAtualizacao==null) c.dataAtualizacao=c.dataCriacao; });
+  d.carreira.networking.forEach(n=>{ if(!n.id) n.id='net_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['nome','empresa','cargo','canal','link','ultimoContato','proximoContato','observacoes'].forEach(k=>{ if(n[k]==null) n[k]=''; });
+    if(!n.tipo) n.tipo='contato'; if(!n.status) n.status='ativo';
+    if(n.ativo==null) n.ativo=true; if(!n.dataCriacao) n.dataCriacao=_cag(); if(n.dataAtualizacao==null) n.dataAtualizacao=n.dataCriacao; });
+  d.carreira.experiencias.forEach(e=>{ if(!e.id) e.id='exp_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['titulo','empresa','inicio','fim','descricao','resultados','link','observacoes'].forEach(k=>{ if(e[k]==null) e[k]=''; });
+    if(!e.tipo) e.tipo='projeto'; if(!Array.isArray(e.competenciasUsadas)) e.competenciasUsadas=[];
+    if(e.ativo==null) e.ativo=true; if(!e.dataCriacao) e.dataCriacao=_cag(); if(e.dataAtualizacao==null) e.dataAtualizacao=e.dataCriacao; });
+  d.carreira.planosRenda.forEach(p=>{ if(!p.id) p.id='renda_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    ['titulo','prazo','estrategia','proximoPasso','relacionadaAMetaId','relacionadaADecisaoId','observacoes'].forEach(k=>{ if(p[k]==null) p[k]=''; });
+    if(p.rendaAtual==null||isNaN(p.rendaAtual)) p.rendaAtual=0; if(p.rendaDesejada==null||isNaN(p.rendaDesejada)) p.rendaDesejada=0;
+    if(!p.status) p.status='planejado';
+    if(p.ativo==null) p.ativo=true; if(!p.dataCriacao) p.dataCriacao=_cag(); if(p.dataAtualizacao==null) p.dataAtualizacao=p.dataCriacao; });
+
   // ── Módulo de Decisões (primeiro módulo fora de finanças) ──
   if(!Array.isArray(d.decisoes)) d.decisoes = [];
   d.decisoes.forEach(dec=>{
@@ -420,7 +455,7 @@ function migrateData(d) {
     if(!dec.recorrencia) dec.recorrencia = 'nenhuma';
     if(dec.valorRecorrente==null || isNaN(dec.valorRecorrente)) dec.valorRecorrente = 0;
     ['impactoFinanceiro','impactoProfissional','impactoPessoal','impactoLazer'].forEach(k=>{ if(!dec[k]) dec[k]='medio'; });
-    ['beneficios','riscos','alternativas','decisaoFinal','observacoes','relacionadaACompraId','relacionadaAMetaId','relacionadaAProjetoId'].forEach(k=>{ if(dec[k]==null) dec[k]=''; });
+    ['beneficios','riscos','alternativas','decisaoFinal','observacoes','relacionadaACompraId','relacionadaAMetaId','relacionadaAProjetoId','relacionadaACarreiraId'].forEach(k=>{ if(dec[k]==null) dec[k]=''; });
     if(dec.ativa==null) dec.ativa = true;
   });
 
@@ -1037,6 +1072,7 @@ function renderPage(id) {
   if(id==='decisoes')  { if(typeof renderDecisoes==='function') renderDecisoes(); return; }
   if(id==='integracoes'){ if(typeof renderIntegracoes==='function') renderIntegracoes(); return; }
   if(id==='trabalho')   { if(typeof renderTrabalho==='function') renderTrabalho(); return; }
+  if(id==='carreira')   { if(typeof renderCarreira==='function') renderCarreira(); return; }
   if(typeof PLACEHOLDER_MODULES==='object' && PLACEHOLDER_MODULES[id]) { if(typeof renderPlaceholder==='function') renderPlaceholder(id); return; }
   // Fast renders — synchronous
   if(id==='dash')      { renderDashboard(); return; }
@@ -4942,9 +4978,6 @@ function renderSidebar(){
 //  🧩 PLACEHOLDERS — módulos planejados (em construção)
 // ═══════════════════════════════════════════════════
 const PLACEHOLDER_MODULES = {
-  carreira: { icon:'🚀', titulo:'Carreira', section:'Carreira',
-    desc:'Acompanhe objetivos profissionais, competências, cursos e simulações de renda alinhadas ao seu planejamento financeiro.',
-    futuras:['Objetivos profissionais','Competências e certificações','Simulação de renda','Plano de transição'] },
   planejamento: { icon:'🗓️', titulo:'Planejamento Pessoal', section:'Planejamento',
     desc:'Organize objetivos de curto, médio e longo prazo, hábitos, rotinas e revisões semanais/mensais.',
     futuras:['Objetivos por horizonte','Hábitos e rotinas','Checklists semanais/mensais','Revisão de vida'] },
@@ -5058,6 +5091,8 @@ function renderGeralDash(){
       sub:(()=>{ try{ const r=_decResumoData(); const parts=[]; if(r.emAnalise) parts.push(`${r.emAnalise} em análise`); if(r.criticas) parts.push(`${r.criticas} crítica(s)`); if(r.prazoProx) parts.push(`prazo em ${r.prazoProx.dias}d`); return parts.length?parts.join(' · '):'Nenhuma decisão pendente'; }catch(e){ return 'Avalie decisões antes de agir'; } })()}),
     _gcard({icon:'💼', label:'Trabalho & projetos', valor:(typeof trabalhoResumoData==='function'?String(trabalhoResumoData().projetosAtivos):'0'), cor:'#3b82f6', page:'trabalho',
       sub:(()=>{ try{ const r=trabalhoResumoData(); const parts=[]; if(r.tarefasPendentes) parts.push(`${r.tarefasPendentes} tarefa(s) pendente(s)`); if(r.tarefasAtrasadas) parts.push(`${r.tarefasAtrasadas} atrasada(s)`); if(r.projetosCriticos) parts.push(`${r.projetosCriticos} crítico(s)`); if(r.aguardando) parts.push(`${r.aguardando} aguardando`); if(r.proximaEntrega) parts.push(`próxima entrega: ${r.proximaEntrega.dias===0?'hoje':r.proximaEntrega.dias+'d'}`); return parts.length?escapeHTML(parts.join(' · ')):'Nenhum projeto ativo'; }catch(e){ return 'Organize seus projetos e tarefas'; } })()}),
+    _gcard({icon:'🚀', label:'Carreira', valor:(typeof carreiraResumoData==='function'?String(carreiraResumoData().objetivosAtivos):'0'), cor:'#6366f1', page:'carreira',
+      sub:(()=>{ try{ const r=carreiraResumoData(); const parts=[]; if(r.maiorGap) parts.push(`maior gap: ${r.maiorGap.skill.nome||''} (${r.maiorGap.gap})`); if(r.cursosAndamento) parts.push(`${r.cursosAndamento} curso(s) em andamento`); if(r.contatosARetomar) parts.push(`${r.contatosARetomar} contato(s) a retomar`); if(r.proximoPrazo) parts.push(`próximo prazo: ${r.proximoPrazo.dias===0?'hoje':r.proximoPrazo.dias+'d'}`); return parts.length?escapeHTML(parts.join(' · ')):'Defina seus objetivos de carreira'; }catch(e){ return 'Planeje sua evolução profissional'; } })()}),
   ].join('');
 
   // Alertas
@@ -5085,6 +5120,7 @@ function renderGeralDash(){
     else if(tr.proximaEntrega) passos.push(`Preparar a próxima entrega de trabalho "${escapeHTML(tr.proximaEntrega.nome||'')}" (${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}).`);
     if(tr.projetosCriticos>0) passos.push(`Dar atenção a ${tr.projetosCriticos} projeto(s) crítico(s).`);
   }catch(e){}
+  try{ if(typeof carreiraProximosPassos==='function'){ carreiraProximosPassos().slice(0,2).forEach(p=>passos.push(p)); } }catch(e){}
   if(!passos.length) passos.push('Tudo em dia por aqui. Que tal registrar um novo objetivo ou decisão?');
 
   const passosHtml=`
@@ -5200,7 +5236,7 @@ function addDecisao(){
     custoEstimado:0, recorrencia:'nenhuma', valorRecorrente:0,
     impactoFinanceiro:'medio', impactoProfissional:'baixo', impactoPessoal:'medio', impactoLazer:'baixo',
     beneficios:'', riscos:'', alternativas:'', decisaoFinal:'', observacoes:'',
-    relacionadaACompraId:'', relacionadaAMetaId:'', relacionadaAProjetoId:'', ativa:true };
+    relacionadaACompraId:'', relacionadaAMetaId:'', relacionadaAProjetoId:'', relacionadaACarreiraId:'', ativa:true };
   _decs().unshift(dec);
   _decExpanded[dec.id]=true;
   if(typeof scheduleAutoSave==='function') scheduleAutoSave();
@@ -5523,6 +5559,7 @@ const _REL_TIPOS = [
   {id:'decisoes', label:'Decisões',            icon:'🧭'},
   {id:'compras',  label:'Compras & Desejos',   icon:'🛒'},
   {id:'trabalho', label:'Trabalho & Projetos',  icon:'💼'},
+  {id:'carreira', label:'Carreira',            icon:'🚀'},
   {id:'geral',    label:'Geral da Vida',       icon:'🏠'},
 ];
 const _REL_COMPRA_ST = { desejado:'Desejado', em_analise:'Em análise', adiado:'Adiado', comprado:'Comprado', descartado:'Descartado' };
@@ -5757,6 +5794,7 @@ function relDocGeral(){
     <div>🧭 <strong>Decisões:</strong> ${dr.emAnalise} em análise${dr.criticas?`, ${dr.criticas} crítica(s)`:''}${dr.custoTotal?`, custo estimado ${fmt(dr.custoTotal)}`:''}.</div>
     <div>🛒 <strong>Compras &amp; desejos:</strong> ${fmt(cr.totalAberto)} em aberto${cr.proximo?`, próximo: ${escapeHTML(cr.proximo.nome||'')}`:''}.</div>
     ${(()=>{ try{ const tr=trabalhoResumoData(); return `<div>💼 <strong>Trabalho:</strong> ${tr.projetosAtivos} projeto(s) ativo(s), ${tr.tarefasPendentes} tarefa(s) pendente(s)${tr.tarefasAtrasadas?`, ${tr.tarefasAtrasadas} atrasada(s)`:''}${tr.proximaEntrega?`. Próxima entrega: ${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}`:''}.</div>`; }catch(e){ return ''; } })()}
+    ${(()=>{ try{ const cr=carreiraResumoData(); return `<div>🚀 <strong>Carreira:</strong> ${cr.objetivosAtivos} objetivo(s) ativo(s)${cr.maiorGap?`, maior gap: ${escapeHTML(cr.maiorGap.skill.nome||'')} (${cr.maiorGap.gap})`:''}${cr.cursosAndamento?`, ${cr.cursosAndamento} curso(s) em andamento`:''}${cr.contatosARetomar?`, ${cr.contatosARetomar} contato(s) a retomar`:''}.</div>`; }catch(e){ return ''; } })()}
   </div>`);
 
   const alertas=insights.length?_relSection('Alertas importantes',
@@ -5769,6 +5807,7 @@ function relDocGeral(){
   if(dr.prazoProx&&dr.prazoProx.dec) passos.push(`Decidir "${escapeHTML(dr.prazoProx.dec.titulo||'')}" (prazo em ${dr.prazoProx.dias}d).`);
   metasAtivas.filter(x=>x.m.proximosPassos).slice(0,2).forEach(x=>passos.push(`Meta "${escapeHTML(x.m.nome||'')}": ${escapeHTML(x.m.proximosPassos)}`));
   try{ const tr=trabalhoResumoData(); if(tr.tarefasAtrasadas>0) passos.push(`Resolver ${tr.tarefasAtrasadas} tarefa(s) de trabalho atrasada(s).`); else if(tr.proximaEntrega) passos.push(`Preparar entrega "${escapeHTML(tr.proximaEntrega.nome||'')}" (${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}).`); }catch(e){}
+  try{ if(typeof carreiraProximosPassos==='function'){ carreiraProximosPassos().slice(0,2).forEach(p=>passos.push(p)); } }catch(e){}
   if(!passos.length) passos.push('Tudo em dia. Considere registrar um novo objetivo ou revisar suas metas.');
   const passosSec=_relSection('Próximos passos recomendados',
     `<div style="display:grid;gap:6px;font-size:12px">${passos.slice(0,6).map(p=>`<div>→ ${p}</div>`).join('')}</div>`);
@@ -5801,6 +5840,7 @@ function renderRelatorioAtivo(){
     else if(_relTipo==='decisoes'){ html=relDocDecisoes(); }
     else if(_relTipo==='compras'){ html=relDocCompras(); }
     else if(_relTipo==='trabalho'){ html=relDocTrabalho(); }
+    else if(_relTipo==='carreira'){ html=relDocCarreira(); }
     else if(_relTipo==='geral'){ html=relDocGeral(); }
   }catch(e){ html=_relDoc('Relatório', '', _relEmpty('Não foi possível gerar este relatório com os dados atuais.')); console.error('rel',e); }
   el.innerHTML=html;
@@ -6821,6 +6861,642 @@ function relDocTrabalho(){
   const atrasSec=atrasadas.length?_relSection('Tarefas atrasadas', _relTable(['Tarefa','Projeto','Prazo'],
     atrasadas.map(t=>{const p=projGet(t.projetoId);return [escapeHTML(t.titulo||''), p?escapeHTML(p.nome||''):'—', escapeHTML(t.prazo||'')];}))):'';
   return _relDoc('Relatório de Trabalho','Projetos & Tarefas', _relSection('Resumo executivo',kpis)+stSec+projSec+atrasSec);
+}
+
+// ═══════════════════════════════════════════════════
+//  🚀 CARREIRA & DESENVOLVIMENTO (Fase 10)
+//  Dados em D.carreira (userData/{uid}). Texto livre escapado.
+//  Reaproveita helpers globais: _safeUrl, _isPast, _diasAte, _abrirAgenda,
+//  _selOpts, _metaVincBadge, _decVincBadge, TRAB_PRIOS, escapeHTML, attr.
+// ═══════════════════════════════════════════════════
+const CAR_HORIZONTES = { curto_prazo:{label:'Curto prazo',cor:'var(--info)'}, medio_prazo:{label:'Médio prazo',cor:'var(--warn)'}, longo_prazo:{label:'Longo prazo',cor:'var(--violet)'} };
+const CAR_OBJ_STATUS = { planejado:{label:'Planejado',cor:'var(--text3)'}, em_andamento:{label:'Em andamento',cor:'var(--info)'}, pausado:{label:'Pausado',cor:'var(--text3)'}, concluido:{label:'Concluído',cor:'var(--pos)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'} };
+const CAR_AREAS = ['product_management','analise_negocios','requisitos','gestao_projetos','ux_produto','comunicacao_cliente','testes_homologacao','dados_metricas','lideranca','estrategia','tecnologia','outro'];
+const CAR_SKILL_CATS = ['produto','negocios','requisitos','projetos','comunicacao','lideranca','dados','tecnologia','documentacao','testes','comercial','pessoal','outro'];
+const CAR_SKILL_STATUS = { desenvolvendo:{label:'Desenvolvendo',cor:'var(--info)'}, dominado:{label:'Dominado',cor:'var(--pos)'}, em_risco:{label:'Em risco',cor:'var(--neg)'}, pausado:{label:'Pausado',cor:'var(--text3)'} };
+const CAR_NIVEIS = { 1:'iniciante', 2:'básico', 3:'intermediário', 4:'avançado', 5:'referência' };
+const CAR_CURSO_TIPOS = ['curso','certificacao','livro','mentoria','workshop','evento','trilha','outro'];
+const CAR_CURSO_STATUS = { planejado:{label:'Planejado',cor:'var(--text3)'}, em_andamento:{label:'Em andamento',cor:'var(--info)'}, concluido:{label:'Concluído',cor:'var(--pos)'}, pausado:{label:'Pausado',cor:'var(--text3)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'} };
+const CAR_NET_TIPOS = ['contato','mentor','colega','cliente','recrutador','referencia','parceiro','outro'];
+const CAR_NET_STATUS = { ativo:{label:'Ativo',cor:'var(--pos)'}, a_retomar:{label:'A retomar',cor:'var(--warn)'}, inativo:{label:'Inativo',cor:'var(--text3)'} };
+const CAR_EXP_TIPOS = ['emprego','contrato','projeto','entrega','cliente','case','conquista','outro'];
+const CAR_RENDA_STATUS = { planejado:{label:'Planejado',cor:'var(--text3)'}, em_andamento:{label:'Em andamento',cor:'var(--info)'}, concluido:{label:'Concluído',cor:'var(--pos)'}, pausado:{label:'Pausado',cor:'var(--text3)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'} };
+
+function _car(){
+  if(typeof D.carreira!=='object'||D.carreira===null) D.carreira={};
+  ['objetivos','competencias','cursos','networking','experiencias','planosRenda'].forEach(k=>{ if(!Array.isArray(D.carreira[k])) D.carreira[k]=[]; });
+  return D.carreira;
+}
+function carObjGet(id){ return _car().objetivos.find(x=>x.id===id); }
+function skillGet(id){ return _car().competencias.find(x=>x.id===id); }
+function cursoGet(id){ return _car().cursos.find(x=>x.id===id); }
+function netGet(id){ return _car().networking.find(x=>x.id===id); }
+function expGet(id){ return _car().experiencias.find(x=>x.id===id); }
+function rendaGet(id){ return _car().planosRenda.find(x=>x.id===id); }
+function _carNivelLabel(n){ return CAR_NIVEIS[n]||String(n||'—'); }
+
+// ── Cálculos ──
+function carreiraGapCompetencia(skill){
+  const atual=+skill.nivelAtual||0, desejado=+skill.nivelDesejado||0;
+  const gap=Math.max(0,desejado-atual);
+  const prioAlta=['alta','critica'].includes(skill.prioridade);
+  const emRisco = skill.status==='em_risco' || (gap>=2 && prioAlta);
+  // prioridade de desenvolvimento: combina gap e prioridade
+  const score = gap*2 + (TRAB_PRIOS[skill.prioridade]?.ord||0);
+  return { gap, emRisco, score, atual, desejado };
+}
+function carreiraObjetivoAtrasado(obj){ return _isPast(obj.prazo) && !['concluido','cancelado'].includes(obj.status); }
+function carreiraCursoAtrasado(curso){ return _isPast(curso.prazo) && !['concluido','cancelado'].includes(curso.status); }
+function carreiraResumoData(){
+  const C=_car();
+  const objAtivos=C.objetivos.filter(o=>o.ativo!==false && !['concluido','cancelado'].includes(o.status));
+  const skillsDev=C.competencias.filter(s=>s.ativo!==false && s.status!=='dominado');
+  let maiorGap=null; skillsDev.forEach(s=>{ const g=carreiraGapCompetencia(s); if(g.gap>0 && (!maiorGap||g.score>maiorGap.score)) maiorGap={skill:s,...g}; });
+  const cursosAndamento=C.cursos.filter(c=>c.status==='em_andamento');
+  const certPlanejadas=C.cursos.filter(c=>c.tipo==='certificacao' && ['planejado','em_andamento'].includes(c.status));
+  const contatosARetomar=C.networking.filter(n=>n.ativo!==false && (n.status==='a_retomar' || (n.proximoContato && _isPast(n.proximoContato))));
+  // próximo prazo (objetivo/curso/renda/networking)
+  let prox=null;
+  const add=(nome,prazo,tipo)=>{ const d=_diasAte(prazo); if(d!=null && d>=0 && (!prox||d<prox.dias)) prox={nome,tipo,dias:d}; };
+  objAtivos.forEach(o=>add(o.titulo,o.prazo,'objetivo'));
+  cursosAndamento.concat(C.cursos.filter(c=>c.status==='planejado')).forEach(c=>add(c.nome,c.prazo,'curso'));
+  C.networking.forEach(n=>add(n.nome,n.proximoContato,'contato'));
+  C.planosRenda.filter(p=>p.ativo!==false).forEach(p=>add(p.titulo,p.prazo,'renda'));
+  const planoRenda=C.planosRenda.filter(p=>p.ativo!==false && !['concluido','cancelado'].includes(p.status))
+    .sort((a,b)=>(a.prazo||'~').localeCompare(b.prazo||'~'))[0]||null;
+  return { objetivosAtivos:objAtivos.length, competenciasDesenvolvendo:skillsDev.length, maiorGap,
+    cursosAndamento:cursosAndamento.length, certificacoesPlanejadas:certPlanejadas.length,
+    contatosARetomar:contatosARetomar.length, proximoPrazo:prox, planoRenda, objAtivosList:objAtivos };
+}
+function carreiraProximosPassos(){
+  const r=carreiraResumoData(); const passos=[];
+  if(r.maiorGap) passos.push(`Desenvolver "${escapeHTML(r.maiorGap.skill.nome||'')}" (gap ${r.maiorGap.gap} nível(is)).`);
+  const C=_car();
+  const objAtras=C.objetivos.filter(carreiraObjetivoAtrasado).length;
+  if(objAtras>0) passos.push(`Revisar ${objAtras} objetivo(s) de carreira atrasado(s).`);
+  const cursoAtras=C.cursos.filter(carreiraCursoAtrasado).length;
+  if(cursoAtras>0) passos.push(`Retomar ${cursoAtras} curso(s)/certificação(ões) atrasado(s).`);
+  if(r.contatosARetomar>0) passos.push(`Retomar contato com ${r.contatosARetomar} pessoa(s) da sua rede.`);
+  C.objetivos.filter(o=>o.proximoPasso && o.ativo!==false && !['concluido','cancelado'].includes(o.status)).slice(0,2)
+    .forEach(o=>passos.push(`Objetivo "${escapeHTML(o.titulo||'')}": ${escapeHTML(o.proximoPasso)}`));
+  return passos;
+}
+
+// ── Estado de UI ──
+let _carAba='objetivos';
+let _carExpanded={};
+let _carF={ obj:{busca:'',horizonte:'',status:'',prio:'',area:'',ord:'prioridade'},
+  skill:{busca:'',cat:'',status:'',prio:'',gap:'',ord:'gap'},
+  curso:{busca:'',tipo:'',status:'',prio:'',ord:'prazo'} };
+function setCarAba(a){ _carAba=a; renderCarreira(); }
+function toggleCarExpand(id){ _carExpanded[id]=!_carExpanded[id]; renderCarreira(); }
+function setCarF(grupo,k,v){ _carF[grupo][k]=v; renderCarreira(); }
+
+// ── CRUD: Objetivos ──
+function addObjetivoCarreira(){
+  const ag=new Date().toISOString();
+  const o={ id:'car_obj_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:'Novo objetivo de carreira', descricao:'', horizonte:'medio_prazo', status:'em_andamento', prioridade:'media',
+    prazo:'', area:'product_management', nivelAtual:'', nivelDesejado:'', impactoFinanceiro:'medio', impactoProfissional:'alto',
+    proximoPasso:'', relacionadaAMetaId:'', relacionadaADecisaoId:'', relacionadaAProjetoId:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _car().objetivos.unshift(o); _carExpanded[o.id]=true; _carAba='objetivos'; scheduleAutoSave(); renderCarreira();
+}
+function setObjField(id,f,v){ const o=carObjGet(id); if(!o) return;
+  o[f]=v; o.dataAtualizacao=new Date().toISOString();
+  if(f==='status'&&v==='concluido'&&!o.dataConclusao) o.dataConclusao=new Date().toISOString().slice(0,10);
+  scheduleAutoSave(); renderCarreira(); }
+async function removeObjetivoCarreira(id){ const o=carObjGet(id);
+  if(!await uiConfirm(`Remover o objetivo <strong>"${escapeHTML(o&&o.titulo||'')}"</strong>?`,{icon:'🎯',okText:'Remover'})) return;
+  _car().objetivos=_car().objetivos.filter(x=>x.id!==id); delete _carExpanded[id]; scheduleAutoSave(); renderCarreira(); toast('Objetivo removido',true,'🗑️'); }
+
+// ── CRUD: Competências ──
+function addCompetencia(){
+  const ag=new Date().toISOString();
+  const s={ id:'skill_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Nova competência', categoria:'produto', nivelAtual:1, nivelDesejado:3, prioridade:'media', status:'desenvolvendo',
+    evidencia:'', planoAcao:'', relacionadaAMetaId:'', relacionadaAProjetoId:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _car().competencias.unshift(s); _carExpanded[s.id]=true; _carAba='competencias'; scheduleAutoSave(); renderCarreira();
+}
+function setSkillField(id,f,v){ const s=skillGet(id); if(!s) return;
+  if(f==='nivelAtual'||f==='nivelDesejado') v=Math.max(1,Math.min(5,parseInt(v)||1));
+  s[f]=v; s.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderCarreira(); }
+async function removeCompetencia(id){ const s=skillGet(id);
+  if(!await uiConfirm(`Remover a competência <strong>"${escapeHTML(s&&s.nome||'')}"</strong>?`,{icon:'🧠',okText:'Remover'})) return;
+  _car().competencias=_car().competencias.filter(x=>x.id!==id); delete _carExpanded[id]; scheduleAutoSave(); renderCarreira(); toast('Competência removida',true,'🗑️'); }
+
+// ── CRUD: Cursos/Certificações ──
+function addCurso(){
+  const ag=new Date().toISOString();
+  const c={ id:'curso_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Novo curso', tipo:'curso', plataforma:'', status:'planejado', prioridade:'media', dataInicio:'', prazo:'', dataConclusao:'',
+    cargaHoraria:0, custo:0, link:'', certificadoUrl:'', relacionadaAMetaId:'', relacionadaACompraId:'', relacionadaADecisaoId:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _car().cursos.unshift(c); _carExpanded[c.id]=true; _carAba='cursos'; scheduleAutoSave(); renderCarreira();
+}
+function setCursoField(id,f,v){ const c=cursoGet(id); if(!c) return;
+  if(f==='cargaHoraria'||f==='custo') v=Math.max(0,parseFloat(v)||0);
+  c[f]=v; c.dataAtualizacao=new Date().toISOString();
+  if(f==='status'&&v==='concluido'&&!c.dataConclusao) c.dataConclusao=new Date().toISOString().slice(0,10);
+  scheduleAutoSave(); renderCarreira(); }
+async function removeCurso(id){ const c=cursoGet(id);
+  if(!await uiConfirm(`Remover <strong>"${escapeHTML(c&&c.nome||'')}"</strong>?`,{icon:'🎓',okText:'Remover'})) return;
+  _car().cursos=_car().cursos.filter(x=>x.id!==id); delete _carExpanded[id]; scheduleAutoSave(); renderCarreira(); toast('Removido',true,'🗑️'); }
+
+// ── CRUD: Networking ──
+function addContato(){
+  const ag=new Date().toISOString();
+  const n={ id:'net_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome:'Novo contato', empresa:'', cargo:'', tipo:'contato', canal:'', link:'', ultimoContato:'', proximoContato:'', status:'ativo', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _car().networking.unshift(n); _carExpanded[n.id]=true; _carAba='networking'; scheduleAutoSave(); renderCarreira();
+}
+function setNetField(id,f,v){ const n=netGet(id); if(!n) return; n[f]=v; n.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderCarreira(); }
+async function removeContato(id){ const n=netGet(id);
+  if(!await uiConfirm(`Remover o contato <strong>"${escapeHTML(n&&n.nome||'')}"</strong>?`,{icon:'🤝',okText:'Remover'})) return;
+  _car().networking=_car().networking.filter(x=>x.id!==id); delete _carExpanded[id]; scheduleAutoSave(); renderCarreira(); toast('Contato removido',true,'🗑️'); }
+
+// ── CRUD: Experiências ──
+function addExperiencia(){
+  const ag=new Date().toISOString();
+  const e={ id:'exp_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:'Nova experiência', empresa:'', tipo:'projeto', inicio:'', fim:'', descricao:'', resultados:'', competenciasUsadas:[], link:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _car().experiencias.unshift(e); _carExpanded[e.id]=true; _carAba='experiencias'; scheduleAutoSave(); renderCarreira();
+}
+function setExpField(id,f,v){ const e=expGet(id); if(!e) return;
+  if(f==='competenciasUsadas') v=String(v).split(',').map(s=>s.trim()).filter(Boolean).slice(0,12);
+  e[f]=v; e.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderCarreira(); }
+async function removeExperiencia(id){ const e=expGet(id);
+  if(!await uiConfirm(`Remover a experiência <strong>"${escapeHTML(e&&e.titulo||'')}"</strong>?`,{icon:'📜',okText:'Remover'})) return;
+  _car().experiencias=_car().experiencias.filter(x=>x.id!==id); delete _carExpanded[id]; scheduleAutoSave(); renderCarreira(); toast('Removida',true,'🗑️'); }
+
+// ── CRUD: Plano de Renda ──
+function addPlanoRenda(){
+  const ag=new Date().toISOString();
+  const p={ id:'renda_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:'Novo plano de renda', rendaAtual:0, rendaDesejada:0, prazo:'', estrategia:'', status:'planejado', proximoPasso:'', relacionadaAMetaId:'', relacionadaADecisaoId:'', observacoes:'', ativo:true, dataCriacao:ag, dataAtualizacao:ag };
+  _car().planosRenda.unshift(p); _carExpanded[p.id]=true; _carAba='renda'; scheduleAutoSave(); renderCarreira();
+}
+function setRendaField(id,f,v){ const p=rendaGet(id); if(!p) return;
+  if(f==='rendaAtual'||f==='rendaDesejada') v=Math.max(0,parseFloat(v)||0);
+  p[f]=v; p.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); renderCarreira(); }
+async function removePlanoRenda(id){ const p=rendaGet(id);
+  if(!await uiConfirm(`Remover o plano <strong>"${escapeHTML(p&&p.titulo||'')}"</strong>?`,{icon:'💹',okText:'Remover'})) return;
+  _car().planosRenda=_car().planosRenda.filter(x=>x.id!==id); delete _carExpanded[id]; scheduleAutoSave(); renderCarreira(); toast('Removido',true,'🗑️'); }
+
+// ── Agenda (reusa googleCalendarLink) ──
+function agendarObjetivoCarreira(id){ const o=carObjGet(id); if(!o) return; _abrirAgenda({title:`Carreira: ${o.titulo||'objetivo'}`, details:`Objetivo de carreira.${o.proximoPasso?' Próximo passo: '+o.proximoPasso:''}`, startDate:o.prazo}); }
+function agendarCurso(id){ const c=cursoGet(id); if(!c) return; _abrirAgenda({title:`${c.tipo==='certificacao'?'Certificação':'Curso'}: ${c.nome||''}`, details:`${c.plataforma?'Plataforma: '+c.plataforma+'. ':''}${c.cargaHoraria?c.cargaHoraria+'h.':''}`, startDate:c.prazo}); }
+function agendarContato(id){ const n=netGet(id); if(!n) return; _abrirAgenda({title:`Contato: ${n.nome||''}`, details:`Retomar contato${n.empresa?' ('+n.empresa+')':''}.${n.canal?' Canal: '+n.canal+'.':''}`, startDate:n.proximoContato}); }
+function agendarRenda(id){ const p=rendaGet(id); if(!p) return; _abrirAgenda({title:`Plano de renda: ${p.titulo||''}`, details:`Revisar plano de evolução de renda.${p.proximoPasso?' Próximo passo: '+p.proximoPasso:''}`, startDate:p.prazo}); }
+
+// ── Criar meta (objetivo/curso/competência) ──
+function _novaMetaCarreira(nome,desc,extra){
+  if(!Array.isArray(D.metas)) D.metas=[];
+  const ag=new Date().toISOString();
+  const meta={ id:'meta_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    nome, descricao:desc||'', icon:'🚀', dominio:'carreira', categoria:'', status:'em_andamento', prioridade:'media',
+    unidade:'manual', prazo:extra.prazo||'', valorAlvo:extra.valorAlvo||0, valorAtual:0, progressoManual:0,
+    fonte:'manual', ativoNome:'', cor:'#6366f1', impactoFinanceiro:'medio', proximosPassos:'', observacoes:'',
+    relacionadaADecisaoId:'', relacionadaACompraId:'', relacionadaACarreiraId:extra.carreiraId||'', dataCriacao:ag, dataAtualizacao:ag, ativa:true };
+  D.metas.unshift(meta); return meta;
+}
+function criarMetaDeObjetivo(id){ const o=carObjGet(id); if(!o) return;
+  if(o.relacionadaAMetaId && (D.metas||[]).some(m=>m.id===o.relacionadaAMetaId)){ go('metas'); toast('Objetivo já tem meta vinculada',true,'🎯'); return; }
+  const m=_novaMetaCarreira(`Carreira: ${o.titulo||'objetivo'}`, o.descricao, {prazo:o.prazo, carreiraId:o.id});
+  o.relacionadaAMetaId=m.id; o.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); toast('Meta criada e vinculada',true,'🎯'); go('metas'); }
+function criarMetaDeCurso(id){ const c=cursoGet(id); if(!c) return;
+  if(c.relacionadaAMetaId && (D.metas||[]).some(m=>m.id===c.relacionadaAMetaId)){ go('metas'); toast('Curso já tem meta vinculada',true,'🎯'); return; }
+  const m=_novaMetaCarreira(`Concluir: ${c.nome||'curso'}`, c.observacoes, {prazo:c.prazo, carreiraId:c.id});
+  c.relacionadaAMetaId=m.id; c.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); toast('Meta criada e vinculada',true,'🎯'); go('metas'); }
+function criarMetaDeCompetencia(id){ const s=skillGet(id); if(!s) return;
+  if(s.relacionadaAMetaId && (D.metas||[]).some(m=>m.id===s.relacionadaAMetaId)){ go('metas'); toast('Competência já tem meta vinculada',true,'🎯'); return; }
+  const m=_novaMetaCarreira(`Evoluir: ${s.nome||'competência'}`, s.planoAcao, {carreiraId:s.id});
+  s.relacionadaAMetaId=m.id; s.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); toast('Meta criada e vinculada',true,'🎯'); go('metas'); }
+
+// ── Criar decisão (objetivo/curso/renda) ──
+function _novaDecisaoCarreira(nome,desc,prio,carreiraId){
+  if(!Array.isArray(D.decisoes)) D.decisoes=[];
+  const ag=new Date().toISOString();
+  const dec={ id:'dec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    titulo:`Avaliar carreira: ${nome}`, descricao:desc||'', categoria:'carreira', status:'em_analise', prioridade:prio||'media',
+    prazo:'', dataCriacao:ag, dataAtualizacao:ag, dataDecisao:'', custoEstimado:0, recorrencia:'nenhuma', valorRecorrente:0,
+    impactoFinanceiro:'medio', impactoProfissional:'alto', impactoPessoal:'medio', impactoLazer:'baixo',
+    beneficios:'', riscos:'', alternativas:'', decisaoFinal:'', observacoes:'',
+    relacionadaACompraId:'', relacionadaAMetaId:'', relacionadaAProjetoId:'', relacionadaACarreiraId:carreiraId, ativa:true };
+  D.decisoes.unshift(dec); return dec;
+}
+function criarDecisaoDeObjetivo(id){ const o=carObjGet(id); if(!o) return;
+  if(o.relacionadaADecisaoId && (D.decisoes||[]).some(d=>d.id===o.relacionadaADecisaoId)){ go('decisoes'); toast('Já tem decisão vinculada',true,'🧭'); return; }
+  const d=_novaDecisaoCarreira(o.titulo||'objetivo', o.descricao, o.prioridade, o.id); d.prazo=o.prazo||'';
+  o.relacionadaADecisaoId=d.id; o.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); toast('Decisão criada e vinculada',true,'🧭'); go('decisoes'); }
+function criarDecisaoDeCurso(id){ const c=cursoGet(id); if(!c) return;
+  if(c.relacionadaADecisaoId && (D.decisoes||[]).some(d=>d.id===c.relacionadaADecisaoId)){ go('decisoes'); toast('Já tem decisão vinculada',true,'🧭'); return; }
+  const d=_novaDecisaoCarreira(c.nome||'curso', c.observacoes, c.prioridade, c.id); d.prazo=c.prazo||''; d.custoEstimado=c.custo||0;
+  c.relacionadaADecisaoId=d.id; c.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); toast('Decisão criada e vinculada',true,'🧭'); go('decisoes'); }
+function criarDecisaoDeRenda(id){ const p=rendaGet(id); if(!p) return;
+  if(p.relacionadaADecisaoId && (D.decisoes||[]).some(d=>d.id===p.relacionadaADecisaoId)){ go('decisoes'); toast('Já tem decisão vinculada',true,'🧭'); return; }
+  const d=_novaDecisaoCarreira(p.titulo||'renda', p.estrategia, 'alta', p.id); d.prazo=p.prazo||'';
+  p.relacionadaADecisaoId=d.id; p.dataAtualizacao=new Date().toISOString(); scheduleAutoSave(); toast('Decisão criada e vinculada',true,'🧭'); go('decisoes'); }
+
+// ── Criar compra de curso pago ──
+function criarCompraDeCurso(id){ const c=cursoGet(id); if(!c) return;
+  if((c.custo||0)<=0){ toast('Defina o custo do curso primeiro',false,'💵'); return; }
+  if(c.relacionadaACompraId && ((_hob().itens)||[]).some(it=>it.id===c.relacionadaACompraId)){ go('hobbies'); toast('Curso já tem compra vinculada',true,'🛒'); return; }
+  const h=_hob(); const ag=new Date().toISOString();
+  const it={ id:'hi'+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
+    nome:`${c.tipo==='certificacao'?'Certificação':'Curso'}: ${c.nome||''}`, descricao:c.observacoes||'', catId:(h.cats[0]||{}).id||'', tipo:'desejo',
+    dominio:'carreira', preco:c.custo||0, frete:0, custoTotal:c.custo||0, classe:'investimento',
+    prioridade:(hobItensAbertos().length+1), fase:1, status:'desejado', loja:c.plataforma||'', link:c.link||'', notas:'investimento profissional',
+    justificativa:'Desenvolvimento profissional', alternativas:'', melhorMomento:'',
+    impactoFinanceiro:'medio', impactoLazer:'baixo', impactoProfissional:'alto', impactoPatrimonio:'baixo',
+    relacionadaAMetaId:c.relacionadaAMetaId||'', relacionadaADecisaoId:c.relacionadaADecisaoId||'',
+    dataCriacao:ag, dataAtualizacao:ag, dataCompraPlanejada:c.prazo||'', dataCompraRealizada:'', ativo:true };
+  h.itens.unshift(it); c.relacionadaACompraId=it.id; c.dataAtualizacao=ag;
+  scheduleAutoSave(); toast('Compra criada para o curso',true,'🛒'); go('hobbies'); }
+
+// ── Helpers de render ──
+function _carBadge(label,cor){ return `<span class="badge" style="background:var(--card3);color:${cor};font-size:10px">${escapeHTML(label)}</span>`; }
+function _projVincBadge(pid){ if(!pid||typeof projGet!=='function') return ''; const p=projGet(pid); if(!p) return ''; return `<span style="font-size:10px;color:var(--text3)">💼 ${escapeHTML(p.nome||'')}</span>`; }
+function _compraVincBadge(cid){ if(!cid) return ''; const it=((_hob().itens)||[]).find(x=>x.id===cid); if(!it) return ''; return `<span style="font-size:10px;color:var(--text3)">🛒 ${escapeHTML(it.nome||'')}</span>`; }
+function _projOptions(sel){ if(typeof _trab!=='function') return ''; return _trab().projetos.map(p=>`<option value="${attr(p.id)}"${p.id===sel?' selected':''}>${escapeHTML(p.nome||'')}</option>`).join(''); }
+function _metaOptions(sel){ return (D.metas||[]).map(m=>`<option value="${attr(m.id)}"${m.id===sel?' selected':''}>${escapeHTML((typeof metaDom==='function'?metaDom(m.dominio).icon+' ':'')+(m.nome||''))}</option>`).join(''); }
+function _decOptions(sel){ return (D.decisoes||[]).map(d=>`<option value="${attr(d.id)}"${d.id===sel?' selected':''}>${escapeHTML(d.titulo||'')}</option>`).join(''); }
+function _fLabel(t){ return `<label class="flabel" style="font-size:10px">${t}</label>`; }
+
+function renderCarreira(){
+  const el=document.getElementById('carreira-body'); if(!el) return;
+  _car();
+  const r=carreiraResumoData();
+  const rc=(icon,label,val,cor)=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:11px 13px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)">${icon} ${label}</div>
+    <div style="font-size:17px;font-weight:800;color:${cor||'var(--text)'};margin-top:2px">${val}</div></div>`;
+  const resumo=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:16px">
+    ${rc('🎯','Objetivos ativos',r.objetivosAtivos,'var(--info)')}
+    ${rc('🧠','Competências',r.competenciasDesenvolvendo)}
+    ${rc('📊','Maior gap',r.maiorGap?escapeHTML((r.maiorGap.skill.nome||'').slice(0,14))+' ('+r.maiorGap.gap+')':'—',r.maiorGap&&r.maiorGap.emRisco?'var(--neg)':'var(--text)')}
+    ${rc('🎓','Cursos em curso',r.cursosAndamento)}
+    ${rc('📜','Certif. planejadas',r.certificacoesPlanejadas)}
+    ${rc('⏰','Próximo prazo',r.proximoPrazo?(r.proximoPrazo.dias===0?'hoje':r.proximoPrazo.dias+'d'):'—',r.proximoPrazo&&r.proximoPrazo.dias<=7?'var(--warn)':'var(--text)')}
+    ${rc('🤝','Contatos a retomar',r.contatosARetomar,r.contatosARetomar>0?'var(--warn)':'var(--text)')}
+    ${rc('💹','Plano de renda',r.planoRenda?fmt(r.planoRenda.rendaDesejada):'—','var(--teal)')}
+  </div>`;
+
+  const aba=(id,label)=>`<button class="btn ${_carAba===id?'btn-pri':'btn-ghost'}" style="height:32px;font-size:12px" onclick="setCarAba('${id}')">${label}</button>`;
+  const tabs=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    ${aba('objetivos','🎯 Objetivos')}${aba('competencias','🧠 Competências')}${aba('cursos','🎓 Cursos')}${aba('networking','🤝 Networking')}${aba('experiencias','📜 Experiências')}${aba('renda','💹 Renda')}</div>`;
+
+  let c='';
+  if(_carAba==='objetivos') c=_renderCarObjetivos();
+  else if(_carAba==='competencias') c=_renderCarSkills();
+  else if(_carAba==='cursos') c=_renderCarCursos();
+  else if(_carAba==='networking') c=_renderCarNetworking();
+  else if(_carAba==='experiencias') c=_renderCarExperiencias();
+  else c=_renderCarRenda();
+  el.innerHTML = resumo + tabs + c;
+}
+
+function _emptyBox(icon,txt,btnLabel,btnFn){ return `<div class="panel"><div class="empty" style="padding:26px"><div class="empty-icon">${icon}</div><div class="empty-text">${txt}</div>${btnFn?`<button class="btn btn-pri" style="margin-top:12px" onclick="${btnFn}">${btnLabel}</button>`:''}</div></div>`; }
+
+function _renderCarObjetivos(){
+  const C=_car(), f=_carF.obj;
+  let lista=C.objetivos.slice();
+  if(f.horizonte) lista=lista.filter(o=>o.horizonte===f.horizonte);
+  if(f.status) lista=lista.filter(o=>o.status===f.status);
+  if(f.prio) lista=lista.filter(o=>o.prioridade===f.prio);
+  if(f.area) lista=lista.filter(o=>o.area===f.area);
+  if(f.busca){ const q=f.busca.toLowerCase(); lista=lista.filter(o=>['titulo','descricao','proximoPasso','observacoes'].some(k=>(o[k]||'').toLowerCase().includes(q))); }
+  const ord={ prioridade:(a,b)=>(TRAB_PRIOS[b.prioridade]?.ord||0)-(TRAB_PRIOS[a.prioridade]?.ord||0), prazo:(a,b)=>(a.prazo||'~').localeCompare(b.prazo||'~'),
+    status:(a,b)=>(a.status||'').localeCompare(b.status||''), criacao:(a,b)=>(b.dataCriacao||'').localeCompare(a.dataCriacao||'') };
+  lista.sort(ord[f.ord]||ord.prioridade);
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(f.busca)}" oninput="setCarF('obj','busca',this.value)" placeholder="🔍 Buscar objetivos" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setCarF('obj','horizonte',this.value)" style="height:34px;font-size:12px"><option value="">Horizonte: todos</option>${_selOpts(CAR_HORIZONTES,f.horizonte)}</select>
+    <select onchange="setCarF('obj','status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${_selOpts(CAR_OBJ_STATUS,f.status)}</select>
+    <select onchange="setCarF('obj','prio',this.value)" style="height:34px;font-size:12px"><option value="">Prioridade: todas</option>${_selOpts(TRAB_PRIOS,f.prio)}</select>
+    <select onchange="setCarF('obj','area',this.value)" style="height:34px;font-size:12px"><option value="">Área: todas</option>${_selOpts(CAR_AREAS,f.area)}</select>
+    <select onchange="setCarF('obj','ord',this.value)" style="height:34px;font-size:12px"><option value="prioridade"${f.ord==='prioridade'?' selected':''}>Ordenar: prioridade</option><option value="prazo"${f.ord==='prazo'?' selected':''}>Ordenar: prazo</option><option value="status"${f.ord==='status'?' selected':''}>Ordenar: status</option><option value="criacao"${f.ord==='criacao'?' selected':''}>Ordenar: recentes</option></select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addObjetivoCarreira()">+ Novo objetivo</button></div>`;
+  if(!C.objetivos.length) return filtros+_emptyBox('🎯','Nenhum objetivo de carreira ainda. Defina onde você quer chegar — uma promoção, uma transição de área, um novo posicionamento — e acompanhe os próximos passos.','+ Criar primeiro objetivo','addObjetivoCarreira()');
+  if(!lista.length) return filtros+_emptyBox('🔍','Nenhum objetivo nesse filtro.');
+  const cards=lista.map(o=>{
+    const st=CAR_OBJ_STATUS[o.status]||CAR_OBJ_STATUS.em_andamento, pr=TRAB_PRIOS[o.prioridade]||TRAB_PRIOS.media, hz=CAR_HORIZONTES[o.horizonte]||CAR_HORIZONTES.medio_prazo;
+    const atras=carreiraObjetivoAtrasado(o), exp=_carExpanded[o.id];
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+      <div class="field" style="margin:0">${_fLabel('Descrição')}<textarea oninput="setObjField('${o.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(o.descricao)}</textarea></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Horizonte')}<select onchange="setObjField('${o.id}','horizonte',this.value)">${_selOpts(CAR_HORIZONTES,o.horizonte)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Status')}<select onchange="setObjField('${o.id}','status',this.value)">${_selOpts(CAR_OBJ_STATUS,o.status)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Prioridade')}<select onchange="setObjField('${o.id}','prioridade',this.value)">${_selOpts(TRAB_PRIOS,o.prioridade)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Área')}<select onchange="setObjField('${o.id}','area',this.value)">${_selOpts(CAR_AREAS,o.area)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Prazo')}<input type="date" value="${attr(o.prazo)}" onchange="setObjField('${o.id}','prazo',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Nível atual')}<input type="text" value="${attr(o.nivelAtual)}" onchange="setObjField('${o.id}','nivelAtual',this.value)" placeholder="ex: PM Pleno"></div>
+        <div class="field" style="margin:0">${_fLabel('Nível desejado')}<input type="text" value="${attr(o.nivelDesejado)}" onchange="setObjField('${o.id}','nivelDesejado',this.value)" placeholder="ex: PM Sênior"></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Próximo passo')}<input type="text" value="${attr(o.proximoPasso)}" onchange="setObjField('${o.id}','proximoPasso',this.value)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Vincular a projeto')}<select onchange="setObjField('${o.id}','relacionadaAProjetoId',this.value)"><option value="">— nenhum —</option>${_projOptions(o.relacionadaAProjetoId)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Vincular a meta')}<select onchange="setObjField('${o.id}','relacionadaAMetaId',this.value)"><option value="">— nenhuma —</option>${_metaOptions(o.relacionadaAMetaId)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Vincular a decisão')}<select onchange="setObjField('${o.id}','relacionadaADecisaoId',this.value)"><option value="">— nenhuma —</option>${_decOptions(o.relacionadaADecisaoId)}</select></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Observações')}<textarea oninput="setObjField('${o.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(o.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${!o.relacionadaAMetaId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarMetaDeObjetivo('${o.id}')">🎯 Criar meta</button>`:''}
+        ${!o.relacionadaADecisaoId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDeObjetivo('${o.id}')">🧭 Criar decisão</button>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeObjetivoCarreira('${o.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${pr.cor};border-radius:var(--r14);padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(o.titulo||'')}" onchange="setObjField('${o.id}','titulo',this.value)" placeholder="Objetivo de carreira" style="font-weight:700;font-size:14px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            ${_carBadge(st.label,atras?'var(--neg)':st.cor)}${_carBadge(pr.label,pr.cor)}${_carBadge(hz.label,hz.cor)}
+            <span style="font-size:10px;color:var(--text3)">${escapeHTML((o.area||'').replace(/_/g,' '))}</span>
+            ${o.prazo?`<span style="font-size:10px;color:${atras?'var(--neg)':'var(--text3)'}">${atras?'⚠ ':''}prazo ${escapeHTML(o.prazo)}</span>`:''}
+            ${_projVincBadge(o.relacionadaAProjetoId)}${_metaVincBadge(o.relacionadaAMetaId)}${_decVincBadge(o.relacionadaADecisaoId)}
+          </div>
+          ${o.proximoPasso?`<div style="font-size:11px;color:var(--text2);margin-top:6px">→ ${escapeHTML(o.proximoPasso)}</div>`:''}
+        </div>
+        ${o.prazo?`<button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" title="Adicionar à Google Agenda" onclick="agendarObjetivoCarreira('${o.id}')">📅</button>`:''}
+        <button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" onclick="toggleCarExpand('${o.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return filtros+cards;
+}
+
+function _renderCarSkills(){
+  const C=_car(), f=_carF.skill;
+  let lista=C.competencias.slice();
+  if(f.cat) lista=lista.filter(s=>s.categoria===f.cat);
+  if(f.status) lista=lista.filter(s=>s.status===f.status);
+  if(f.prio) lista=lista.filter(s=>s.prioridade===f.prio);
+  if(f.gap==='alto') lista=lista.filter(s=>carreiraGapCompetencia(s).gap>=2);
+  if(f.busca){ const q=f.busca.toLowerCase(); lista=lista.filter(s=>['nome','evidencia','planoAcao'].some(k=>(s[k]||'').toLowerCase().includes(q))); }
+  const ord={ gap:(a,b)=>carreiraGapCompetencia(b).score-carreiraGapCompetencia(a).score, prioridade:(a,b)=>(TRAB_PRIOS[b.prioridade]?.ord||0)-(TRAB_PRIOS[a.prioridade]?.ord||0),
+    categoria:(a,b)=>(a.categoria||'').localeCompare(b.categoria||''), nivel:(a,b)=>(a.nivelAtual||0)-(b.nivelAtual||0) };
+  lista.sort(ord[f.ord]||ord.gap);
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(f.busca)}" oninput="setCarF('skill','busca',this.value)" placeholder="🔍 Buscar competências" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setCarF('skill','cat',this.value)" style="height:34px;font-size:12px"><option value="">Categoria: todas</option>${_selOpts(CAR_SKILL_CATS,f.cat)}</select>
+    <select onchange="setCarF('skill','status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${_selOpts(CAR_SKILL_STATUS,f.status)}</select>
+    <select onchange="setCarF('skill','prio',this.value)" style="height:34px;font-size:12px"><option value="">Prioridade: todas</option>${_selOpts(TRAB_PRIOS,f.prio)}</select>
+    <select onchange="setCarF('skill','gap',this.value)" style="height:34px;font-size:12px"><option value="">Gap: todos</option><option value="alto"${f.gap==='alto'?' selected':''}>Gap ≥ 2</option></select>
+    <select onchange="setCarF('skill','ord',this.value)" style="height:34px;font-size:12px"><option value="gap"${f.ord==='gap'?' selected':''}>Ordenar: maior gap</option><option value="prioridade"${f.ord==='prioridade'?' selected':''}>Ordenar: prioridade</option><option value="categoria"${f.ord==='categoria'?' selected':''}>Ordenar: categoria</option><option value="nivel"${f.ord==='nivel'?' selected':''}>Ordenar: nível atual</option></select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addCompetencia()">+ Nova competência</button></div>`;
+  if(!C.competencias.length) return filtros+_emptyBox('🧠','Nenhuma competência mapeada. Liste suas competências-chave, defina nível atual e desejado, e acompanhe os gaps a desenvolver.','+ Mapear primeira competência','addCompetencia()');
+  if(!lista.length) return filtros+_emptyBox('🔍','Nenhuma competência nesse filtro.');
+  const cards=lista.map(s=>{
+    const g=carreiraGapCompetencia(s), pr=TRAB_PRIOS[s.prioridade]||TRAB_PRIOS.media, stt=CAR_SKILL_STATUS[s.status]||CAR_SKILL_STATUS.desenvolvendo, exp=_carExpanded[s.id];
+    const gapCor=g.emRisco?'var(--neg)':g.gap>=2?'var(--warn)':'var(--pos)';
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Categoria')}<select onchange="setSkillField('${s.id}','categoria',this.value)">${_selOpts(CAR_SKILL_CATS,s.categoria)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Status')}<select onchange="setSkillField('${s.id}','status',this.value)">${_selOpts(CAR_SKILL_STATUS,s.status)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Prioridade')}<select onchange="setSkillField('${s.id}','prioridade',this.value)">${_selOpts(TRAB_PRIOS,s.prioridade)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Nível atual')}<select onchange="setSkillField('${s.id}','nivelAtual',this.value)">${[1,2,3,4,5].map(n=>`<option value="${n}"${+s.nivelAtual===n?' selected':''}>${n} · ${CAR_NIVEIS[n]}</option>`).join('')}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Nível desejado')}<select onchange="setSkillField('${s.id}','nivelDesejado',this.value)">${[1,2,3,4,5].map(n=>`<option value="${n}"${+s.nivelDesejado===n?' selected':''}>${n} · ${CAR_NIVEIS[n]}</option>`).join('')}</select></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Evidência (o que comprova)')}<input type="text" value="${attr(s.evidencia)}" onchange="setSkillField('${s.id}','evidencia',this.value)"></div>
+      <div class="field" style="margin:0">${_fLabel('Plano de ação')}<textarea oninput="setSkillField('${s.id}','planoAcao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(s.planoAcao)}</textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Vincular a projeto')}<select onchange="setSkillField('${s.id}','relacionadaAProjetoId',this.value)"><option value="">— nenhum —</option>${_projOptions(s.relacionadaAProjetoId)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Vincular a meta')}<select onchange="setSkillField('${s.id}','relacionadaAMetaId',this.value)"><option value="">— nenhuma —</option>${_metaOptions(s.relacionadaAMetaId)}</select></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${!s.relacionadaAMetaId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarMetaDeCompetencia('${s.id}')">🎯 Criar meta</button>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeCompetencia('${s.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${gapCor};border-radius:var(--r14);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(s.nome||'')}" onchange="setSkillField('${s.id}','nome',this.value)" placeholder="Nome da competência" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            ${_carBadge(stt.label,stt.cor)}${_carBadge(pr.label,pr.cor)}
+            <span style="font-size:10px;color:var(--text3)">${escapeHTML(s.categoria||'')}</span>
+            <span style="font-size:10px;color:${gapCor};font-weight:700">nível ${g.atual}→${g.desejado} (gap ${g.gap})${g.emRisco?' ⚠':''}</span>
+            ${_projVincBadge(s.relacionadaAProjetoId)}${_metaVincBadge(s.relacionadaAMetaId)}
+          </div>
+          <div style="height:6px;background:var(--card3);border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:6px;width:${(g.atual/5*100)}%;background:${gapCor};border-radius:99px"></div></div>
+        </div>
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="toggleCarExpand('${s.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return filtros+cards;
+}
+
+function _renderCarCursos(){
+  const C=_car(), f=_carF.curso;
+  let lista=C.cursos.slice();
+  if(f.tipo) lista=lista.filter(c=>c.tipo===f.tipo);
+  if(f.status) lista=lista.filter(c=>c.status===f.status);
+  if(f.prio) lista=lista.filter(c=>c.prioridade===f.prio);
+  if(f.busca){ const q=f.busca.toLowerCase(); lista=lista.filter(c=>['nome','plataforma','observacoes'].some(k=>(c[k]||'').toLowerCase().includes(q))); }
+  const ord={ prazo:(a,b)=>(a.prazo||'~').localeCompare(b.prazo||'~'), custo:(a,b)=>(b.custo||0)-(a.custo||0),
+    status:(a,b)=>(a.status||'').localeCompare(b.status||''), prioridade:(a,b)=>(TRAB_PRIOS[b.prioridade]?.ord||0)-(TRAB_PRIOS[a.prioridade]?.ord||0) };
+  lista.sort(ord[f.ord]||ord.prazo);
+  const filtros=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <input type="text" value="${attr(f.busca)}" oninput="setCarF('curso','busca',this.value)" placeholder="🔍 Buscar cursos" style="flex:1;min-width:150px;height:34px">
+    <select onchange="setCarF('curso','tipo',this.value)" style="height:34px;font-size:12px"><option value="">Tipo: todos</option>${_selOpts(CAR_CURSO_TIPOS,f.tipo)}</select>
+    <select onchange="setCarF('curso','status',this.value)" style="height:34px;font-size:12px"><option value="">Status: todos</option>${_selOpts(CAR_CURSO_STATUS,f.status)}</select>
+    <select onchange="setCarF('curso','prio',this.value)" style="height:34px;font-size:12px"><option value="">Prioridade: todas</option>${_selOpts(TRAB_PRIOS,f.prio)}</select>
+    <select onchange="setCarF('curso','ord',this.value)" style="height:34px;font-size:12px"><option value="prazo"${f.ord==='prazo'?' selected':''}>Ordenar: prazo</option><option value="custo"${f.ord==='custo'?' selected':''}>Ordenar: custo</option><option value="status"${f.ord==='status'?' selected':''}>Ordenar: status</option><option value="prioridade"${f.ord==='prioridade'?' selected':''}>Ordenar: prioridade</option></select>
+    <button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addCurso()">+ Novo curso</button></div>`;
+  if(!C.cursos.length) return filtros+_emptyBox('🎓','Nenhum curso ou certificação. Cadastre o que você quer estudar, defina prazos e custos, e vincule a metas, decisões ou compras.','+ Adicionar primeiro curso','addCurso()');
+  if(!lista.length) return filtros+_emptyBox('🔍','Nenhum curso nesse filtro.');
+  const cards=lista.map(c=>{
+    const stt=CAR_CURSO_STATUS[c.status]||CAR_CURSO_STATUS.planejado, pr=TRAB_PRIOS[c.prioridade]||TRAB_PRIOS.media, atras=carreiraCursoAtrasado(c), exp=_carExpanded[c.id];
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:grid;gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Tipo')}<select onchange="setCursoField('${c.id}','tipo',this.value)">${_selOpts(CAR_CURSO_TIPOS,c.tipo)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Status')}<select onchange="setCursoField('${c.id}','status',this.value)">${_selOpts(CAR_CURSO_STATUS,c.status)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Prioridade')}<select onchange="setCursoField('${c.id}','prioridade',this.value)">${_selOpts(TRAB_PRIOS,c.prioridade)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Plataforma')}<input type="text" value="${attr(c.plataforma)}" onchange="setCursoField('${c.id}','plataforma',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Início')}<input type="date" value="${attr(c.dataInicio)}" onchange="setCursoField('${c.id}','dataInicio',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Prazo')}<input type="date" value="${attr(c.prazo)}" onchange="setCursoField('${c.id}','prazo',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Carga horária (h)')}<input type="number" min="0" value="${c.cargaHoraria||0}" onchange="setCursoField('${c.id}','cargaHoraria',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Custo (R$)')}<input type="number" min="0" step="10" value="${c.custo||0}" onchange="setCursoField('${c.id}','custo',this.value)"></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Link')}<input type="url" value="${attr(c.link)}" onchange="setCursoField('${c.id}','link',this.value)" placeholder="https://..."></div>
+      <div class="field" style="margin:0">${_fLabel('Certificado (URL)')}<input type="url" value="${attr(c.certificadoUrl)}" onchange="setCursoField('${c.id}','certificadoUrl',this.value)" placeholder="https://..."></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Vincular a meta')}<select onchange="setCursoField('${c.id}','relacionadaAMetaId',this.value)"><option value="">— nenhuma —</option>${_metaOptions(c.relacionadaAMetaId)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Vincular a decisão')}<select onchange="setCursoField('${c.id}','relacionadaADecisaoId',this.value)"><option value="">— nenhuma —</option>${_decOptions(c.relacionadaADecisaoId)}</select></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Observações')}<textarea oninput="setCursoField('${c.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(c.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${!c.relacionadaAMetaId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarMetaDeCurso('${c.id}')">🎯 Criar meta</button>`:''}
+        ${!c.relacionadaADecisaoId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDeCurso('${c.id}')">🧭 Criar decisão</button>`:''}
+        ${(c.custo>0&&!c.relacionadaACompraId)?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarCompraDeCurso('${c.id}')">🛒 Criar compra</button>`:''}
+        ${_safeUrl(c.link)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(c.link))}" target="_blank" rel="noopener noreferrer">🔗 Abrir</a>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeCurso('${c.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${atras?'var(--neg)':pr.cor};border-radius:var(--r14);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(c.nome||'')}" onchange="setCursoField('${c.id}','nome',this.value)" placeholder="Nome do curso/certificação" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            ${_carBadge(stt.label,atras?'var(--neg)':stt.cor)}<span style="font-size:10px;color:var(--text3)">${escapeHTML((c.tipo||'curso'))}</span>
+            ${c.plataforma?`<span style="font-size:10px;color:var(--text3)">${escapeHTML(c.plataforma)}</span>`:''}
+            ${c.custo>0?`<span style="font-size:10px;color:var(--text3)">${fmt(c.custo)}</span>`:''}
+            ${c.prazo?`<span style="font-size:10px;color:${atras?'var(--neg)':'var(--text3)'}">${atras?'⚠ ':''}prazo ${escapeHTML(c.prazo)}</span>`:''}
+            ${_metaVincBadge(c.relacionadaAMetaId)}${_compraVincBadge(c.relacionadaACompraId)}${_decVincBadge(c.relacionadaADecisaoId)}
+          </div>
+        </div>
+        ${c.prazo?`<button class="btn btn-ghost" style="height:28px;font-size:12px;flex-shrink:0" title="Adicionar à Google Agenda" onclick="agendarCurso('${c.id}')">📅</button>`:''}
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="toggleCarExpand('${c.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return filtros+cards;
+}
+
+function _renderCarNetworking(){
+  const C=_car();
+  const novo=`<div style="margin-bottom:14px"><button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addContato()">+ Novo contato</button></div>`;
+  if(!C.networking.length) return novo+_emptyBox('🤝','Nenhum contato profissional. Cadastre mentores, colegas, recrutadores e parceiros, e acompanhe quando retomar contato.');
+  const cards=C.networking.map(n=>{
+    const stt=CAR_NET_STATUS[n.status]||CAR_NET_STATUS.ativo, exp=_carExpanded[n.id];
+    const vencido=n.proximoContato&&_isPast(n.proximoContato);
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:grid;gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Empresa')}<input type="text" value="${attr(n.empresa)}" onchange="setNetField('${n.id}','empresa',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Cargo')}<input type="text" value="${attr(n.cargo)}" onchange="setNetField('${n.id}','cargo',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Tipo')}<select onchange="setNetField('${n.id}','tipo',this.value)">${_selOpts(CAR_NET_TIPOS,n.tipo)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Status')}<select onchange="setNetField('${n.id}','status',this.value)">${_selOpts(CAR_NET_STATUS,n.status)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Canal')}<input type="text" value="${attr(n.canal)}" onchange="setNetField('${n.id}','canal',this.value)" placeholder="LinkedIn, e-mail..."></div>
+        <div class="field" style="margin:0">${_fLabel('Último contato')}<input type="date" value="${attr(n.ultimoContato)}" onchange="setNetField('${n.id}','ultimoContato',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Próximo contato')}<input type="date" value="${attr(n.proximoContato)}" onchange="setNetField('${n.id}','proximoContato',this.value)"></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Link (LinkedIn/site)')}<input type="url" value="${attr(n.link)}" onchange="setNetField('${n.id}','link',this.value)" placeholder="https://..."></div>
+      <div class="field" style="margin:0">${_fLabel('Observações')}<textarea oninput="setNetField('${n.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(n.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${_safeUrl(n.link)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(n.link))}" target="_blank" rel="noopener noreferrer">🔗 Abrir perfil</a>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeContato('${n.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${vencido?'var(--warn)':stt.cor};border-radius:var(--r12);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(n.nome||'')}" onchange="setNetField('${n.id}','nome',this.value)" placeholder="Nome" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            ${_carBadge(stt.label,vencido?'var(--warn)':stt.cor)}<span style="font-size:10px;color:var(--text3)">${escapeHTML((n.tipo||'contato'))}</span>
+            ${n.empresa?`<span style="font-size:10px;color:var(--text3)">${escapeHTML(n.empresa)}${n.cargo?' · '+escapeHTML(n.cargo):''}</span>`:''}
+            ${n.proximoContato?`<span style="font-size:10px;color:${vencido?'var(--warn)':'var(--text3)'}">${vencido?'⚠ retomar ':'próximo '}${escapeHTML(n.proximoContato)}</span>`:''}
+          </div>
+        </div>
+        ${n.proximoContato?`<button class="btn btn-ghost" style="height:28px;font-size:12px;flex-shrink:0" title="Adicionar à Google Agenda" onclick="agendarContato('${n.id}')">📅</button>`:''}
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="toggleCarExpand('${n.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return novo+cards;
+}
+
+function _renderCarExperiencias(){
+  const C=_car();
+  const novo=`<div style="margin-bottom:14px"><button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addExperiencia()">+ Nova experiência</button></div>`;
+  if(!C.experiencias.length) return novo+_emptyBox('📜','Nenhuma experiência registrada. Documente entregas, projetos e conquistas para construir seu histórico, currículo e portfólio.');
+  const cards=C.experiencias.map(e=>{
+    const exp=_carExpanded[e.id];
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:grid;gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Empresa')}<input type="text" value="${attr(e.empresa)}" onchange="setExpField('${e.id}','empresa',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Tipo')}<select onchange="setExpField('${e.id}','tipo',this.value)">${_selOpts(CAR_EXP_TIPOS,e.tipo)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Início')}<input type="date" value="${attr(e.inicio)}" onchange="setExpField('${e.id}','inicio',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Fim')}<input type="date" value="${attr(e.fim)}" onchange="setExpField('${e.id}','fim',this.value)"></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Descrição')}<textarea oninput="setExpField('${e.id}','descricao',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(e.descricao)}</textarea></div>
+      <div class="field" style="margin:0">${_fLabel('Resultados / impacto')}<textarea oninput="setExpField('${e.id}','resultados',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(e.resultados)}</textarea></div>
+      <div class="field" style="margin:0">${_fLabel('Competências usadas (vírgula)')}<input type="text" value="${attr((e.competenciasUsadas||[]).join(', '))}" onchange="setExpField('${e.id}','competenciasUsadas',this.value)"></div>
+      <div class="field" style="margin:0">${_fLabel('Link (portfólio/case)')}<input type="url" value="${attr(e.link)}" onchange="setExpField('${e.id}','link',this.value)" placeholder="https://..."></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${_safeUrl(e.link)?`<a class="btn btn-ghost" style="height:32px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center" href="${attr(_safeUrl(e.link))}" target="_blank" rel="noopener noreferrer">🔗 Abrir</a>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removeExperiencia('${e.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r12);padding:13px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(e.titulo||'')}" onchange="setExpField('${e.id}','titulo',this.value)" placeholder="Título da experiência" style="font-weight:700;font-size:13.5px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center">
+            <span style="font-size:10px;color:var(--text3)">${escapeHTML((e.tipo||'projeto'))}</span>
+            ${e.empresa?`<span style="font-size:10px;color:var(--text3)">${escapeHTML(e.empresa)}</span>`:''}
+            ${(e.inicio||e.fim)?`<span style="font-size:10px;color:var(--text3)">${escapeHTML(e.inicio||'')}${e.fim?' – '+escapeHTML(e.fim):' – atual'}</span>`:''}
+            ${(e.competenciasUsadas||[]).slice(0,4).map(t=>`<span style="font-size:9px;background:var(--card3);border-radius:99px;padding:1px 6px;color:var(--text2)">${escapeHTML(t)}</span>`).join('')}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="height:28px;font-size:11px;flex-shrink:0" onclick="toggleCarExpand('${e.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return novo+cards;
+}
+
+function _renderCarRenda(){
+  const C=_car();
+  const novo=`<div style="margin-bottom:14px"><button class="btn btn-pri" style="height:34px;font-size:13px" onclick="addPlanoRenda()">+ Novo plano de renda</button></div>`;
+  if(!C.planosRenda.length) return novo+_emptyBox('💹','Nenhum plano de renda. Planeje sua evolução financeira profissional — renda atual, desejada, estratégia e próximos passos. (Planejamento, não promessa de retorno.)');
+  const cards=C.planosRenda.map(p=>{
+    const stt=CAR_RENDA_STATUS[p.status]||CAR_RENDA_STATUS.planejado, exp=_carExpanded[p.id];
+    const ganho=(p.rendaDesejada||0)-(p.rendaAtual||0);
+    const pct=p.rendaDesejada>0?Math.min(100,Math.round((p.rendaAtual||0)/p.rendaDesejada*100)):0;
+    const editor=exp?`<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:grid;gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Renda atual (R$)')}<input type="number" min="0" step="100" value="${p.rendaAtual||0}" onchange="setRendaField('${p.id}','rendaAtual',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Renda desejada (R$)')}<input type="number" min="0" step="100" value="${p.rendaDesejada||0}" onchange="setRendaField('${p.id}','rendaDesejada',this.value)"></div>
+        <div class="field" style="margin:0">${_fLabel('Status')}<select onchange="setRendaField('${p.id}','status',this.value)">${_selOpts(CAR_RENDA_STATUS,p.status)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Prazo')}<input type="date" value="${attr(p.prazo)}" onchange="setRendaField('${p.id}','prazo',this.value)"></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Estratégia')}<textarea oninput="setRendaField('${p.id}','estrategia',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(p.estrategia)}</textarea></div>
+      <div class="field" style="margin:0">${_fLabel('Próximo passo')}<input type="text" value="${attr(p.proximoPasso)}" onchange="setRendaField('${p.id}','proximoPasso',this.value)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px">
+        <div class="field" style="margin:0">${_fLabel('Vincular a meta')}<select onchange="setRendaField('${p.id}','relacionadaAMetaId',this.value)"><option value="">— nenhuma —</option>${_metaOptions(p.relacionadaAMetaId)}</select></div>
+        <div class="field" style="margin:0">${_fLabel('Vincular a decisão')}<select onchange="setRendaField('${p.id}','relacionadaADecisaoId',this.value)"><option value="">— nenhuma —</option>${_decOptions(p.relacionadaADecisaoId)}</select></div>
+      </div>
+      <div class="field" style="margin:0">${_fLabel('Observações')}<textarea oninput="setRendaField('${p.id}','observacoes',this.value)" rows="2" style="width:100%;resize:vertical">${escapeHTML(p.observacoes)}</textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${!p.relacionadaADecisaoId?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="criarDecisaoDeRenda('${p.id}')">🧭 Criar decisão</button>`:''}
+        <div style="flex:1"></div><button class="btn btn-neg" style="height:32px;font-size:12px" onclick="removePlanoRenda('${p.id}')">🗑️ Excluir</button>
+      </div></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--r14);padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;gap:9px">
+        <div style="flex:1;min-width:0">
+          <input type="text" value="${attr(p.titulo||'')}" onchange="setRendaField('${p.id}','titulo',this.value)" placeholder="Plano de renda" style="font-weight:700;font-size:14px;width:100%">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center">
+            ${_carBadge(stt.label,stt.cor)}
+            <span style="font-size:11px;color:var(--text2)">${fmt(p.rendaAtual||0)} → ${fmt(p.rendaDesejada||0)}${ganho>0?` (+${fmt(ganho)})`:''}</span>
+            ${p.prazo?`<span style="font-size:10px;color:var(--text3)">prazo ${escapeHTML(p.prazo)}</span>`:''}
+            ${_metaVincBadge(p.relacionadaAMetaId)}${_decVincBadge(p.relacionadaADecisaoId)}
+          </div>
+          <div style="height:6px;background:var(--card3);border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:6px;width:${pct}%;background:var(--teal);border-radius:99px"></div></div>
+        </div>
+        ${p.prazo?`<button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" title="Adicionar à Google Agenda" onclick="agendarRenda('${p.id}')">📅</button>`:''}
+        <button class="btn btn-ghost" style="height:30px;font-size:12px;flex-shrink:0" onclick="toggleCarExpand('${p.id}')">${exp?'▴':'▾'}</button>
+      </div>${editor}</div>`;
+  }).join('');
+  return novo+cards;
+}
+
+// ── Relatório de Carreira ──
+function relDocCarreira(){
+  const C=_car(), r=carreiraResumoData();
+  const total=C.objetivos.length+C.competencias.length+C.cursos.length+C.networking.length+C.experiencias.length+C.planosRenda.length;
+  if(!total) return _relDoc('Relatório de Carreira','Desenvolvimento profissional', _relEmpty('Nenhum dado de carreira cadastrado ainda.'));
+  const kpis=_relKpis([
+    {label:'Objetivos ativos',val:String(r.objetivosAtivos),cor:'var(--info)'},
+    {label:'Competências',val:String(r.competenciasDesenvolvendo)},
+    {label:'Maior gap',val:r.maiorGap?`${escapeHTML((r.maiorGap.skill.nome||'').slice(0,16))} (${r.maiorGap.gap})`:'—',cor:r.maiorGap&&r.maiorGap.emRisco?'var(--neg)':'var(--text)'},
+    {label:'Cursos em curso',val:String(r.cursosAndamento)},
+    {label:'Certif. planejadas',val:String(r.certificacoesPlanejadas)},
+    {label:'Contatos a retomar',val:String(r.contatosARetomar),cor:r.contatosARetomar?'var(--warn)':'var(--text)'},
+  ]);
+  const objSec=r.objAtivosList.length?_relSection('Objetivos ativos', _relTable(['Objetivo','Horizonte','Status','Prazo'],
+    r.objAtivosList.map(o=>[escapeHTML(o.titulo||''), escapeHTML((CAR_HORIZONTES[o.horizonte]||{label:''}).label), escapeHTML((CAR_OBJ_STATUS[o.status]||{label:o.status}).label), escapeHTML(o.prazo||'—')]))):'';
+  const gaps=C.competencias.filter(s=>carreiraGapCompetencia(s).gap>0).sort((a,b)=>carreiraGapCompetencia(b).score-carreiraGapCompetencia(a).score).slice(0,10);
+  const skillSec=gaps.length?_relSection('Competências e gaps', _relTable(['Competência','Atual','Desejado','Gap'],
+    gaps.map(s=>{const g=carreiraGapCompetencia(s);return [escapeHTML(s.nome||''), String(g.atual), String(g.desejado), String(g.gap)+(g.emRisco?' ⚠':'')];}))):'';
+  const cursosAtivos=C.cursos.filter(c=>['planejado','em_andamento'].includes(c.status));
+  const cursoSec=cursosAtivos.length?_relSection('Cursos & certificações', _relTable(['Nome','Tipo','Status','Prazo','Custo'],
+    cursosAtivos.map(c=>[escapeHTML(c.nome||''), escapeHTML(c.tipo||''), escapeHTML((CAR_CURSO_STATUS[c.status]||{label:c.status}).label), escapeHTML(c.prazo||'—'), c.custo>0?fmt(c.custo):'—']))):'';
+  const netPend=C.networking.filter(n=>n.status==='a_retomar'||(n.proximoContato&&_isPast(n.proximoContato)));
+  const netSec=netPend.length?_relSection('Networking a retomar', _relTable(['Contato','Empresa','Próximo contato'],
+    netPend.map(n=>[escapeHTML(n.nome||''), escapeHTML(n.empresa||'—'), escapeHTML(n.proximoContato||'—')]))):'';
+  const rendaSec=r.planoRenda?_relSection('Plano de renda', `<div style="font-size:12px;color:var(--text2)">${escapeHTML(r.planoRenda.titulo||'')}: ${fmt(r.planoRenda.rendaAtual||0)} → ${fmt(r.planoRenda.rendaDesejada||0)}${r.planoRenda.prazo?` (prazo ${escapeHTML(r.planoRenda.prazo)})`:''}.</div>`):'';
+  const passos=carreiraProximosPassos();
+  const passosSec=passos.length?_relSection('Próximos passos', `<div style="display:grid;gap:6px;font-size:12px">${passos.slice(0,6).map(p=>`<div>→ ${p}</div>`).join('')}</div>`):'';
+  return _relDoc('Relatório de Carreira','Desenvolvimento profissional', _relSection('Resumo executivo',kpis)+objSec+skillSec+cursoSec+netSec+rendaSec+passosSec);
 }
 
 // ═══════════════════════════════════════════════════
@@ -8083,7 +8759,8 @@ async function importarBackupJSON(input) {
       `Restaurar backup de <strong>${payload._exportedAt ? new Date(payload._exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida'}</strong>?<br><br>` +
       `📅 ${data.meses.length} meses · 💰 ${data.entradas.length} entradas · 📌 ${(data.fixas||[]).length} fixas · 🛒 ${(data.compras||[]).length} compras · 🎯 ${(data.metas||[]).length} metas · 🧭 ${(data.decisoes||[]).length} decisões<br>` +
       `🛍️ ${((data.hobbies&&data.hobbies.itens)||[]).length} desejos · 🏦 fundo ${fmt((data.hobbies&&data.hobbies.saldoFundo)||0)}<br>` +
-      `💼 ${((data.trabalho&&data.trabalho.projetos)||[]).length} projetos · ✅ ${((data.trabalho&&data.trabalho.tarefas)||[]).length} tarefas · 🏢 ${((data.trabalho&&data.trabalho.clientes)||[]).length} clientes<br><br>` +
+      `💼 ${((data.trabalho&&data.trabalho.projetos)||[]).length} projetos · ✅ ${((data.trabalho&&data.trabalho.tarefas)||[]).length} tarefas · 🏢 ${((data.trabalho&&data.trabalho.clientes)||[]).length} clientes<br>` +
+      `🚀 ${((data.carreira&&data.carreira.objetivos)||[]).length} objetivos · 🧠 ${((data.carreira&&data.carreira.competencias)||[]).length} competências · 🎓 ${((data.carreira&&data.carreira.cursos)||[]).length} cursos · 🤝 ${((data.carreira&&data.carreira.networking)||[]).length} contatos · 📜 ${((data.carreira&&data.carreira.experiencias)||[]).length} experiências<br><br>` +
       `⚠️ Seus dados atuais serão <strong>substituídos</strong>.`,
       {icon:'📤', okText:'Restaurar'}
     );
