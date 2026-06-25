@@ -1,0 +1,11 @@
+# Copie para .dev.vars (que está no .gitignore). Apenas PLACEHOLDERS — sem valores reais.
+B3_ENV=local
+FIREBASE_PROJECT_ID=
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+B3_DEV_ALLOW_UNVERIFIED=false
+# Segredos locais (placeholders — nunca reais):
+B3_BASE_URL=
+B3_CLIENT_ID=
+B3_CLIENT_SECRET=
+B3_CERT=
+B3_KEY=

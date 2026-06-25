@@ -273,6 +273,62 @@ Resposta backend esperada (futuro): `{ ok, provider, source, updatedAt, stale, d
 self-assessment e certificação no B3 For Developers. Open Finance → provedor autorizado,
 backend seguro com OAuth/mTLS e fluxo de consentimento.
 
+## 9.3. Esqueleto do Cloudflare Worker B3 (Fase 14 — certificação)
+
+> ⚠️ **Esqueleto only.** Sem produção, sem segredos no repositório, sem chamada real
+> à B3. Todos os endpoints B3 respondem `mode: "certification_stub"`. O frontend
+> **continua funcionando sem o Worker** (modo manual/mock da Fase 13).
+
+Nova pasta **`worker/`** (camada de backend, isolada do app):
+
+```
+worker/
+  package.json            # "type":"module" (ESM); scripts dev/deploy/check
+  wrangler.toml.example   # → wrangler.toml (gitignored); só [vars] não sensíveis
+  .dev.vars.example       # → .dev.vars (gitignored); só placeholders
+  .gitignore              # protege .dev.vars, wrangler.toml, node_modules, .wrangler, dist
+  src/
+    index.js              # roteador: CORS → /health → gating de auth → rotas B3
+    routes/b3.js          # tabela "MÉTODO /rota" → b3Client (stub)
+    services/b3Client.js  # STUB — nenhuma chamada real à B3
+    services/firebaseAuth.js  # verifyFirebaseToken (claims; assinatura esboçada)
+    utils/responses.js    # jsonResponse, healthBody, b3CertStub, errorBody
+    utils/security.js     # CORS allowlist, handleOptions, safeLog
+```
+
+**Endpoints:** `GET /health` (público) e — exigindo `Authorization: Bearer <Firebase
+ID Token>` — `GET /b3/status`, `POST /b3/sync-guide`, `POST /b3/sync-positions`,
+`POST /b3/sync-movements`, `POST /b3/revoke-local`. Resposta B3 padronizada:
+`{ ok:false, provider:'b3', mode:'certification_stub', source:'Cloudflare Worker', updatedAt, referenceDate:null, data:null, error }`.
+
+**Autenticação:** token ausente → `401` (endpoints B3 nunca anônimos). `verifyFirebaseToken`
+valida presença + claims (`iss`/`aud` quando `FIREBASE_PROJECT_ID` setado, `sub`, `exp`).
+A **assinatura RS256** está esboçada (`verifySignatureRS256`) e **desligada por padrão**
+(retorna não-verificado para não dar falso "verificado"); será finalizada na certificação
+(certificado X.509 → SPKI + `crypto.subtle.verify`). **DEV local:** com `B3_ENV=local` **e**
+`B3_DEV_ALLOW_UNVERIFIED=true`, aceita token estruturalmente válido sem assinatura — apenas
+para testar o stub, nunca em certificação/produção e nunca anônimo.
+
+**CORS:** allowlist via `ALLOWED_ORIGINS` (CSV), nunca `*`; `OPTIONS` → `204` se a origem
+está na lista, `403` caso contrário; em `B3_ENV=local` sem lista, libera só localhost.
+**Logs (`safeLog`):** apenas endpoint, método, status, `uid` truncado e erro resumido —
+nunca token/CPF/payload. **Rate limit:** apenas roadmap nesta fase.
+
+**Secrets:** variáveis não sensíveis em `wrangler.toml` (`[vars]`: `B3_ENV`,
+`FIREBASE_PROJECT_ID`, `ALLOWED_ORIGINS`); segredos (`B3_BASE_URL`, `B3_CLIENT_ID`,
+`B3_CLIENT_SECRET`, `B3_CERT`, `B3_KEY`) **só** via `wrangler secret put`, nunca no repo.
+
+**Contrato com o frontend:** `D.integracoes.b3.backend = { workerUrl, enabled, lastCheck,
+mode }` (migração defensiva) e o helper guardado `b3WorkerStatus()` — **não chamado
+automaticamente**; só age se `enabled && _safeUrl(workerUrl)`, e qualquer falha mantém o
+modo manual/mock sem quebrar a Central.
+
+**Fluxo real futuro (certificação):** Pacote de Acesso (.zip no B3 For Developers) → **API
+Guia** (Produtos Atualizados, D-1) → **Position/Movement** só para documentos atualizados;
+respeitar D-1, não consultar o mesmo investidor mais de 1×/dia, tratar consentimento
+revogado/expirado. **Próximos passos:** finalizar a assinatura do ID Token, `b3Client` real
+contra certificação, rate limit, e o wire opcional do frontend. Ver `worker/README.md`.
+
 ## 10. Limitações atuais / dívida técnica remanescente
 
 - `app.js` ainda é grande (~9,4k linhas); a modularização é incremental e seguirá o roadmap acima.

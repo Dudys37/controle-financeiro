@@ -101,7 +101,7 @@ const DEFAULT = {
   hobbies: DEFAULT_HOBBIES,
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
   decisoes: [],
-  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null}, b3:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',ultimaReferenciaD1:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',identificadorInterno:''},resumo:{posicoes:0,movimentacoes:0,garantias:0,eventosProvisionados:0,ofertasPublicas:0,negociacoes:0},observacoes:''}, openFinance:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',escopos:[],instituicao:'',identificadorInterno:''},resumo:{contas:0,saldos:0,transacoes:0,cartoes:0,faturas:0,investimentos:0,creditos:0},observacoes:''} },
+  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null}, b3:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',ultimaReferenciaD1:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',identificadorInterno:''},resumo:{posicoes:0,movimentacoes:0,garantias:0,eventosProvisionados:0,ofertasPublicas:0,negociacoes:0},observacoes:'',backend:{workerUrl:'',enabled:false,lastCheck:'',mode:'stub'}}, openFinance:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',escopos:[],instituicao:'',identificadorInterno:''},resumo:{contas:0,saldos:0,transacoes:0,cartoes:0,faturas:0,investimentos:0,creditos:0},observacoes:''} },
   b3: { posicoes:[], movimentacoes:[], garantias:[], eventosProvisionados:[], ofertasPublicas:[], negociacoes:[], logsSincronizacao:[] },
   openFinance: { contas:[], saldos:[], transacoes:[], cartoes:[], faturas:[], investimentos:[], creditos:[], logsSincronizacao:[] },
   trabalho: { projetos:[], tarefas:[], clientes:[] },
@@ -125,7 +125,7 @@ const BLANK = {
   hobbies: { aporteMensal:0, saldoFundo:0, cats: JSON.parse(JSON.stringify(HOBBY_CATS_DEFAULT)), itens: [] },
   prefs: { tema:null, sidebarRecolhida:false, dashInicial:'dash', modulosFavoritos:[] },
   decisoes: [],
-  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null}, b3:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',ultimaReferenciaD1:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',identificadorInterno:''},resumo:{posicoes:0,movimentacoes:0,garantias:0,eventosProvisionados:0,ofertasPublicas:0,negociacoes:0},observacoes:''}, openFinance:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',escopos:[],instituicao:'',identificadorInterno:''},resumo:{contas:0,saldos:0,transacoes:0,cartoes:0,faturas:0,investimentos:0,creditos:0},observacoes:''} },
+  integracoes: { googleAgenda:{modo:'links',ativo:true,ultimaAcao:'',observacoes:''}, importacao:{ultimoTipo:'',ultimaImportacao:'',totalRegistros:0}, indicadores:{fonte:'manual',ultimaAtualizacao:'',selic:null,cdi:null,ipca:null,usdbrl:null}, b3:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',ultimaReferenciaD1:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',identificadorInterno:''},resumo:{posicoes:0,movimentacoes:0,garantias:0,eventosProvisionados:0,ofertasPublicas:0,negociacoes:0},observacoes:'',backend:{workerUrl:'',enabled:false,lastCheck:'',mode:'stub'}}, openFinance:{status:'nao_configurada',modo:'planejado_backend',ambiente:'nenhum',ultimaSincronizacao:'',fonte:'manual',consentimento:{status:'nao_iniciado',dataAutorizacao:'',dataRevogacao:'',dataExpiracao:'',escopos:[],instituicao:'',identificadorInterno:''},resumo:{contas:0,saldos:0,transacoes:0,cartoes:0,faturas:0,investimentos:0,creditos:0},observacoes:''} },
   b3: { posicoes:[], movimentacoes:[], garantias:[], eventosProvisionados:[], ofertasPublicas:[], negociacoes:[], logsSincronizacao:[] },
   openFinance: { contas:[], saldos:[], transacoes:[], cartoes:[], faturas:[], investimentos:[], creditos:[], logsSincronizacao:[] },
   trabalho: { projetos:[], tarefas:[], clientes:[] },
@@ -390,6 +390,9 @@ function migrateData(d) {
     ['status','dataAutorizacao','dataRevogacao','dataExpiracao','identificadorInterno'].forEach(k=>{ if(b.consentimento[k]==null) b.consentimento[k]=(k==='status'?'nao_iniciado':''); });
     if(typeof b.resumo!=='object'||!b.resumo) b.resumo={};
     ['posicoes','movimentacoes','garantias','eventosProvisionados','ofertasPublicas','negociacoes'].forEach(k=>{ if(b.resumo[k]==null||isNaN(b.resumo[k])) b.resumo[k]=0; });
+    if(typeof b.backend!=='object'||!b.backend) b.backend={};
+    if(b.backend.workerUrl==null) b.backend.workerUrl=''; if(b.backend.enabled==null) b.backend.enabled=false;
+    if(b.backend.lastCheck==null) b.backend.lastCheck=''; if(!b.backend.mode) b.backend.mode='stub';
   }
   if(typeof d.integracoes.openFinance!=='object'||!d.integracoes.openFinance) d.integracoes.openFinance={};
   { const o=d.integracoes.openFinance;
@@ -8190,7 +8193,21 @@ const B3Service = {
   mapPositionToInvestment, mapMovementToTransaction,
 };
 
-// ═══ OpenFinanceService ═══
+// (Fase 14) Detecção OPCIONAL do Worker B3 — NÃO é chamada automaticamente no render.
+// Só age se D.integracoes.b3.backend.enabled e workerUrl (http/https) estiverem definidos.
+// Em qualquer falha, mantém o modo manual/mock e NUNCA quebra a Central de Integrações.
+async function b3WorkerStatus(){
+  const cfg=(D.integracoes&&D.integracoes.b3&&D.integracoes.b3.backend)||{};
+  if(!cfg.enabled || !_safeUrl(cfg.workerUrl)) return { configured:false, mode:'stub' };
+  try{
+    const base=_safeUrl(cfg.workerUrl).replace(/\/+$/,'');
+    const r=await fetch(base+'/b3/status', { method:'GET' });
+    let j=null; try{ j=await r.json(); }catch(_){}
+    if(D.integracoes.b3.backend){ D.integracoes.b3.backend.lastCheck=new Date().toISOString(); D.integracoes.b3.backend.mode=(j&&j.mode)||'unknown'; }
+    return { configured:true, status:r.status, mode:(j&&j.mode)||'unknown', ok:!!(j&&j.ok) };
+  }catch(e){ return { configured:true, mode:'stub', error:'worker indisponível' }; }
+}
+
 const OpenFinanceService = {
   status(){ const c=_ofcfg(); const cs=(c.consentimento&&c.consentimento.status)||'nao_iniciado';
     let sync='backend_necessario';

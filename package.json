@@ -1,0 +1,12 @@
+{
+  "name": "financaspro-b3-worker",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Esqueleto do Cloudflare Worker B3 (ambiente de certificacao) — sem producao, sem segredos, sem chamadas reais.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "node --check src/index.js"
+  }
+}
