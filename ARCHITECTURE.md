@@ -296,6 +296,16 @@ worker/
     utils/security.js     # CORS allowlist, handleOptions, safeLog
 ```
 
+**Empacotamento (dois subprojetos):** o **frontend** vive na **raiz** e é CommonJS — a
+raiz **não tem `package.json`** e **não é `"type":"module"`**, então `smoke-core.js`
+(que usa `require`) roda com `node smoke-core.js`. O **Worker** vive em `worker/` e é
+**ESM**: o `package.json` com `"type":"module"` fica **dentro de `worker/`** (vale só para
+essa subárvore) e habilita `import`/`export` + `node --check`. Os arquivos do Worker
+importam por caminho relativo (`./utils/responses.js`, `./services/firebaseAuth.js`,
+`../utils/...`), portanto a estrutura `worker/src/{routes,services,utils}` **não pode ser
+achatada** — senão os imports não resolvem em runtime, e um `package.json` ESM na raiz
+quebraria o `smoke-core.js` com *"require is not defined in ES module scope"*.
+
 **Endpoints:** `GET /health` (público) e — exigindo `Authorization: Bearer <Firebase
 ID Token>` — `GET /b3/status`, `POST /b3/sync-guide`, `POST /b3/sync-positions`,
 `POST /b3/sync-movements`, `POST /b3/revoke-local`. Resposta B3 padronizada:

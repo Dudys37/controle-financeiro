@@ -1,6 +1,20 @@
+# Segredos e ambiente — NUNCA versionar
+.env
+.env.*
+*.local
+deploy.local.ps1
+secrets.*
+*.secret
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+
+# Autenticação legada (descontinuada)
+auth.js
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
 node_modules/
-.wrangler/
-dist/
-.dev.vars
-wrangler.toml
-*.log
+.vscode/
+.idea/
