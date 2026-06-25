@@ -3,6 +3,11 @@ B3_ENV=local
 FIREBASE_PROJECT_ID=
 ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 B3_DEV_ALLOW_UNVERIFIED=false
+B3_ENABLE_REAL_CALLS=false
+B3_ACCESS_PACKAGE_ID=
+B3_TIMEOUT_MS=10000
+# Override opcional do JWKS (deixe vazio para usar o padrão do Google):
+FIREBASE_JWKS_URL=
 # Segredos locais (placeholders — nunca reais):
 B3_BASE_URL=
 B3_CLIENT_ID=

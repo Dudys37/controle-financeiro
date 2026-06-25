@@ -11,7 +11,7 @@
 //    POST /b3/revoke-local   → exige token → certification_stub
 // ═══════════════════════════════════════════════════
 import { jsonResponse, healthBody, errorBody } from './utils/responses.js';
-import { corsHeaders, handleOptions, safeLog } from './utils/security.js';
+import { corsHeaders, handleOptions, safeLog, resolveOrigin } from './utils/security.js';
 import { verifyFirebaseToken } from './services/firebaseAuth.js';
 import { isB3Path, matchB3Route, handleB3 } from './routes/b3.js';
 
@@ -33,6 +33,15 @@ export default {
 
     // Endpoints B3 — exigem Firebase ID Token (nunca anônimos)
     if (isB3Path(path)) {
+      // Se houver Origin (chamada de navegador) e ela não estiver na allowlist, rejeita.
+      const origin = request.headers.get('Origin');
+      if (origin && !resolveOrigin(request, env)) {
+        safeLog({ endpoint: path, method, status: 403, error: 'forbidden_origin' });
+        return jsonResponse(errorBody('Origem não permitida.', { mode: 'forbidden_origin' }), {
+          status: 403,
+          headers: cors,
+        });
+      }
       if (!matchB3Route(method, path)) {
         safeLog({ endpoint: path, method, status: 405 });
         return jsonResponse(errorBody('Método ou rota B3 não permitidos.', { mode: 'method_not_allowed' }), {
@@ -42,13 +51,14 @@ export default {
       }
       const auth = await verifyFirebaseToken(request, env);
       if (!auth.ok) {
+        const msg = auth.reason === 'missing_token' ? 'Token ausente.' : 'Token inválido ou expirado.';
         safeLog({ endpoint: path, method, status: auth.status, error: auth.reason });
-        return jsonResponse(errorBody('Não autorizado: ' + auth.reason, { mode: 'unauthorized' }), {
+        return jsonResponse(errorBody(msg, { mode: 'unauthorized' }), {
           status: auth.status,
           headers: cors,
         });
       }
-      safeLog({ endpoint: path, method, status: 200, uid: auth.uid });
+      safeLog({ endpoint: path, method, status: 200, uid: auth.uid, mode: auth.mode });
       return handleB3(method, path, env, ctx, auth, cors);
     }
 

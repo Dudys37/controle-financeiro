@@ -339,6 +339,41 @@ respeitar D-1, não consultar o mesmo investidor mais de 1×/dia, tratar consent
 revogado/expirado. **Próximos passos:** finalizar a assinatura do ID Token, `b3Client` real
 contra certificação, rate limit, e o wire opcional do frontend. Ver `worker/README.md`.
 
+## 9.4. Worker B3 — autenticação real + cliente de certificação (Fase 15)
+
+> ⚠️ Ainda **sem produção, sem segredos no repo e sem chamadas reais** à B3
+> (`B3_ENABLE_REAL_CALLS` default `false`). O frontend segue funcionando sem o Worker.
+
+**Validação real do Firebase ID Token** (`services/firebaseAuth.js`): extrai o Bearer,
+exige `alg=RS256` + `kid`, busca o **JWKS público do Google** (`securetoken`) com **cache em
+memória** do isolate (TTL via `Cache-Control: max-age`, com 1 refresh se o `kid` faltar),
+importa a chave via `crypto.subtle.importKey('jwk', …, RSASSA-PKCS1-v1_5/SHA-256)` e **verifica
+a assinatura** com `crypto.subtle.verify`. Valida claims `iss = https://securetoken.google.com/<FIREBASE_PROJECT_ID>`,
+`aud = <FIREBASE_PROJECT_ID>`, `sub` não vazio, `exp > agora`, `iat ≤ agora + 60s`. Retorna
+`uid`/`email`/claims mínimas; nunca loga nem devolve o token. Falhas → `401`. Sem
+`FIREBASE_PROJECT_ID` (fora do DEV) → `401`. **DEV não verificado** só com `B3_ENV=local` +
+`B3_DEV_ALLOW_UNVERIFIED=true` (`mode:'dev_unverified'`, logado), ignorado em certificação.
+
+**Cliente B3 (`services/b3Client.js`):** `getB3Config(env)` lê a config expondo só **booleanos**
+(`hasClientSecret`, `hasCert`, …), nunca valores; `assertB3CertificationConfig(env)` bloqueia
+`production`, exige `local`/`certification` e checa completude (sem listar nomes de secrets na
+resposta). `b3StubResponse` devolve `certification_config_missing` (faltam secrets),
+`certification_stub` (config completa + `B3_ENABLE_REAL_CALLS=false`) ou `unsupported_env`.
+Helpers **D-1/API Guia**: `b3ReferenceDate(now)`, `isB3DataAvailable(now)` (dados a partir das
+8h; TZ a tratar na implementação real), `shouldSyncB3(lastSync, refDate)`. `syncGuide`/
+`syncPositions`/`syncMovements` preparados, **sem chamada real** nesta fase.
+
+**Endpoints/CORS:** auth padronizada (`Token ausente.` / `Token inválido ou expirado.`, `mode:
+'unauthorized'`), gate de origem nos endpoints B3 (rejeita `Origin` fora da allowlist; `curl`
+sem `Origin` não é afetado), `safeLog` agora inclui `mode`. **Variáveis novas** (placeholders):
+`B3_ENABLE_REAL_CALLS` (default `false`), `B3_ACCESS_PACKAGE_ID`, `B3_TIMEOUT_MS`, opcional
+`FIREBASE_JWKS_URL`.
+
+**Frontend (wire opcional):** subseção "Backend (Worker)" no painel B3 (`workerUrl`/`enabled`/
+testar/status). `b3WorkerStatus()` anexa o **Firebase ID Token** (`firebase.auth().currentUser
+.getIdToken()`) ao chamar `/b3/status` — token **nunca** salvo/exibido; `workerUrl` validado por
+`_safeUrl` exigindo `https://` (ou `http://localhost` em dev). Padrão `enabled:false`.
+
 ## 10. Limitações atuais / dívida técnica remanescente
 
 - `app.js` ainda é grande (~9,4k linhas); a modularização é incremental e seguirá o roadmap acima.

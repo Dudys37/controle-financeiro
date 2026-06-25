@@ -6,11 +6,16 @@ compatibility_date = "2024-11-01"
 
 # Variáveis NÃO sensíveis (podem ficar no toml):
 [vars]
-B3_ENV = "certification"        # "local" | "certification"  (NUNCA "production" nesta fase)
-FIREBASE_PROJECT_ID = ""        # ex.: "financaspro-xxxx" (usado para validar iss/aud do ID Token)
-ALLOWED_ORIGINS = ""            # CSV, ex.: "https://dudys37.github.io,http://localhost:5173"
+B3_ENV = "certification"          # "local" | "certification"  (NUNCA "production" nesta fase)
+FIREBASE_PROJECT_ID = ""          # ex.: "financaspro-xxxx" — usado p/ validar iss/aud do ID Token
+ALLOWED_ORIGINS = ""              # CSV, ex.: "https://dudys37.github.io,http://localhost:5173"
+B3_ENABLE_REAL_CALLS = "false"    # default false — nenhuma chamada real à B3 nesta fase
+B3_ACCESS_PACKAGE_ID = ""         # identificador do Pacote de Acesso (certificação)
+B3_TIMEOUT_MS = "10000"           # timeout das (futuras) chamadas à B3
 # DEV local apenas — NUNCA em certificação/produção:
 # B3_DEV_ALLOW_UNVERIFIED = "false"
+# Override opcional do endpoint JWKS (padrão: securetoken do Google):
+# FIREBASE_JWKS_URL = ""
 
 # ── SEGREDOS — NÃO colocar aqui. Configure via wrangler secret put: ──
 #   wrangler secret put B3_BASE_URL

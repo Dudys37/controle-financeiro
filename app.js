@@ -8201,11 +8201,38 @@ async function b3WorkerStatus(){
   if(!cfg.enabled || !_safeUrl(cfg.workerUrl)) return { configured:false, mode:'stub' };
   try{
     const base=_safeUrl(cfg.workerUrl).replace(/\/+$/,'');
-    const r=await fetch(base+'/b3/status', { method:'GET' });
+    const tok=await _b3IdToken();                 // ID Token do Firebase, se logado
+    const headers=tok?{Authorization:'Bearer '+tok}:{};   // token NUNCA é salvo/exibido
+    const r=await fetch(base+'/b3/status', { method:'GET', headers });
     let j=null; try{ j=await r.json(); }catch(_){}
     if(D.integracoes.b3.backend){ D.integracoes.b3.backend.lastCheck=new Date().toISOString(); D.integracoes.b3.backend.mode=(j&&j.mode)||'unknown'; }
-    return { configured:true, status:r.status, mode:(j&&j.mode)||'unknown', ok:!!(j&&j.ok) };
+    return { configured:true, status:r.status, mode:(j&&j.mode)||'unknown', ok:!!(j&&j.ok), authenticated:!!tok };
   }catch(e){ return { configured:true, mode:'stub', error:'worker indisponível' }; }
+}
+// Obtém o Firebase ID Token do usuário logado (se houver). Nunca persiste/exibe o token.
+async function _b3IdToken(){
+  try{ if(typeof firebase!=='undefined' && firebase.auth && firebase.auth().currentUser){ return await firebase.auth().currentUser.getIdToken(); } }catch(_){}
+  return '';
+}
+// Salva config do backend B3 (URL + enabled). Valida com _safeUrl e exige https:// (ou http://localhost em dev).
+function b3BackendSave(){
+  const b=(D.integracoes&&D.integracoes.b3&&D.integracoes.b3.backend); if(!b) return;
+  const urlEl=document.getElementById('b3-worker-url'); const enEl=document.getElementById('b3-worker-enabled');
+  const v=urlEl?String(urlEl.value||'').trim():'';
+  if(v){
+    if(!_safeUrl(v)){ toast('URL inválida (use http(s)://)',false,'⚠️'); return; }
+    const isLocal=/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(v);
+    if(!/^https:\/\//i.test(v) && !isLocal){ toast('Use https:// (ou http://localhost para dev)',false,'⚠️'); return; }
+  }
+  b.workerUrl=v; b.enabled=!!(enEl&&enEl.checked); scheduleAutoSave(); renderIntegracoes();
+  toast('Backend B3 salvo',true,'💾');
+}
+async function b3BackendTest(){
+  const b=(D.integracoes&&D.integracoes.b3&&D.integracoes.b3.backend);
+  if(!b||!b.enabled||!_safeUrl(b.workerUrl)){ toast('Configure a URL e habilite o Worker primeiro',false,'⚠️'); return; }
+  toast('Testando conexão com o Worker…',true,'🔌');
+  const res=await b3WorkerStatus(); scheduleAutoSave(); renderIntegracoes();
+  toast('Worker: '+(res.mode||'?')+(res.status?(' ('+res.status+')'):'')+(res.authenticated?' · autenticado':''), !!res.configured, '🔌');
 }
 
 const OpenFinanceService = {
@@ -8327,6 +8354,22 @@ function _ofInfoBlock(){
 }
 
 // ── Painel B3 ──
+// Bloco "Backend (Worker)" do painel B3 (Fase 15) — opcional, padrão desabilitado.
+function _b3BackendBlock(){
+  const b=(D.integracoes&&D.integracoes.b3&&D.integracoes.b3.backend)||{};
+  const last=b.lastCheck?new Date(b.lastCheck).toLocaleString('pt-BR'):'—';
+  return `<div style="background:var(--card3);border-radius:var(--r10);padding:11px 13px;margin-top:12px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:8px">🔌 Backend (Cloudflare Worker) — opcional</div>
+    <div style="font-size:11px;color:var(--text3);line-height:1.6;margin-bottom:8px">Com o Worker desabilitado (padrão), a integração segue em modo manual/mock. Ao habilitar, o app envia seu <strong>Firebase ID Token</strong> ao Worker (token nunca é salvo nem exibido). Em produção use <code>https://</code>; em dev, <code>http://localhost</code>.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="b3-worker-url" type="text" value="${attr(b.workerUrl||'')}" placeholder="https://seu-worker.workers.dev" style="flex:1;min-width:220px;height:32px;font-size:12px;font-family:var(--font-mono)">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)"><input id="b3-worker-enabled" type="checkbox" ${b.enabled?'checked':''}> habilitar</label>
+      <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3BackendSave()">💾 Salvar</button>
+      <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3BackendTest()">🔌 Testar conexão</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Status do backend: <strong style="color:var(--text2)">${escapeHTML(b.mode||'stub')}</strong> · último check: ${escapeHTML(last)}</div>
+  </div>`;
+}
 function renderB3Panel(){
   const c=_b3cfg(), b=_b3(); const st=B3Service.status().data;
   const cs=(c.consentimento&&c.consentimento.status)||'nao_iniciado'; const cl=CONSENT_LABELS[cs]||CONSENT_LABELS.nao_iniciado;
@@ -8364,6 +8407,7 @@ function renderB3Panel(){
         <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3RevogarConsent()">🚫 Consentimento revogado</button>
         ${tem?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3LimparDados()">🧹 Limpar dados importados</button>`:''}
       </div>
+      ${_b3BackendBlock()}
       ${_b3InfoBlock()}
       ${importBox}
     </div></div>`;
