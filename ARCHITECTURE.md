@@ -128,6 +128,7 @@ Roadmap sugerido (uma fatia por rodada, sempre com smoke test antes/depois):
 2. 🔜 `constants.js` — mover blocos de constantes puras (`*_STATUS`, `*_CATS`, `_REL_TIPOS`, `DEFAULT_MENU`).
 3. 🔜 `reports.js` — layout e geradores `relDoc*` (dependem só de helpers + leitura de `D`).
 4. 🔜 `integrations.js` — `googleCalendarLink`, import CSV/OFX, indicadores BCB.
+5. 🔜 `b3of_mod.js` — extração futura de `B3Service`/`OpenFinanceService` e dos painéis/import mock B3/Open Finance (hoje em `app.js`). **Este arquivo ainda não existe**; é apenas um item de roadmap.
 5. 🔜 Migração gradual de handlers inline para *event delegation* (`data-*` + `addEventListener`), módulo a módulo.
 6. 🔮 Só então, se desejado, avaliar `type="module"` com uma camada fina de `window` para compatibilidade.
 
@@ -173,13 +174,13 @@ guardados no backend, dados pessoais sempre em `userData/{uid}`.
 ```bash
 node --check utils.js
 node --check app.js
-node tests/smoke-core.js     # carrega utils.js + app.js e valida helpers + integração
+node smoke-core.js           # (na raiz) carrega utils.js + app.js e valida helpers + integração
 ```
 
 ## 9.1. Fase 12.1 — correções técnicas (pós-modularização)
 
 Antes da arquitetura regulada, foram corrigidos bloqueios: `deploy.ps1` agora publica
-`utils.js` (sem ele o app quebra em produção); `tests/smoke-core.js` usa `path.join(__dirname,'..')`
+`utils.js` (sem ele o app quebra em produção); `smoke-core.js` (na raiz) usa `const root = __dirname` e roda com `node smoke-core.js`
 coerente com a pasta `tests/`; **Firestore Rules** ajustadas para cadastro público seguro
 (`users/{uid}`: `create` por dono com `role:'user'` e apenas os 5 campos esperados, ou por
 admin; `read` dono/admin; `update/delete` só admin; `private/**` só dono; bloqueio final
@@ -222,13 +223,20 @@ sincronização real é deliberadamente bloqueada (`backend_required`).
 - `D.integracoes.openFinance` = `{ status, modo, ambiente, ultimaSincronizacao, fonte, consentimento{status,dataAutorizacao,dataRevogacao,dataExpiracao,escopos[],instituicao,identificadorInterno}, resumo{contas,saldos,transacoes,cartoes,faturas,investimentos,creditos}, observacoes }`.
 - `D.openFinance` = `{ contas, saldos, transacoes, cartoes, faturas, investimentos, creditos, logsSincronizacao }`.
 
-**Camadas de serviço (`b3of_mod.js`):** `B3Service` (`status`, `syncGuide`, `syncPositions`,
+**Camadas de serviço (atualmente em `app.js`):** `B3Service` (`status`, `syncGuide`, `syncPositions`,
 `syncMovements`, `importMockPayload`, `mapPositionToInvestment`, `mapMovementToTransaction`) e
 `OpenFinanceService` (`status`, `startConsentStub`, `revokeLocalConsent`, `syncAccounts`,
 `syncBalances`, `syncTransactions`, `syncCreditCards`, `importMockPayload`, `mapAccountToFinance`,
 `mapTransactionToEntryOrExpense`, `mapCreditCardToCard`). Retorno padronizado
 `{ ok, provider, mode('mock'|'manual'|'backend_required'|'api'), source, updatedAt, referenceDate, data, error }`.
 Toda sincronização real retorna `backend_required` com mensagem explicativa.
+
+> **Onde o código vive (estado real, pós-revisão da Fase 13):** `B3Service` e
+> `OpenFinanceService`, os painéis da Central de Integrações e a importação mock
+> estão **dentro de `app.js`**. **Não existe um arquivo `b3of_mod.js`** — ele é
+> apenas um item de roadmap de modularização futura (ver §6). B3 e Open Finance
+> seguem como **mock/stub/documentação**: não há chamadas reais, e o **Worker B3
+> ainda não foi iniciado** — a integração real continua dependente de backend seguro.
 
 **Consentimento (local/documental):** estados `nao_iniciado | pendente | autorizado | revogado |
 expirado | erro | backend_necessario`. O app só reflete status; **não** realiza nem cancela

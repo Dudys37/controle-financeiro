@@ -1,7 +1,7 @@
 // Smoke test Fase 12 — carrega utils.js + app.js na ordem real (scripts clássicos
 // compartilham escopo global) e valida helpers extraídos + integração com app.js.
 const fs=require('fs'), vm=require('vm'), path=require('path');
-const root=path.join(__dirname,'..');
+const root=__dirname;
 let src='var uiConfirm=function(){return Promise.resolve(true);};var toast=function(){};var scheduleAutoSave=function(){};var go=function(){};var renderAll=function(){};\n';
 src+=fs.readFileSync(path.join(root,'utils.js'),'utf8')+'\n';
 src+=fs.readFileSync(path.join(root,'app.js'),'utf8');
