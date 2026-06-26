@@ -104,7 +104,7 @@ export default {
       // Rota (stub)
       const body = await runB3Route(method, path, env, ctx, auth);
       recordMetric({ endpoint: path, status: 200, mode: body.mode, error: body.error });
-      auditEvent(env, { event: 'b3.' + (body.action || 'request') + '.requested', uidHash, endpoint: path, method, status: 200, mode: body.mode, referenceDate: body.referenceDate || null });
+      auditEvent(env, { event: 'b3.' + (body.action || 'request') + '.' + (body.mode || 'ok'), uidHash, endpoint: path, method, status: 200, mode: body.mode, referenceDate: body.referenceDate || null });
       safeLog({ endpoint: path, method, status: 200, uidHash, mode: body.mode, referenceDate: body.referenceDate || null, durationMs: dur() });
       return jsonResponse(body, { status: 200, headers: { ...cors, ...rlHeaders } });
     }

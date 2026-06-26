@@ -8234,7 +8234,9 @@ async function b3BackendTest(){
   toast('Testando conexão com o Worker…',true,'🔌');
   const res=await b3WorkerStatus(); scheduleAutoSave(); renderIntegracoes();
   if(res.rateLimited){ toast('Limite atingido. Tente em '+(res.retryAfter||'?')+'s',false,'⏳'); return; }
-  toast('Worker: '+(res.mode||'?')+(res.status?(' ('+res.status+')'):'')+(res.authenticated?' · autenticado':''), !!res.configured, '🔌');
+  const LBL={ already_synced:'Sincronização já realizada para esta data de referência.', cache_hit:'Resultado reutilizado do cache D-1.', guide_required:'Consulte a API Guia antes de posições/movimentações.', real_client_not_implemented:'Cliente real B3 ainda não implementado.' };
+  const msg=LBL[res.mode] || ('Worker: '+(res.mode||'?')+(res.status?(' ('+res.status+')'):'')+(res.authenticated?' · autenticado':''));
+  toast(msg, !!res.configured, '🔌');
 }
 
 const OpenFinanceService = {
