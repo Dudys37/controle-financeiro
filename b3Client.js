@@ -9,6 +9,8 @@
 // ═══════════════════════════════════════════════════
 
 const nowISO = () => new Date().toISOString();
+import { shouldAllowB3Sync, setLastB3Sync } from './b3Sync.js';
+import { hashUid } from '../utils/security.js';
 
 // ── Configuração (sem expor valores de secrets) ──
 export function getB3Config(env) {
@@ -99,15 +101,37 @@ export function b3StubResponse(action, auth, env) {
 
 // ── Contratos preparados (sem chamada real nesta fase) ──
 // API Guia primeiro (racionaliza chamadas; D-1). Position/Movement só p/ documentos atualizados.
+// Guarda anti-repetição: registra metadados por (uidHash, type, referenceDate) e sinaliza
+// quando já houve sincronização para a mesma data de referência (D-1).
+async function syncWithGuard(type, action, { auth, env }) {
+  const base = b3StubResponse(action, auth, env);
+  try {
+    if (auth && auth.uid && base.mode !== 'unsupported_env') {
+      const referenceDate = base.referenceDate || b3ReferenceDate(new Date());
+      const uidHash = await hashUid(auth.uid, env);
+      const allow = await shouldAllowB3Sync({ env, uidHash, type, referenceDate });
+      base.alreadySyncedToday = !allow;
+      if (!allow) {
+        base.note =
+          'Já há sincronização registrada para este referenceDate (D-1); no fluxo real, não repetir no mesmo dia.';
+      }
+      await setLastB3Sync({ env, uidHash, type, referenceDate, status: base.mode });
+    }
+  } catch (_) {
+    /* governança não pode quebrar a resposta */
+  }
+  return base;
+}
+
 export async function syncGuide({ auth, env }) {
-  return b3StubResponse('sync-guide', auth, env);
+  return syncWithGuard('guide', 'sync-guide', { auth, env });
 }
 export async function syncPositions({ auth, env, guideResult }) {
   // Regra futura: não buscar Position sem a API Guia indicar atualização.
-  return b3StubResponse('sync-positions', auth, env);
+  return syncWithGuard('positions', 'sync-positions', { auth, env });
 }
 export async function syncMovements({ auth, env, guideResult }) {
-  return b3StubResponse('sync-movements', auth, env);
+  return syncWithGuard('movements', 'sync-movements', { auth, env });
 }
 
 // Interface usada pelas rotas (routes/b3.js).

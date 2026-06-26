@@ -374,6 +374,41 @@ testar/status). `b3WorkerStatus()` anexa o **Firebase ID Token** (`firebase.auth
 .getIdToken()`) ao chamar `/b3/status` — token **nunca** salvo/exibido; `workerUrl` validado por
 `_safeUrl` exigindo `https://` (ou `http://localhost` em dev). Padrão `enabled:false`.
 
+## 9.5. Worker B3 — governança (Fase 16)
+
+> ⚠️ Ainda **sem chamadas reais** à B3 (`B3_ENABLE_REAL_CALLS=false`). Esta fase adiciona
+> rate limit, métricas, auditoria, logs por whitelist e controle D-1.
+
+**Pipeline `/b3/*` (`index.js`):** CORS → gate de origem → (`/b3/metrics` admin) → método →
+auth → **rate limit** → rota (stub) → headers + log + métricas + auditoria. `durationMs` medido
+por request.
+
+**Rate limit (`services/rateLimit.js`):** janela fixa por `(endpoint, uidHash)`. Store: KV
+(`B3_RATE_LIMIT_KV`, opcional) ou memória do isolate (fallback). `RateLimiter.check` (não muta)
++ `RateLimiter.record`. Limites por env (default): status 30/5min; sync-guide 5/dia;
+sync-positions/movements 3/dia; revoke-local 10/dia. Estouro → `429` `rate_limited` +
+`Retry-After`/`X-RateLimit-Limit|Remaining|Reset`. Sem token → `401` (antes do rate limit);
+`Origin` fora da allowlist → `403` (sem consumir limite); `/health` livre.
+
+**D-1/anti-repetição (`services/b3Sync.js`):** `b3SyncKey`/`getLastB3Sync`/`setLastB3Sync`/
+`shouldAllowB3Sync` guardam só metadados por `(uidHash, type, referenceDate)` (sem payload);
+`sync-*` expõem `alreadySyncedToday` + `note` na repetição do mesmo D-1.
+
+**Identidade/logs (`utils/security.js`):** `hashUid` (SHA-256 + salt opcional
+`B3_UID_HASH_SALT`, secret) → 16 hex; `shortUid` fallback. `safeLog` por **whitelist**
+(`endpoint`/`method`/`status`/`uidHash`/`mode`/`durationMs`/`referenceDate`/erro) — campos
+proibidos (token/authorization/cpf/payload/body/cert/secrets) nunca são copiados.
+
+**Auditoria/métricas (`services/audit.js`):** `auditEvent` → `AUDIT {…}` (whitelist, sem
+sensível); métricas agregadas em memória (por endpoint/dia, autorizadas, rejeições auth/cors/
+rate, modos). `GET /b3/metrics` exige token + `B3_METRICS_ADMIN_UIDS` e `B3_METRICS_ENABLED=true`
+(senão `404`; allowlist vazia → `403`); não expõe uids/segredos/dados de terceiros.
+
+**Novas variáveis (placeholders):** `B3_RATE_LIMIT_ENABLED`, `B3_RATE_LIMIT_STATUS_5M`,
+`B3_RATE_LIMIT_GUIDE_DAILY`, `B3_RATE_LIMIT_SYNC_DAILY`, `B3_RATE_LIMIT_REVOKE_DAILY`,
+`B3_AUDIT_ENABLED`, `B3_METRICS_ENABLED`, `B3_METRICS_ADMIN_UIDS`, e o secret
+`B3_UID_HASH_SALT`. Binding KV `B3_RATE_LIMIT_KV` documentado (comentado) no `wrangler.toml.example`.
+
 ## 10. Limitações atuais / dívida técnica remanescente
 
 - `app.js` ainda é grande (~9,4k linhas); a modularização é incremental e seguirá o roadmap acima.

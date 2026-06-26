@@ -42,19 +42,42 @@ export function handleOptions(request, env) {
   return new Response(null, { status, headers });
 }
 
-// Log mínimo e não sensível.
+// Log mínimo e não sensível — SOMENTE campos permitidos (whitelist).
+// Campos proibidos (token, authorization, password, senha, cpf, client_secret,
+// access_token, refresh_token, private_key, payload, body, cert) são ignorados
+// por construção, pois nunca são copiados para a saída.
 export function safeLog(entry) {
   const e = entry || {};
+  const out = { ts: e.ts || new Date().toISOString() };
+  if (e.uidHash) out.uidHash = String(e.uidHash).slice(0, 16);
+  else if (e.uid) out.uidHash = String(e.uid).slice(0, 8) + '\u2026';
+  for (const k of ['endpoint', 'method', 'status', 'mode', 'referenceDate']) {
+    if (e[k] != null) out[k] = e[k];
+  }
+  if (typeof e.durationMs === 'number') out.durationMs = e.durationMs;
+  if (e.error) out.error = String(e.error).slice(0, 120);
   try {
-    console.log(JSON.stringify({
-      ts: e.ts || new Date().toISOString(),
-      endpoint: e.endpoint || null,
-      method: e.method || null,
-      status: e.status || null,
-      uid: e.uid ? String(e.uid).slice(0, 8) + '…' : null,
-      error: e.error ? String(e.error).slice(0, 120) : null,
-    }));
+    console.log(JSON.stringify(out));
   } catch (_) {
     /* noop */
+  }
+}
+
+// Identificação de usuário sem expor o uid completo.
+export function shortUid(uid) {
+  return uid ? String(uid).slice(0, 8) + '\u2026' : null;
+}
+
+// Hash SHA-256 (com salt opcional via secret) → 16 chars hex. Fallback: shortUid.
+export async function hashUid(uid, env) {
+  if (!uid) return null;
+  try {
+    const salt = (env && env.B3_UID_HASH_SALT) || '';
+    const data = new TextEncoder().encode(salt + ':' + uid);
+    const buf = await crypto.subtle.digest('SHA-256', data);
+    const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    return hex.slice(0, 16);
+  } catch (_) {
+    return shortUid(uid);
   }
 }

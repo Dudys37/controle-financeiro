@@ -8205,8 +8205,9 @@ async function b3WorkerStatus(){
     const headers=tok?{Authorization:'Bearer '+tok}:{};   // token NUNCA é salvo/exibido
     const r=await fetch(base+'/b3/status', { method:'GET', headers });
     let j=null; try{ j=await r.json(); }catch(_){}
+    const retryAfter=r.headers.get('Retry-After'); const rlRemaining=r.headers.get('X-RateLimit-Remaining');
     if(D.integracoes.b3.backend){ D.integracoes.b3.backend.lastCheck=new Date().toISOString(); D.integracoes.b3.backend.mode=(j&&j.mode)||'unknown'; }
-    return { configured:true, status:r.status, mode:(j&&j.mode)||'unknown', ok:!!(j&&j.ok), authenticated:!!tok };
+    return { configured:true, status:r.status, mode:(j&&j.mode)||'unknown', ok:!!(j&&j.ok), authenticated:!!tok, rateLimited:r.status===429, retryAfter:retryAfter||'', remaining:rlRemaining||'' };
   }catch(e){ return { configured:true, mode:'stub', error:'worker indisponível' }; }
 }
 // Obtém o Firebase ID Token do usuário logado (se houver). Nunca persiste/exibe o token.
@@ -8232,6 +8233,7 @@ async function b3BackendTest(){
   if(!b||!b.enabled||!_safeUrl(b.workerUrl)){ toast('Configure a URL e habilite o Worker primeiro',false,'⚠️'); return; }
   toast('Testando conexão com o Worker…',true,'🔌');
   const res=await b3WorkerStatus(); scheduleAutoSave(); renderIntegracoes();
+  if(res.rateLimited){ toast('Limite atingido. Tente em '+(res.retryAfter||'?')+'s',false,'⏳'); return; }
   toast('Worker: '+(res.mode||'?')+(res.status?(' ('+res.status+')'):'')+(res.authenticated?' · autenticado':''), !!res.configured, '🔌');
 }
 
