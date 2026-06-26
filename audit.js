@@ -14,6 +14,12 @@ const metrics = {
   mode_certification_stub: 0,
   mode_certification_config_missing: 0,
   mode_unsupported_env: 0,
+  mode_cache_hit: 0,
+  mode_already_synced: 0,
+  mode_guide_required: 0,
+  mode_real_client_not_implemented: 0,
+  syncCacheHits: 0,
+  syncBlockedRepeats: 0,
   byEndpoint: {},
   byDay: {},
   lastError: '',
@@ -32,9 +38,16 @@ export function recordMetric(m) {
   else if (e.rejected === 'rate') metrics.rejected_rate += 1;
   else metrics.authorized += 1;
 
-  if (e.mode === 'certification_stub') metrics.mode_certification_stub += 1;
-  else if (e.mode === 'certification_config_missing') metrics.mode_certification_config_missing += 1;
-  else if (e.mode === 'unsupported_env') metrics.mode_unsupported_env += 1;
+  switch (e.mode) {
+    case 'certification_stub': metrics.mode_certification_stub += 1; break;
+    case 'certification_config_missing': metrics.mode_certification_config_missing += 1; break;
+    case 'unsupported_env': metrics.mode_unsupported_env += 1; break;
+    case 'cache_hit': metrics.mode_cache_hit += 1; metrics.syncCacheHits += 1; break;
+    case 'already_synced': metrics.mode_already_synced += 1; metrics.syncBlockedRepeats += 1; break;
+    case 'guide_required': metrics.mode_guide_required += 1; break;
+    case 'real_client_not_implemented': metrics.mode_real_client_not_implemented += 1; break;
+    default: break;
+  }
 
   if (e.error) metrics.lastError = String(e.error).slice(0, 80);
 }

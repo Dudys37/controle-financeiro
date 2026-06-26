@@ -9,7 +9,9 @@
 // ═══════════════════════════════════════════════════
 
 const nowISO = () => new Date().toISOString();
-import { shouldAllowB3Sync, setLastB3Sync } from './b3Sync.js';
+import {
+  getLastB3Sync, setLastB3Sync, getB3SyncCache, setB3SyncCache, resolveRepeatSync,
+} from './b3Sync.js';
 import { hashUid } from '../utils/security.js';
 
 // ── Configuração (sem expor valores de secrets) ──
@@ -99,39 +101,93 @@ export function b3StubResponse(action, auth, env) {
     error: 'Worker B3 autenticado; integração real de certificação ainda não implementada nesta fase.' };
 }
 
+// ── Respostas dos novos modos (Fase 17) ──
+function withCommon(obj, auth) {
+  obj.provider = 'b3';
+  obj.source = 'Cloudflare Worker';
+  obj.updatedAt = nowISO();
+  if (auth && auth.uid) obj.requestedBy = String(auth.uid).slice(0, 8) + '\u2026';
+  return obj;
+}
+function tag(obj, action) { obj.action = action; return obj; }
+function alreadySynced(referenceDate, auth) {
+  return withCommon({ ok: false, mode: 'already_synced', referenceDate, data: null,
+    error: 'Sincronização já realizada para esta data de referência. Use o cache ou aguarde o próximo D-1.' }, auth);
+}
+function cacheHit(referenceDate, auth, summary) {
+  return withCommon({ ok: true, mode: 'cache_hit', referenceDate,
+    data: { cached: true, summary: summary || {} }, error: null }, auth);
+}
+function guideRequired(referenceDate, auth) {
+  return withCommon({ ok: false, mode: 'guide_required', referenceDate, data: null,
+    error: 'API Guia deve ser consultada antes de Position/Movement.' }, auth);
+}
+function realClientNotImplemented(referenceDate, auth) {
+  return withCommon({ ok: false, mode: 'real_client_not_implemented', referenceDate, data: null,
+    error: 'Cliente real B3 ainda não implementado; chamadas reais não disponíveis nesta fase.' }, auth);
+}
+
 // ── Contratos preparados (sem chamada real nesta fase) ──
-// API Guia primeiro (racionaliza chamadas; D-1). Position/Movement só p/ documentos atualizados.
-// Guarda anti-repetição: registra metadados por (uidHash, type, referenceDate) e sinaliza
-// quando já houve sincronização para a mesma data de referência (D-1).
-async function syncWithGuard(type, action, { auth, env }) {
+// Fluxo: API Guia primeiro → Position/Movement só se houver Guia para o D-1.
+// Anti-repetição rígido por estratégia (block | cache | allow_stub_only).
+async function runSync(type, action, { auth, env }) {
   const base = b3StubResponse(action, auth, env);
-  try {
-    if (auth && auth.uid && base.mode !== 'unsupported_env') {
-      const referenceDate = base.referenceDate || b3ReferenceDate(new Date());
-      const uidHash = await hashUid(auth.uid, env);
-      const allow = await shouldAllowB3Sync({ env, uidHash, type, referenceDate });
-      base.alreadySyncedToday = !allow;
-      if (!allow) {
-        base.note =
-          'Já há sincronização registrada para este referenceDate (D-1); no fluxo real, não repetir no mesmo dia.';
-      }
-      await setLastB3Sync({ env, uidHash, type, referenceDate, status: base.mode });
-    }
-  } catch (_) {
-    /* governança não pode quebrar a resposta */
+  if (base.mode === 'unsupported_env') return base; // production/env inválido: não cacheia
+  const cfg = getB3Config(env);
+  const envName = cfg.envName;
+  const realCalls = cfg.realCalls;
+  const referenceDate = base.referenceDate || b3ReferenceDate(new Date());
+  base.referenceDate = referenceDate;
+  let uidHash = null;
+  try { uidHash = await hashUid(auth && auth.uid, env); } catch (_) { /* noop */ }
+
+  // 1) Position/Movement exigem Guia para o mesmo referenceDate.
+  if (type === 'positions' || type === 'movements') {
+    const gMeta = await getLastB3Sync({ env, envName, uidHash, type: 'guide', referenceDate });
+    const gCache = await getB3SyncCache({ env, envName, uidHash, type: 'guide', referenceDate });
+    if (!gMeta && !gCache) return tag(guideRequired(referenceDate, auth), action);
   }
+
+  // 2) Repetição no mesmo D-1.
+  const prior = await getLastB3Sync({ env, envName, uidHash, type, referenceDate });
+  if (prior) {
+    const dec = await resolveRepeatSync({ env, envName, uidHash, type, referenceDate });
+    if (dec.action === 'block' || dec.action === 'real_repeat_block') {
+      return tag(alreadySynced(referenceDate, auth), action);
+    }
+    if (dec.action === 'cache') {
+      const cache = await getB3SyncCache({ env, envName, uidHash, type, referenceDate });
+      if (cache) return tag(cacheHit(referenceDate, auth, cache.summary), action);
+      return tag(alreadySynced(referenceDate, auth), action); // sem cache → bloqueio seguro
+    }
+    // allow_stub (somente quando real calls desativadas)
+    base.alreadySyncedToday = true;
+    base.note = 'Repetição permitida apenas em modo stub (allow_stub_only).';
+    await setLastB3Sync({ env, envName, uidHash, type, referenceDate, meta: { status: 'stub', mode: base.mode } });
+    await setB3SyncCache({ env, envName, uidHash, type, referenceDate, cache: { status: 'stub', mode: base.mode, summary: { count: 0, productsUpdated: 0 } } });
+    return base;
+  }
+
+  // 3) Primeira vez para este D-1.
+  if (realCalls) {
+    // Gate: real calls ligadas, mas o cliente real ainda não existe nesta fase.
+    await setLastB3Sync({ env, envName, uidHash, type, referenceDate, meta: { status: 'error', mode: 'real_client_not_implemented' } });
+    return tag(realClientNotImplemented(referenceDate, auth), action);
+  }
+  base.alreadySyncedToday = false;
+  await setLastB3Sync({ env, envName, uidHash, type, referenceDate, meta: { status: 'stub', mode: base.mode } });
+  await setB3SyncCache({ env, envName, uidHash, type, referenceDate, cache: { status: 'stub', mode: base.mode, summary: { count: 0, productsUpdated: 0 } } });
   return base;
 }
 
 export async function syncGuide({ auth, env }) {
-  return syncWithGuard('guide', 'sync-guide', { auth, env });
+  return runSync('guide', 'sync-guide', { auth, env });
 }
 export async function syncPositions({ auth, env, guideResult }) {
-  // Regra futura: não buscar Position sem a API Guia indicar atualização.
-  return syncWithGuard('positions', 'sync-positions', { auth, env });
+  return runSync('positions', 'sync-positions', { auth, env });
 }
 export async function syncMovements({ auth, env, guideResult }) {
-  return syncWithGuard('movements', 'sync-movements', { auth, env });
+  return runSync('movements', 'sync-movements', { auth, env });
 }
 
 // Interface usada pelas rotas (routes/b3.js).

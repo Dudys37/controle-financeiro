@@ -409,6 +409,34 @@ rate, modos). `GET /b3/metrics` exige token + `B3_METRICS_ADMIN_UIDS` e `B3_METR
 `B3_AUDIT_ENABLED`, `B3_METRICS_ENABLED`, `B3_METRICS_ADMIN_UIDS`, e o secret
 `B3_UID_HASH_SALT`. Binding KV `B3_RATE_LIMIT_KV` documentado (comentado) no `wrangler.toml.example`.
 
+## 9.6. Worker B3 — pré-certificação (Fase 17)
+
+> ⚠️ Ainda **sem chamadas reais** por padrão (`B3_ENABLE_REAL_CALLS=false`). Esta fase torna o
+> controle D-1 **efetivo** (bloqueio/cache) e exige Guia antes de Position/Movement.
+
+**Anti-repetição rígido + cache (`services/b3Sync.js`):** chaves
+`b3sync:${envName}:${type}:${uidHash}:${refDate}` (meta) e
+`b3cache:${envName}:${type}:${uidHash}:${refDate}` (cache). `getLastB3Sync`/`setLastB3Sync`,
+`getB3SyncCache`/`setB3SyncCache`, `shouldAllowB3Sync`, `resolveRepeatSync`. O cache guarda só
+`{ status, mode, updatedAt, summary:{count,productsUpdated}, ttlSeconds }` (TTL `B3_SYNC_CACHE_TTL_SECONDS`,
+default 48h) — `sanitizeSummary` impede vazar payload. Store: `B3_SYNC_CACHE_KV` (separado do
+rate limit) ou memória.
+
+**Estratégia `B3_REPEAT_SYNC_STRATEGY`** (default `cache`): `block` → `already_synced`;
+`cache` → `cache_hit` (ou `already_synced` se faltar cache); `allow_stub_only` → stub marcado
+(`alreadySyncedToday`) só sem real calls, senão `already_synced`.
+
+**Fluxo (`b3Client.runSync`):** `unsupported_env` curto-circuita; positions/movements exigem
+meta/cache de **guide** no mesmo `referenceDate` (senão `guide_required`); repetição aplica a
+estratégia; primeira vez grava meta+cache (stub) ou, com `B3_ENABLE_REAL_CALLS=true` e sem
+cliente real, retorna `real_client_not_implemented`.
+
+**Novos modos:** `already_synced`, `cache_hit`, `guide_required`, `real_client_not_implemented`.
+**Métricas:** `mode_cache_hit`, `mode_already_synced`, `mode_guide_required`,
+`mode_real_client_not_implemented`, `syncCacheHits`, `syncBlockedRepeats`. **Auditoria:** evento
+`b3.<action>.<mode>`. **Vars novas:** `B3_REPEAT_SYNC_STRATEGY`, `B3_SYNC_CACHE_TTL_SECONDS`, e o
+binding (comentado) `B3_SYNC_CACHE_KV`.
+
 ## 10. Limitações atuais / dívida técnica remanescente
 
 - `app.js` ainda é grande (~9,4k linhas); a modularização é incremental e seguirá o roadmap acima.

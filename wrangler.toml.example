@@ -19,6 +19,8 @@ B3_RATE_LIMIT_STATUS_5M = "30"    # /b3/status: 30 / 5min / uid
 B3_RATE_LIMIT_GUIDE_DAILY = "5"   # /b3/sync-guide: 5 / dia / uid
 B3_RATE_LIMIT_SYNC_DAILY = "3"    # /b3/sync-positions e /b3/sync-movements: 3 / dia / uid
 B3_RATE_LIMIT_REVOKE_DAILY = "10" # /b3/revoke-local: 10 / dia / uid
+B3_REPEAT_SYNC_STRATEGY = "cache"   # "block" | "cache" | "allow_stub_only"
+B3_SYNC_CACHE_TTL_SECONDS = "172800" # 48h
 B3_AUDIT_ENABLED = "true"
 B3_METRICS_ENABLED = "true"       # endpoint /b3/metrics exige token + allowlist abaixo
 B3_METRICS_ADMIN_UIDS = ""        # CSV de uids admin; vazio = /b3/metrics retorna 403
@@ -31,6 +33,10 @@ B3_METRICS_ADMIN_UIDS = ""        # CSV de uids admin; vazio = /b3/metrics retor
 # ── KV opcional para rate limit / auditoria (sem IDs reais no repo) ──
 # [[kv_namespaces]]
 # binding = "B3_RATE_LIMIT_KV"
+# id = ""
+# preview_id = ""
+# [[kv_namespaces]]
+# binding = "B3_SYNC_CACHE_KV"
 # id = ""
 # preview_id = ""
 
