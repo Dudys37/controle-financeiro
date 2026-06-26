@@ -1,0 +1,49 @@
+# wrangler.toml.example — copie para wrangler.toml e ajuste.
+# NUNCA commite segredos. wrangler.toml real está no .gitignore.
+name = "financaspro-b3-worker"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Variáveis NÃO sensíveis (podem ficar no toml):
+[vars]
+B3_ENV = "certification"          # "local" | "certification"  (NUNCA "production" nesta fase)
+FIREBASE_PROJECT_ID = ""          # ex.: "financaspro-xxxx" — valida iss/aud do ID Token
+ALLOWED_ORIGINS = ""              # CSV, ex.: "https://dudys37.github.io,http://localhost:5173"
+B3_ENABLE_REAL_CALLS = "false"    # default false — nenhuma chamada real à B3 nesta fase
+B3_ACCESS_PACKAGE_ID = ""         # identificador do Pacote de Acesso (certificação)
+B3_TIMEOUT_MS = "10000"
+
+# ── Governança (Fase 16) ──
+B3_RATE_LIMIT_ENABLED = "true"
+B3_RATE_LIMIT_STATUS_5M = "30"    # /b3/status: 30 / 5min / uid
+B3_RATE_LIMIT_GUIDE_DAILY = "5"   # /b3/sync-guide: 5 / dia / uid
+B3_RATE_LIMIT_SYNC_DAILY = "3"    # /b3/sync-positions e /b3/sync-movements: 3 / dia / uid
+B3_RATE_LIMIT_REVOKE_DAILY = "10" # /b3/revoke-local: 10 / dia / uid
+B3_REPEAT_SYNC_STRATEGY = "cache"   # "block" | "cache" | "allow_stub_only"
+B3_SYNC_CACHE_TTL_SECONDS = "172800" # 48h
+B3_AUDIT_ENABLED = "true"
+B3_METRICS_ENABLED = "true"       # endpoint /b3/metrics exige token + allowlist abaixo
+B3_METRICS_ADMIN_UIDS = ""        # CSV de uids admin; vazio = /b3/metrics retorna 403
+
+# DEV local apenas — NUNCA em certificação/produção:
+# B3_DEV_ALLOW_UNVERIFIED = "false"
+# Override opcional do endpoint JWKS:
+# FIREBASE_JWKS_URL = ""
+
+# ── KV opcional para rate limit / auditoria (sem IDs reais no repo) ──
+# [[kv_namespaces]]
+# binding = "B3_RATE_LIMIT_KV"
+# id = ""
+# preview_id = ""
+# [[kv_namespaces]]
+# binding = "B3_SYNC_CACHE_KV"
+# id = ""
+# preview_id = ""
+
+# ── SEGREDOS — NÃO colocar aqui. Configure via wrangler secret put: ──
+#   wrangler secret put B3_BASE_URL
+#   wrangler secret put B3_CLIENT_ID
+#   wrangler secret put B3_CLIENT_SECRET
+#   wrangler secret put B3_CERT
+#   wrangler secret put B3_KEY
+#   wrangler secret put B3_UID_HASH_SALT   # salt opcional p/ hash de uid na auditoria
