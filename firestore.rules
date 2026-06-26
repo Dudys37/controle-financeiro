@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──
+    function isAuth()      { return request.auth != null; }
+    function isOwner(uid)  { return isAuth() && request.auth.uid == uid; }
+    function isAdmin() {
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+    }
+
+    // ── Perfis de usuário ──
+    // Create: o próprio dono pode criar SEU perfil, obrigatoriamente com role "user"
+    //   e apenas com os campos esperados (impede auto-promoção a admin/superadmin).
+    // Read: o próprio dono ou um superadmin.
+    // Update/Delete: somente superadmin.
+    match /users/{uid} {
+      allow create: if isAdmin()
+        || ( isOwner(uid)
+          && request.resource.data.uid == uid
+          && request.resource.data.role == 'user'
+          && request.resource.data.keys().hasOnly(['email','displayName','role','uid','createdAt']) );
+      allow read:          if isOwner(uid) || isAdmin();
+      allow update, delete: if isAdmin();
+
+      // Preparado para evolução futura: dados privados por usuário em subcoleção.
+      // Somente o dono lê/escreve. Superadmin NÃO acessa (privacidade — ex.: dados bancários).
+      match /private/{document=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ── Dados pessoais/financeiros — isolados por usuário ──
+    // Modelo atual: tudo em userData/{uid}.data (JSON). Read/write SOMENTE pelo dono.
+    match /userData/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // Evolução futura: subcoleções por domínio (entradas, metas, decisoes, compras,
+      // preferencias, trabalho, patrimonio, integracoes...). Mantêm o isolamento por dono.
+      match /{document=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ── Configurações GLOBAIS do sistema (identidade visual, módulos, menus) ──
+    // Leitura por qualquer autenticado (necessária para renderizar a UI).
+    // Escrita somente por superadmin. NUNCA deve conter dados pessoais, segredos,
+    // tokens, dados bancários nem eventos/e-mails de usuários.
+    match /systemConfig/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin()
+        && !( 'token' in request.resource.data )
+        && !( 'secret' in request.resource.data )
+        && !( 'apiKey' in request.resource.data );
+    }
+
+    // Bloqueia qualquer outro caminho não previsto explicitamente.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
