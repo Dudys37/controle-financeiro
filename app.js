@@ -5602,353 +5602,6 @@ function toggleMetaExpand(id){ _metaExpanded[id]=!_metaExpanded[id]; renderObjet
 let _relTipo = 'mensal';            // mensal | anual | metas | decisoes | compras | geral
 let _relFiltroDomMeta = '';         // filtro de domínio do relatório de metas
 
-const _REL_TIPOS = [
-  {id:'mensal',   label:'Financeiro Mensal',   icon:'📅'},
-  {id:'anual',    label:'Financeiro Anual',    icon:'📈'},
-  {id:'metas',    label:'Metas',               icon:'🎯'},
-  {id:'decisoes', label:'Decisões',            icon:'🧭'},
-  {id:'compras',  label:'Compras & Desejos',   icon:'🛒'},
-  {id:'trabalho', label:'Trabalho & Projetos',  icon:'💼'},
-  {id:'carreira', label:'Carreira',            icon:'🚀'},
-  {id:'patrimonio',label:'Patrimônio',          icon:'📦'},
-  {id:'geral',    label:'Geral da Vida',       icon:'🏠'},
-];
-const _REL_COMPRA_ST = { desejado:'Desejado', em_analise:'Em análise', adiado:'Adiado', comprado:'Comprado', descartado:'Descartado' };
-
-function _relIdent(){ try{ return (typeof SYSCFG!=='undefined' && SYSCFG.identity) ? SYSCFG.identity : {}; }catch(e){ return {}; } }
-function _relAnos(){
-  const ys=new Set();
-  (D.meses||[]).forEach(m=>{ const p=(typeof parseMes==='function')?parseMes(m):null; if(p&&p.y) ys.add(p.y); });
-  if(!ys.size) ys.add(new Date().getFullYear());
-  return [...ys].sort();
-}
-
-// Layout padrão do documento
-function _relDoc(titulo, periodo, body){
-  const id=_relIdent();
-  const nome=escapeHTML(id.systemName||'FinançasPRO');
-  const sub=escapeHTML(id.subtitle||'');
-  const foot=escapeHTML(id.footerText||'');
-  const hoje=new Date().toLocaleString('pt-BR');
-  const logo=id.logoUrl||'';
-  const logoHtml = logo
-    ? `<img src="${attr(logo)}" alt="" style="height:40px;max-width:170px;object-fit:contain" onerror="this.style.display='none'">`
-    : `<div style="font-size:26px;line-height:1">${escapeHTML(id.mainIcon||'₿')}</div>`;
-  return `<div class="report-page" style="background:var(--card);border:1px solid var(--border);border-radius:var(--r14);padding:26px;max-width:900px;margin:0 auto">
-    <div class="report-section" style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid var(--border);padding-bottom:16px;margin-bottom:20px">
-      <div style="display:flex;gap:12px;align-items:center">
-        ${logoHtml}
-        <div><div style="font-size:18px;font-weight:800;letter-spacing:-.3px">${nome}</div>${sub?`<div style="font-size:11px;color:var(--text2)">${sub}</div>`:''}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:15px;font-weight:800">${escapeHTML(titulo)}</div>
-        ${periodo?`<div style="font-size:12px;color:var(--text2)">${escapeHTML(periodo)}</div>`:''}
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">Gerado em ${escapeHTML(hoje)}</div>
-      </div>
-    </div>
-    ${body}
-    <div class="report-section" style="border-top:1px solid var(--border);margin-top:20px;padding-top:12px;font-size:10px;color:var(--text3);text-align:center">
-      ${nome}${foot?' · '+foot:''} · Relatório gerado com dados informados pelo usuário.
-    </div>
-  </div>`;
-}
-function _relSection(titulo, inner){
-  return `<div class="report-section rep-card" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r12);padding:16px;margin-bottom:14px">
-    <div style="font-size:13px;font-weight:800;margin-bottom:12px;color:var(--text)">${escapeHTML(titulo)}</div>${inner}</div>`;
-}
-function _relKpis(arr){
-  return `<div style="display:flex;flex-wrap:wrap;gap:14px">${arr.map(k=>`<div style="flex:1;min-width:120px">
-    <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">${escapeHTML(k.label)}</div>
-    <div style="font-size:18px;font-weight:800;color:${k.cor||'var(--text)'}">${k.val}</div>${k.sub?`<div style="font-size:10px;color:var(--text3)">${escapeHTML(k.sub)}</div>`:''}</div>`).join('')}</div>`;
-}
-function _relTable(headers, rows){
-  if(!rows.length) return `<div style="font-size:12px;color:var(--text3)">Sem dados.</div>`;
-  return `<table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead><tr>${headers.map((h,i)=>`<th style="text-align:${i?'right':'left'};padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-weight:700">${escapeHTML(h)}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(r=>`<tr>${r.map((c,i)=>`<td style="text-align:${i?'right':'left'};padding:6px 8px;border-bottom:1px solid var(--border)">${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-}
-function _relEmpty(msg){ return `<div class="rep-card" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--r12);padding:28px;text-align:center"><div style="font-size:30px;margin-bottom:8px">📄</div><div style="font-size:13px;color:var(--text2);max-width:460px;margin:0 auto">${escapeHTML(msg)}</div></div>`; }
-
-// ── 1) FINANCEIRO MENSAL ──
-function relDocMensal(mi){
-  const R=relatorioMensal(mi);
-  let invDisponivel=0, reserva={pct:0,falta:0,caixa:0,meta:0};
-  try{ invDisponivel=invDisp(mi); }catch(e){}
-  try{ reserva=statusReserva(); }catch(e){}
-  const sobraCor=R.sobra>=0?'var(--pos)':'var(--neg)';
-  const kpis=_relKpis([
-    {label:'Entradas',val:fmt(R.entradas)},
-    {label:'Saídas',val:fmt(R.saidas)},
-    {label:'Saldo do mês',val:fmt(R.sobra),cor:sobraCor},
-    {label:'Disponível p/ investir',val:fmt(invDisponivel),cor:'var(--teal)'},
-    {label:'Taxa de poupança',val:`${Math.round(R.taxaPoupanca)}%`},
-  ]);
-  const reservaPct=reserva.pct||0;
-  const reservaSec=_relSection('Reserva de emergência',
-    `<div style="font-size:12px;color:var(--text2);margin-bottom:6px">${reservaPct>=100?'Reserva completa.':`Faltam ${fmt(reserva.falta||0)} para a meta.`} (${Math.round(reservaPct)}%)</div>
-     <div style="height:8px;background:var(--card3);border-radius:99px;overflow:hidden"><div style="height:8px;width:${Math.min(100,reservaPct)}%;background:${reservaPct>=100?'var(--pos)':reservaPct>=50?'var(--warn)':'var(--neg)'};border-radius:99px"></div></div>`);
-  const gastos=_relSection('Maiores gastos por categoria',
-    _relTable(['Categoria','Valor','%'], R.categorias.slice(0,8).map(c=>[`${escapeHTML(c.icon)} ${escapeHTML(c.label)}`, fmt(c.valor), Math.round(c.pct)+'%'])));
-  const orc=R.orcamentos.length?_relSection('Orçamento por categoria',
-    _relTable(['Categoria','Gasto','Limite','%'], R.orcamentos.map(o=>[`${escapeHTML(o.icon)} ${escapeHTML(o.label)}`, fmt(o.gasto), fmt(o.limite), `<span style="color:${o.over?'var(--neg)':'var(--text)'}">${Math.round(o.pct)}%</span>`]))):'';
-  const metas=R.metas.length?_relSection('Metas financeiras',
-    _relTable(['Meta','Atual','Alvo','%'], R.metas.map(m=>[`${escapeHTML(m.icon)} ${escapeHTML(m.nome||'')}`, fmtK(m.atual), fmtK(m.alvo), (m.concluida?'✅ ':'')+Math.round(m.pct)+'%']))):'';
-  const alertas=R.insights.length?_relSection('Alertas e destaques',
-    `<div style="display:grid;gap:6px">${R.insights.map(a=>`<div style="display:flex;gap:8px;font-size:12px"><span>${escapeHTML(a.icon||'•')}</span><div><strong>${escapeHTML(a.titulo||a.title||'')}</strong> — ${escapeHTML(a.desc||a.msg||'')}</div></div>`).join('')}</div>`):'';
-  const nota=(D.notasMes&&D.notasMes[mi])?_relSection('Observações do mês',`<div style="font-size:12px;color:var(--text2);white-space:pre-wrap">${escapeHTML(D.notasMes[mi])}</div>`):'';
-  const body=_relSection('Resumo executivo',kpis)+reservaSec+gastos+orc+metas+alertas+nota;
-  return _relDoc('Relatório Financeiro Mensal', R.mes, body);
-}
-
-// ── 2) FINANCEIRO ANUAL ──
-function relDocAnual(ano){
-  const A=relatorioAnual(ano);
-  if(!A.meses.length) return _relDoc('Relatório Financeiro Anual', String(ano), _relEmpty('Não há meses cadastrados para este período.'));
-  const comDados=A.meses.filter(m=>m.entrada>0||m.saida>0);
-  const melhor=comDados.slice().sort((a,b)=>b.sobra-a.sobra)[0];
-  const pior=comDados.slice().sort((a,b)=>a.sobra-b.sobra)[0];
-  const kpis=_relKpis([
-    {label:'Entradas no período',val:fmt(A.totEntrada)},
-    {label:'Saídas no período',val:fmt(A.totSaida)},
-    {label:'Saldo acumulado',val:fmt(A.totSobra),cor:A.totSobra>=0?'var(--pos)':'var(--neg)'},
-    {label:'Média de sobra/mês',val:fmt(comDados.length?A.totSobra/comDados.length:0)},
-  ]);
-  const evol=_relSection('Evolução mês a mês',
-    _relTable(['Mês','Entradas','Saídas','Saldo'], A.meses.map(m=>[escapeHTML(m.mes), fmt(m.entrada), fmt(m.saida), `<span style="color:${m.sobra>=0?'var(--pos)':'var(--neg)'}">${fmt(m.sobra)}</span>`])));
-  const destaques=(melhor&&pior)?_relSection('Melhores e piores meses',
-    `<div style="font-size:12px;color:var(--text2)">🟢 Melhor mês: <strong>${escapeHTML(melhor.mes)}</strong> (${fmt(melhor.sobra)})<br>🔴 Mês mais apertado: <strong>${escapeHTML(pior.mes)}</strong> (${fmt(pior.sobra)})</div>`):'';
-  return _relDoc('Relatório Financeiro Anual', String(ano), _relSection('Resumo executivo',kpis)+evol+destaques);
-}
-
-// ── 3) METAS ──
-function relDocMetas(domFiltro){
-  const todas=(D.metas||[]).filter(m=>m.ativa!==false);
-  const lista=domFiltro?todas.filter(m=>(m.dominio||'financeiro')===domFiltro):todas;
-  const periodo=domFiltro?('Domínio: '+(metaDom(domFiltro).label)):'Todos os domínios';
-  if(!lista.length) return _relDoc('Relatório de Metas', periodo, _relEmpty('Nenhuma meta cadastrada para este filtro. Crie metas no módulo Metas & Objetivos.'));
-  const r=(typeof _metaResumoData==='function')?_metaResumoData():{emAndamento:0,concluidas:0,atrasadas:0,criticas:0,domsAtivos:0};
-  const kpis=_relKpis([
-    {label:'Total de metas',val:String(lista.length)},
-    {label:'Em andamento',val:String(r.emAndamento),cor:'var(--info)'},
-    {label:'Concluídas',val:String(r.concluidas),cor:'var(--pos)'},
-    {label:'Atrasadas',val:String(r.atrasadas),cor:r.atrasadas?'var(--neg)':'var(--text)'},
-    {label:'Críticas',val:String(r.criticas),cor:r.criticas?'var(--neg)':'var(--text)'},
-  ]);
-  const porDom={}; lista.forEach(m=>{const d=m.dominio||'financeiro'; porDom[d]=(porDom[d]||0)+1;});
-  const domSec=_relSection('Metas por domínio',
-    _relTable(['Domínio','Quantidade'], Object.entries(porDom).sort((a,b)=>b[1]-a[1]).map(([d,n])=>[`${escapeHTML(metaDom(d).icon)} ${escapeHTML(metaDom(d).label)}`, String(n)])));
-  const linhas=lista.slice().sort((a,b)=>(META_PRIOS[b.prioridade]?.ord||0)-(META_PRIOS[a.prioridade]?.ord||0)).map(m=>{
-    const P=metaProgress(m); const dom=metaDom(m.dominio);
-    const dv=(typeof metaDecisoesVinculadas==='function')?metaDecisoesVinculadas(m.id):{total:0};
-    return [`${escapeHTML(m.icon||'🎯')} ${escapeHTML(m.nome||'')}<div style="font-size:10px;color:var(--text3)">${escapeHTML(dom.icon+' '+dom.label)}${m.prazo?' · prazo '+escapeHTML(m.prazo):''}${dv.total?' · 🧭 '+dv.total:''}</div>`,
-      escapeHTML((META_STATUS[m.status]||{label:m.status||''}).label||''),
-      P.defined?Math.round(P.pct)+'%':'—'];
-  });
-  const detalhe=_relSection('Detalhe das metas', _relTable(['Meta','Status','Progresso'], linhas));
-  const passos=lista.filter(m=>m.proximosPassos).slice(0,8);
-  const passosSec=passos.length?_relSection('Próximos passos',
-    `<div style="display:grid;gap:6px;font-size:12px">${passos.map(m=>`<div>→ <strong>${escapeHTML(m.nome||'')}</strong>: ${escapeHTML(m.proximosPassos)}</div>`).join('')}</div>`):'';
-  return _relDoc('Relatório de Metas', periodo, _relSection('Resumo executivo',kpis)+domSec+detalhe+passosSec);
-}
-
-// ── 4) DECISÕES ──
-function relDocDecisoes(){
-  const ds=(D.decisoes||[]).filter(d=>d.ativa!==false);
-  if(!ds.length) return _relDoc('Relatório de Decisões', 'Todas as decisões', _relEmpty('Nenhuma decisão registrada. Use o módulo Decisões para avaliar escolhas importantes.'));
-  const r=(typeof _decResumoData==='function')?_decResumoData():{emAnalise:0,aprovadas:0,adiadas:0,criticas:0,custoTotal:0,prazoProx:null};
-  const recusadas=ds.filter(d=>['recusada','cancelada'].includes(d.status)).length;
-  const kpis=_relKpis([
-    {label:'Total',val:String(ds.length)},
-    {label:'Em análise',val:String(r.emAnalise),cor:'var(--info)'},
-    {label:'Aprovadas',val:String(r.aprovadas),cor:'var(--pos)'},
-    {label:'Adiadas',val:String(r.adiadas),cor:'var(--violet)'},
-    {label:'Recusadas/Canc.',val:String(recusadas)},
-    {label:'Custo estimado',val:fmt(r.custoTotal),cor:'var(--text)'},
-  ]);
-  const porCat={}; ds.forEach(d=>{const c=d.categoria||'outro'; porCat[c]=(porCat[c]||0)+1;});
-  const catSec=_relSection('Decisões por categoria',
-    _relTable(['Categoria','Quantidade'], Object.entries(porCat).sort((a,b)=>b[1]-a[1]).map(([c,n])=>{const cc=(typeof DEC_CATS!=='undefined'?DEC_CATS.find(x=>x.id===c):null)||{icon:'•',label:c}; return [`${escapeHTML(cc.icon)} ${escapeHTML(cc.label)}`, String(n)];})));
-  const linhas=ds.slice().sort((a,b)=>((typeof DEC_PRIOS!=='undefined'?DEC_PRIOS[b.prioridade]?.ord:0)||0)-((typeof DEC_PRIOS!=='undefined'?DEC_PRIOS[a.prioridade]?.ord:0)||0)).map(d=>{
-    const an=(typeof analiseDecisao==='function')?analiseDecisao(d):{texto:''};
-    const st=(typeof DEC_STATUS!=='undefined'?DEC_STATUS[d.status]:null)||{label:d.status||''};
-    return [`${escapeHTML(d.titulo||'(sem título)')}<div style="font-size:10px;color:var(--text3)">${escapeHTML(st.label)}${d.prazo?' · prazo '+escapeHTML(d.prazo):''}</div><div style="font-size:10px;color:var(--text2);margin-top:2px">${escapeHTML(an.texto||'')}</div>`,
-      d.custoEstimado>0?fmt(d.custoEstimado):'—'];
-  });
-  const detalhe=_relSection('Detalhe das decisões e veredito', _relTable(['Decisão','Custo'], linhas));
-  const rb=ds.filter(d=>d.beneficios||d.riscos||d.alternativas).slice(0,6);
-  const rbSec=rb.length?_relSection('Benefícios, riscos e alternativas',
-    `<div style="display:grid;gap:8px;font-size:11.5px">${rb.map(d=>`<div><strong>${escapeHTML(d.titulo||'')}</strong>${d.beneficios?`<br>✅ ${escapeHTML(d.beneficios)}`:''}${d.riscos?`<br>⚠️ ${escapeHTML(d.riscos)}`:''}${d.alternativas?`<br>🔁 ${escapeHTML(d.alternativas)}`:''}</div>`).join('')}</div>`):'';
-  return _relDoc('Relatório de Decisões', 'Todas as decisões', _relSection('Resumo executivo',kpis)+catSec+detalhe+rbSec);
-}
-
-// ── 5) COMPRAS & DESEJOS ──
-function relDocCompras(){
-  const itens=(_hob().itens||[]);
-  if(!itens.length) return _relDoc('Relatório de Compras & Desejos', 'Lista de desejos', _relEmpty('Nenhum item na sua lista de Compras & Desejos.'));
-  const R=(typeof compraResumoData==='function')?compraResumoData():{totalAberto:0,emAnalise:0,adiados:0,altoImpacto:0,proximo:null};
-  const fundo=_hob().saldoFundo||0, aporte=_hob().aporteMensal||0;
-  const kpis=_relKpis([
-    {label:'Total em aberto',val:fmt(R.totalAberto),cor:'var(--violet)'},
-    {label:'Fundo de compras',val:fmt(fundo),cor:'var(--teal)'},
-    {label:'Aporte mensal',val:fmt(aporte)},
-    {label:'Em análise',val:String(R.emAnalise),cor:'var(--info)'},
-    {label:'Adiados',val:String(R.adiados)},
-    {label:'Alto impacto',val:String(R.altoImpacto),cor:R.altoImpacto?'var(--warn)':'var(--text)'},
-  ]);
-  let proxSec='';
-  if(R.proximo){
-    const meses=(typeof compraMesesParaCobrir==='function')?compraMesesParaCobrir(R.proximo):null;
-    proxSec=_relSection('Próxima compra recomendada',
-      `<div style="font-size:13px;font-weight:700">${escapeHTML((typeof compraDominio==='function'?compraDominio(R.proximo.dominio).icon+' ':'')+(R.proximo.nome||''))}</div>
-       <div style="font-size:12px;color:var(--text2);margin-top:3px">Custo: ${fmt(compraCusto(R.proximo))}${meses!=null&&isFinite(meses)?` · ~${meses} ${meses===1?'mês':'meses'} de aporte para cobrir`:''}</div>`);
-  }
-  const grp=(keyFn,labelFn)=>{const o={};itens.forEach(i=>{const k=keyFn(i)||'—';o[k]=(o[k]||0)+1;});return Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([k,n])=>[labelFn(k),String(n)]);};
-  const domSec=_relSection('Por domínio', _relTable(['Domínio','Itens'], grp(i=>i.dominio, k=>typeof compraDominio==='function'?`${escapeHTML(compraDominio(k).icon)} ${escapeHTML(compraDominio(k).label)}`:escapeHTML(k))));
-  const stSec=_relSection('Por status', _relTable(['Status','Itens'], grp(i=>i.status, k=>escapeHTML(_REL_COMPRA_ST[k]||k))));
-  const abertos=(typeof hobItensAbertos==='function')?hobItensAbertos():itens.filter(i=>!['comprado','descartado'].includes(i.status));
-  const linhas=abertos.slice().sort((a,b)=>(a.prioridade-b.prioridade)||(compraCusto(b)-compraCusto(a))).map(it=>{
-    const an=(typeof analisarCompra==='function')?analisarCompra(it):{texto:''};
-    return [`${escapeHTML((typeof compraDominio==='function'?compraDominio(it.dominio).icon+' ':'')+(it.nome||''))}<div style="font-size:10px;color:var(--text2);margin-top:2px">${escapeHTML(an.texto||'')}</div>`,
-      fmt(compraCusto(it))];
-  });
-  const detalhe=_relSection('Itens em aberto e análise de impacto', _relTable(['Item','Custo'], linhas));
-  const comprados=itens.filter(i=>i.status==='comprado');
-  const compSec=comprados.length?_relSection('Itens comprados',
-    _relTable(['Item','Custo'], comprados.map(it=>[escapeHTML(it.nome||''), fmt(compraCusto(it))]))):'';
-  return _relDoc('Relatório de Compras & Desejos', 'Lista de desejos', _relSection('Resumo executivo',kpis)+proxSec+domSec+stSec+detalhe+compSec);
-}
-
-// ── 6) GERAL DA VIDA ──
-function relDocGeral(){
-  const mi=(typeof getMesRefIdx==='function')?getMesRefIdx():0;
-  let entrada=0,cp={bruto:0,pendente:0},sobra=0,investir=0,reserva={pct:0,falta:0};
-  try{ entrada=totalEMes(mi); cp=calcPendenteMes(mi); sobra=entrada-cp.bruto; investir=invDisp(mi); }catch(e){}
-  try{ reserva=statusReserva(); }catch(e){}
-  const metasAtivas=(D.metas||[]).filter(m=>m.ativa!==false).map(m=>({m,p:metaProgress(m)})).filter(x=>!x.p.concluida);
-  const dr=(typeof _decResumoData==='function')?_decResumoData():{emAnalise:0,criticas:0,custoTotal:0,prazoProx:null};
-  const cr=(typeof compraResumoData==='function')?compraResumoData():{totalAberto:0,proximo:null};
-  let insights=[]; try{ const F=finInsights(mi); insights=(F&&F.insights)?F.insights.slice(0,5):[]; }catch(e){}
-
-  const kpis=_relKpis([
-    {label:'Saldo do mês',val:fmt(sobra),cor:sobra>=0?'var(--pos)':'var(--neg)'},
-    {label:'Reserva',val:`${Math.round(reserva.pct||0)}%`,cor:(reserva.pct||0)>=100?'var(--pos)':'var(--warn)'},
-    {label:'Disponível p/ investir',val:fmt(investir),cor:'var(--teal)'},
-    {label:'Metas em andamento',val:String(metasAtivas.length)},
-    {label:'Decisões em análise',val:String(dr.emAnalise),cor:dr.criticas?'var(--neg)':'var(--text)'},
-    {label:'Desejos em aberto',val:fmt(cr.totalAberto),cor:'var(--violet)'},
-  ]);
-
-  const areas=_relSection('Resumo por área', `<div style="display:grid;gap:8px;font-size:12px;color:var(--text2)">
-    <div>💰 <strong>Finanças:</strong> ${fmt(entrada)} de entradas, ${fmt(cp.bruto)} de saídas no mês${cp.pendente>0?`, ${fmt(cp.pendente)} ainda pendente`:''}.</div>
-    <div>🛡️ <strong>Reserva:</strong> ${(reserva.pct||0)>=100?'completa':'em construção — faltam '+fmt(reserva.falta||0)}.</div>
-    <div>🎯 <strong>Metas:</strong> ${metasAtivas.length} em andamento${metasAtivas[0]?`, mais perto: ${escapeHTML(metasAtivas.slice().sort((a,b)=>b.p.pct-a.p.pct)[0].m.nome||'')}`:''}.</div>
-    <div>🧭 <strong>Decisões:</strong> ${dr.emAnalise} em análise${dr.criticas?`, ${dr.criticas} crítica(s)`:''}${dr.custoTotal?`, custo estimado ${fmt(dr.custoTotal)}`:''}.</div>
-    <div>🛒 <strong>Compras &amp; desejos:</strong> ${fmt(cr.totalAberto)} em aberto${cr.proximo?`, próximo: ${escapeHTML(cr.proximo.nome||'')}`:''}.</div>
-    ${(()=>{ try{ const tr=trabalhoResumoData(); return `<div>💼 <strong>Trabalho:</strong> ${tr.projetosAtivos} projeto(s) ativo(s), ${tr.tarefasPendentes} tarefa(s) pendente(s)${tr.tarefasAtrasadas?`, ${tr.tarefasAtrasadas} atrasada(s)`:''}${tr.proximaEntrega?`. Próxima entrega: ${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}`:''}.</div>`; }catch(e){ return ''; } })()}
-    ${(()=>{ try{ const cr=carreiraResumoData(); return `<div>🚀 <strong>Carreira:</strong> ${cr.objetivosAtivos} objetivo(s) ativo(s)${cr.maiorGap?`, maior gap: ${escapeHTML(cr.maiorGap.skill.nome||'')} (${cr.maiorGap.gap})`:''}${cr.cursosAndamento?`, ${cr.cursosAndamento} curso(s) em andamento`:''}${cr.contatosARetomar?`, ${cr.contatosARetomar} contato(s) a retomar`:''}.</div>`; }catch(e){ return ''; } })()}
-    ${(()=>{ try{ const pr=patrimonioResumoData(); return `<div>📦 <strong>Patrimônio:</strong> líquido ${fmt(pr.liquido)} (bruto ${fmt(pr.bruto)}${pr.passivosTotal>0?`, dívidas ${fmt(pr.passivosTotal)}`:''})${pr.garantiasVencendo?`, ${pr.garantiasVencendo} garantia(s) vencendo`:''}${pr.segurosVencendo?`, ${pr.segurosVencendo} seguro(s) vencendo`:''}.</div>`; }catch(e){ return ''; } })()}
-  </div>`);
-
-  const alertas=insights.length?_relSection('Alertas importantes',
-    `<div style="display:grid;gap:6px;font-size:12px">${insights.map(a=>`<div>${escapeHTML(a.icon||'•')} <strong>${escapeHTML(a.titulo||a.title||'')}</strong> — ${escapeHTML(a.desc||a.msg||'')}</div>`).join('')}</div>`):'';
-
-  const passos=[];
-  if((reserva.pct||0)<100) passos.push(`Completar a reserva (faltam ${fmt(reserva.falta||0)}).`);
-  if(cp.pendente>0) passos.push(`Quitar ${fmt(cp.pendente)} de contas pendentes no mês.`);
-  if(sobra>0&&investir>0) passos.push(`Direcionar ${fmt(investir)} para investimento.`);
-  if(dr.prazoProx&&dr.prazoProx.dec) passos.push(`Decidir "${escapeHTML(dr.prazoProx.dec.titulo||'')}" (prazo em ${dr.prazoProx.dias}d).`);
-  metasAtivas.filter(x=>x.m.proximosPassos).slice(0,2).forEach(x=>passos.push(`Meta "${escapeHTML(x.m.nome||'')}": ${escapeHTML(x.m.proximosPassos)}`));
-  try{ const tr=trabalhoResumoData(); if(tr.tarefasAtrasadas>0) passos.push(`Resolver ${tr.tarefasAtrasadas} tarefa(s) de trabalho atrasada(s).`); else if(tr.proximaEntrega) passos.push(`Preparar entrega "${escapeHTML(tr.proximaEntrega.nome||'')}" (${tr.proximaEntrega.dias===0?'hoje':'em '+tr.proximaEntrega.dias+'d'}).`); }catch(e){}
-  try{ if(typeof carreiraProximosPassos==='function'){ carreiraProximosPassos().slice(0,2).forEach(p=>passos.push(p)); } }catch(e){}
-  if(!passos.length) passos.push('Tudo em dia. Considere registrar um novo objetivo ou revisar suas metas.');
-  const passosSec=_relSection('Próximos passos recomendados',
-    `<div style="display:grid;gap:6px;font-size:12px">${passos.slice(0,6).map(p=>`<div>→ ${p}</div>`).join('')}</div>`);
-
-  const riscos=[];
-  if((reserva.pct||0)<50) riscos.push('Reserva de emergência abaixo de 50% da meta.');
-  if(sobra<0) riscos.push('Mês fechando no negativo.');
-  if(dr.criticas>0) riscos.push(`${dr.criticas} decisão(ões) crítica(s) pendente(s).`);
-  try{ const tr=trabalhoResumoData(); if(tr.tarefasAtrasadas>0) riscos.push(`${tr.tarefasAtrasadas} tarefa(s) de trabalho atrasada(s).`); if(tr.projetosCriticos>0) riscos.push(`${tr.projetosCriticos} projeto(s) de trabalho em risco/críticos.`); }catch(e){}
-  const riscosSec=riscos.length?_relSection('Riscos do momento',
-    `<div style="display:grid;gap:5px;font-size:12px;color:var(--text2)">${riscos.map(r=>`<div>⚠️ ${escapeHTML(r)}</div>`).join('')}</div>`):'';
-
-  const oport=[];
-  if(investir>0) oport.push(`${fmt(investir)} disponíveis para investir este mês.`);
-  if((reserva.pct||0)>=100) oport.push('Reserva completa — você pode assumir metas mais ambiciosas.');
-  const oportSec=oport.length?_relSection('Oportunidades',
-    `<div style="display:grid;gap:5px;font-size:12px;color:var(--text2)">${oport.map(o=>`<div>💡 ${escapeHTML(o)}</div>`).join('')}</div>`):'';
-
-  return _relDoc('Relatório Geral da Vida', D.meses[mi]||'', _relSection('Como está sua vida agora',kpis)+areas+alertas+passosSec+riscosSec+oportSec+(typeof relSecB3OF==='function'?relSecB3OF():''));
-}
-
-// ── Dispatcher ──
-function renderRelatorioAtivo(){
-  const el=document.getElementById('report-print'); if(!el) return;
-  let html='';
-  try{
-    if(_relTipo==='mensal'){ const mi=(selRelMes==null)?getMesRefIdx():selRelMes; html=relDocMensal(mi); }
-    else if(_relTipo==='anual'){ const ano=selRelAno||_relAnos().slice(-1)[0]; html=relDocAnual(ano); }
-    else if(_relTipo==='metas'){ html=relDocMetas(_relFiltroDomMeta); }
-    else if(_relTipo==='decisoes'){ html=relDocDecisoes(); }
-    else if(_relTipo==='compras'){ html=relDocCompras(); }
-    else if(_relTipo==='trabalho'){ html=relDocTrabalho(); }
-    else if(_relTipo==='carreira'){ html=relDocCarreira(); }
-    else if(_relTipo==='patrimonio'){ html=relDocPatrimonio(); }
-    else if(_relTipo==='geral'){ html=relDocGeral(); }
-  }catch(e){ html=_relDoc('Relatório', '', _relEmpty('Não foi possível gerar este relatório com os dados atuais.')); console.error('rel',e); }
-  el.innerHTML=html;
-  const ev=document.getElementById('rel-evolucao'); if(ev) ev.style.display='none';
-}
-
-function _relToggleControls(){
-  const show=(id,on)=>{ const e=document.getElementById(id); if(e) e.style.display=on?'':'none'; };
-  show('rel-mes', _relTipo==='mensal');
-  show('rel-ano', _relTipo==='anual');
-  show('rel-dom', _relTipo==='metas');
-  const csv=document.getElementById('rel-csv-btn'); if(csv) csv.style.display=['mensal','metas','decisoes','compras'].includes(_relTipo)?'':'none';
-}
-
-function setRelTipo(v){
-  _relTipo=v;
-  if(!D.prefs) D.prefs={}; if(typeof D.prefs.relatorios!=='object'||!D.prefs.relatorios) D.prefs.relatorios={};
-  D.prefs.relatorios.ultimoTipo=v;
-  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
-  _relToggleControls(); renderRelatorioAtivo();
-}
-function setRelDom(v){ _relFiltroDomMeta=v; renderRelatorioAtivo(); }
-
-// ── Exportação CSV opcional (à prova de injeção de fórmula) ──
-function _csvCell(v){ const s=String(v==null?'':v).replace(/"/g,'""'); return /^[=+\-@]/.test(s)?`"'${s}"`:`"${s}"`; }
-function _csvDownload(nome, linhas){
-  const csv='\uFEFF'+linhas.map(r=>r.map(_csvCell).join(';')).join('\r\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nome;
-  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},100);
-}
-function exportRelCSV(){
-  try{
-    if(_relTipo==='metas'){
-      const rows=[['Nome','Dominio','Status','Prioridade','Unidade','Progresso%','Prazo']];
-      (D.metas||[]).filter(m=>m.ativa!==false && (!_relFiltroDomMeta||(m.dominio||'financeiro')===_relFiltroDomMeta)).forEach(m=>{
-        const P=metaProgress(m); rows.push([m.nome||'', metaDom(m.dominio).label, (META_STATUS[m.status]||{}).label||m.status||'', (META_PRIOS[m.prioridade]||{}).label||'', m.unidade||'', P.defined?Math.round(P.pct):'', m.prazo||'']);
-      });
-      _csvDownload('metas.csv', rows);
-    } else if(_relTipo==='decisoes'){
-      const rows=[['Titulo','Categoria','Status','Prioridade','Custo','Prazo','Veredito']];
-      (D.decisoes||[]).filter(d=>d.ativa!==false).forEach(d=>{ const an=(typeof analiseDecisao==='function')?analiseDecisao(d):{texto:''}; rows.push([d.titulo||'', d.categoria||'', d.status||'', d.prioridade||'', d.custoEstimado||0, d.prazo||'', an.texto||'']); });
-      _csvDownload('decisoes.csv', rows);
-    } else if(_relTipo==='compras'){
-      const rows=[['Item','Dominio','Status','Classe','Custo','Prioridade']];
-      (_hob().itens||[]).forEach(it=>rows.push([it.nome||'', (typeof compraDominio==='function'?compraDominio(it.dominio).label:it.dominio||''), _REL_COMPRA_ST[it.status]||it.status||'', it.classe||'', compraCusto(it), it.prioridade||'']));
-      _csvDownload('compras-desejos.csv', rows);
-    } else if(_relTipo==='mensal'){
-      const mi=(selRelMes==null)?getMesRefIdx():selRelMes; const R=relatorioMensal(mi);
-      const rows=[['Categoria','Valor','%']]; R.categorias.forEach(c=>rows.push([c.label, c.valor, Math.round(c.pct)]));
-      _csvDownload(`financeiro-${(R.mes||'mes').replace(/\W+/g,'-')}.csv`, rows);
-    }
-    if(typeof toast==='function') toast('CSV exportado',true,'⬇️');
-  }catch(e){ if(typeof uiAlert==='function') uiAlert('Não foi possível exportar CSV: '+e.message,{icon:'❌'}); }
-}
 
 // ═══════════════════════════════════════════════════
 //  🔌 INTEGRAÇÕES SEGURAS (Fase 8) — frontend-only, sem backend/OAuth
@@ -5975,21 +5628,6 @@ function _integ(){
 //  📅 GOOGLE AGENDA (links, sem OAuth, sem ler agenda)
 // ─────────────────────────────────────────────
 // _gcalDate() e _gcalPlus1() → movidos para utils.js (Fase 12)
-function googleCalendarLink({title,details,location,startDate,endDate}){
-  const base='https://calendar.google.com/calendar/render?action=TEMPLATE';
-  const parts=['&text='+encodeURIComponent(title||'Lembrete')];
-  const ini=_gcalDate(startDate);
-  if(ini){ const fim=_gcalDate(endDate)||_gcalPlus1(ini); parts.push('&dates='+encodeURIComponent(ini+'/'+fim)); }
-  if(details)  parts.push('&details='+encodeURIComponent(details));
-  if(location) parts.push('&location='+encodeURIComponent(location));
-  return base+parts.join('');
-}
-function _abrirAgenda(opts){
-  const url=googleCalendarLink(opts);
-  window.open(url,'_blank','noopener,noreferrer');
-  const I=_integ(); I.googleAgenda.ultimaAcao=new Date().toISOString();
-  if(typeof scheduleAutoSave==='function') scheduleAutoSave();
-}
 function agendarDecisao(id){
   const d=(D.decisoes||[]).find(x=>x.id===id); if(!d) return;
   _abrirAgenda({ title:`Decisão: ${d.titulo||'(sem título)'}`,
@@ -6088,18 +5726,6 @@ function _hashesExistentes(){
 }
 
 // OFX simples (SGML): extrai <STMTTRN> blocos
-function _parseOFX(text){
-  const rows=[];
-  const blocos=text.split(/<STMTTRN>/i).slice(1);
-  const tag=(b,t)=>{ const m=b.match(new RegExp('<'+t+'>([^<\r\n]*)','i')); return m?m[1].trim():''; };
-  blocos.forEach(b=>{
-    const dt=_parseDataImport(tag(b,'DTPOSTED').slice(0,8));
-    const val=_normalizeBRNumber(tag(b,'TRNAMT'));
-    const memo=tag(b,'MEMO')||tag(b,'NAME')||'Transação';
-    if(dt && !isNaN(val)){ const cz=_categoriza(memo,val); rows.push({data:dt, desc:memo, valor:val, destino:cz.destino, cat:cz.cat, ignorar:false}); }
-  });
-  return rows;
-}
 
 function abrirImportador(){ _imp=null; renderIntegracoes(); document.getElementById('imp-file')?.click?.(); }
 function lerArquivoImport(input){
@@ -6863,18 +6489,6 @@ function relDocTrabalho(){
 //  Reaproveita helpers globais: _safeUrl, _isPast, _diasAte, _abrirAgenda,
 //  _selOpts, _metaVincBadge, _decVincBadge, TRAB_PRIOS, escapeHTML, attr.
 // ═══════════════════════════════════════════════════
-const CAR_HORIZONTES = { curto_prazo:{label:'Curto prazo',cor:'var(--info)'}, medio_prazo:{label:'Médio prazo',cor:'var(--warn)'}, longo_prazo:{label:'Longo prazo',cor:'var(--violet)'} };
-const CAR_OBJ_STATUS = { planejado:{label:'Planejado',cor:'var(--text3)'}, em_andamento:{label:'Em andamento',cor:'var(--info)'}, pausado:{label:'Pausado',cor:'var(--text3)'}, concluido:{label:'Concluído',cor:'var(--pos)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'} };
-const CAR_AREAS = ['product_management','analise_negocios','requisitos','gestao_projetos','ux_produto','comunicacao_cliente','testes_homologacao','dados_metricas','lideranca','estrategia','tecnologia','outro'];
-const CAR_SKILL_CATS = ['produto','negocios','requisitos','projetos','comunicacao','lideranca','dados','tecnologia','documentacao','testes','comercial','pessoal','outro'];
-const CAR_SKILL_STATUS = { desenvolvendo:{label:'Desenvolvendo',cor:'var(--info)'}, dominado:{label:'Dominado',cor:'var(--pos)'}, em_risco:{label:'Em risco',cor:'var(--neg)'}, pausado:{label:'Pausado',cor:'var(--text3)'} };
-const CAR_NIVEIS = { 1:'iniciante', 2:'básico', 3:'intermediário', 4:'avançado', 5:'referência' };
-const CAR_CURSO_TIPOS = ['curso','certificacao','livro','mentoria','workshop','evento','trilha','outro'];
-const CAR_CURSO_STATUS = { planejado:{label:'Planejado',cor:'var(--text3)'}, em_andamento:{label:'Em andamento',cor:'var(--info)'}, concluido:{label:'Concluído',cor:'var(--pos)'}, pausado:{label:'Pausado',cor:'var(--text3)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'} };
-const CAR_NET_TIPOS = ['contato','mentor','colega','cliente','recrutador','referencia','parceiro','outro'];
-const CAR_NET_STATUS = { ativo:{label:'Ativo',cor:'var(--pos)'}, a_retomar:{label:'A retomar',cor:'var(--warn)'}, inativo:{label:'Inativo',cor:'var(--text3)'} };
-const CAR_EXP_TIPOS = ['emprego','contrato','projeto','entrega','cliente','case','conquista','outro'];
-const CAR_RENDA_STATUS = { planejado:{label:'Planejado',cor:'var(--text3)'}, em_andamento:{label:'Em andamento',cor:'var(--info)'}, concluido:{label:'Concluído',cor:'var(--pos)'}, pausado:{label:'Pausado',cor:'var(--text3)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'} };
 
 function _car(){
   if(typeof D.carreira!=='object'||D.carreira===null) D.carreira={};
@@ -7500,16 +7114,6 @@ function relDocCarreira(){
 //  Reaproveita helpers globais: _safeUrl, _isPast, _diasAte, _abrirAgenda, _selOpts,
 //  _metaVincBadge, _decVincBadge, _compraVincBadge, TRAB_PRIOS, escapeHTML, attr, fmt.
 // ═══════════════════════════════════════════════════
-const PAT_BEM_CATS = ['imovel','veiculo','equipamento','tecnologia','setup','relogio','movel','eletrodomestico','item_de_valor','investimento_fisico','documento','outro'];
-const PAT_BEM_STATUS = { ativo:{label:'Ativo',cor:'var(--pos)'}, em_manutencao:{label:'Em manutenção',cor:'var(--warn)'}, planejado:{label:'Planejado',cor:'var(--info)'}, vendido:{label:'Vendido',cor:'var(--text3)'}, doado:{label:'Doado',cor:'var(--text3)'}, perdido:{label:'Perdido',cor:'var(--neg)'}, descartado:{label:'Descartado',cor:'var(--text3)'} };
-const PAT_VALOR_METODOS = { manual:{label:'Manual'}, valor_compra:{label:'Valor de compra'}, depreciacao:{label:'Depreciação'}, estimado:{label:'Estimado'}, tabela_fipe_futuro:{label:'FIPE (roadmap)'}, mercado_futuro:{label:'Mercado (roadmap)'} };
-const PAT_PAS_TIPOS = ['financiamento','emprestimo','parcelamento','consorcio','divida','manutencao_parcelada','outro'];
-const PAT_PAS_STATUS = { ativo:{label:'Ativo',cor:'var(--warn)'}, quitado:{label:'Quitado',cor:'var(--pos)'}, renegociado:{label:'Renegociado',cor:'var(--info)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'} };
-const PAT_MAN_TIPOS = ['preventiva','corretiva','revisao','limpeza','garantia','upgrade','outro'];
-const PAT_MAN_STATUS = { planejada:{label:'Planejada',cor:'var(--info)'}, em_andamento:{label:'Em andamento',cor:'var(--warn)'}, realizada:{label:'Realizada',cor:'var(--pos)'}, adiada:{label:'Adiada',cor:'var(--text3)'}, cancelada:{label:'Cancelada',cor:'var(--text3)'} };
-const PAT_SEG_TIPOS = ['bem','veiculo','imovel','equipamento','vida','residencial','outro'];
-const PAT_SEG_STATUS = { ativo:{label:'Ativo',cor:'var(--pos)'}, vencido:{label:'Vencido',cor:'var(--neg)'}, cancelado:{label:'Cancelado',cor:'var(--text3)'}, renovado:{label:'Renovado',cor:'var(--info)'} };
-const PAT_DOC_TIPOS = ['nota_fiscal','garantia','contrato','seguro','manual','certificado','documento_pessoal','outro'];
 
 function _pat(){
   if(typeof D.patrimonio!=='object'||D.patrimonio===null) D.patrimonio={};
@@ -8069,130 +7673,12 @@ function relDocPatrimonio(){
 // ═══════════════════════════════════════════════════
 
 // Avisos obrigatórios (UI)
-const B3_AVISOS = [
-  'Integração real exige backend seguro.',
-  'Não informe sua senha B3 neste app.',
-  'O consentimento real ocorre na Área Logada da B3.',
-  'Os dados da B3 são D-1 (referência do dia anterior).',
-  'A API Guia deve ser usada para evitar chamadas desnecessárias.',
-];
-const OF_AVISOS = [
-  'Integração real exige backend seguro.',
-  'Não informe sua senha bancária neste app.',
-  'Este app não faz scraping de internet banking.',
-  'O consentimento real exige fluxo seguro autorizado.',
-  'Tokens nunca ficam no frontend.',
-];
-const CONSENT_LABELS = {
-  nao_iniciado:{label:'Não iniciado',cor:'var(--text3)'}, pendente:{label:'Pendente',cor:'var(--warn)'},
-  autorizado:{label:'Autorizado',cor:'var(--pos)'}, revogado:{label:'Revogado',cor:'var(--neg)'},
-  expirado:{label:'Expirado',cor:'var(--neg)'}, erro:{label:'Erro',cor:'var(--neg)'}, backend_necessario:{label:'Backend necessário',cor:'var(--info)'},
-};
-const B3_TIPOS = { posicao:'Posição', movimentacao:'Movimentação', garantias:'Garantias', eventosProvisionados:'Eventos provisionados', ofertasPublicas:'Ofertas públicas', negociacao:'Negociação' };
-const B3_TIPO_COL = { posicao:'posicoes', movimentacao:'movimentacoes', garantias:'garantias', eventosProvisionados:'eventosProvisionados', ofertasPublicas:'ofertasPublicas', negociacao:'negociacoes' };
-const OF_TIPOS = { contas:'Contas', saldos:'Saldos', transacoes:'Transações', cartoes:'Cartões', faturas:'Faturas', investimentos:'Investimentos', creditos:'Operações de crédito' };
 
-function _b3(){ if(typeof D.b3!=='object'||!D.b3) D.b3={}; ['posicoes','movimentacoes','garantias','eventosProvisionados','ofertasPublicas','negociacoes','logsSincronizacao'].forEach(k=>{ if(!Array.isArray(D.b3[k])) D.b3[k]=[]; }); return D.b3; }
-function _of(){ if(typeof D.openFinance!=='object'||!D.openFinance) D.openFinance={}; ['contas','saldos','transacoes','cartoes','faturas','investimentos','creditos','logsSincronizacao'].forEach(k=>{ if(!Array.isArray(D.openFinance[k])) D.openFinance[k]=[]; }); return D.openFinance; }
-function _b3cfg(){ return (D.integracoes&&D.integracoes.b3)||{}; }
-function _ofcfg(){ return (D.integracoes&&D.integracoes.openFinance)||{}; }
+// ── Estado de UI ──
+let _b3UI={ open:false, tipo:'posicao', preview:null, err:'', info:'' };
+let _ofUI={ open:false, tipo:'contas', preview:null, err:'', info:'' };
 
-// ── Retornos padronizados ──
-function _b3Resp(over){ return Object.assign({ok:true,provider:'b3',mode:'mock',source:'B3 Área do Investidor',updatedAt:new Date().toISOString(),referenceDate:'',data:{},error:null}, over||{}); }
-function _ofResp(over){ return Object.assign({ok:true,provider:'open_finance',mode:'mock',source:'Open Finance Brasil',updatedAt:new Date().toISOString(),referenceDate:'',data:{},error:null}, over||{}); }
-const B3_BACKEND_MSG = 'Integração real exige backend, pacote de acesso e contrato/licenciamento B3.';
-const OF_BACKEND_MSG = 'Integração Open Finance real exige backend seguro, consentimento, OAuth/mTLS e provedor autorizado.';
-
-// ── Utilidades seguras de parse ──
-function _num(v){ if(v==null) return 0; if(typeof v==='number') return isFinite(v)?v:0; const n=(typeof _normalizeBRNumber==='function')?_normalizeBRNumber(v):parseFloat(v); return isFinite(n)?n:0; }
-function _dt(v){ const p=(typeof _parseDataImport==='function')?_parseDataImport(v):null; return p||''; }
-function _str(v){ return v==null?'':String(v); }
-function _yesterdayISO(){ const d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
-function _todayISO(){ return new Date().toISOString().slice(0,10); }
-function _payloadToArray(payload){
-  if(Array.isArray(payload)) return payload;
-  if(payload && typeof payload==='object'){
-    for(const k of ['data','items','results','records','list','content']){ if(Array.isArray(payload[k])) return payload[k]; }
-  }
-  return null;
-}
-
-// ── Mapeadores (puros, conceituais — origem marcada) ──
-function mapPositionToInvestment(p){ return {
-  ativo:_str(p.ativo||p.ticker||p.symbol||p.nome||p.instrument||''), tipoAtivo:_str(p.tipoAtivo||p.tipo||p.assetType||p.category||''),
-  quantidade:_num(p.quantidade!=null?p.quantidade:(p.qtd!=null?p.qtd:p.quantity)), instituicao:_str(p.instituicao||p.participante||p.institution||p.broker||''),
-  valor:_num(p.valor!=null?p.valor:(p.valorBruto!=null?p.valorBruto:p.value)), dataReferencia:_dt(p.dataReferencia||p.referenceDate||p.data||p.date),
-  isin:_str(p.isin||p.ISIN||''), vencimento:_dt(p.vencimento||p.maturity||p.dueDate), origem:'B3', sincronizadoEm:new Date().toISOString() }; }
-function mapMovementToTransaction(m){ return {
-  data:_dt(m.data||m.date||m.referenceDate), descricao:_str(m.descricao||m.description||m.evento||m.movementType||''), tipo:_str(m.tipo||m.type||m.operationType||''),
-  ativo:_str(m.ativo||m.ticker||m.symbol||m.instrument||''), quantidade:_num(m.quantidade!=null?m.quantidade:m.quantity), valor:_num(m.valor!=null?m.valor:m.value),
-  evento:_str(m.evento||m.event||m.movementType||''), dataReferencia:_dt(m.dataReferencia||m.referenceDate), origem:'B3' }; }
-function mapAccountToFinance(a){ return {
-  conta:_str(a.conta||a.account||a.number||a.accountId||''), instituicao:_str(a.instituicao||a.institution||a.brand||a.bank||''), tipo:_str(a.tipo||a.type||a.accountType||''),
-  saldo:_num(a.saldo!=null?a.saldo:(a.balance!=null?a.balance:a.availableAmount)), moeda:_str(a.moeda||a.currency||'BRL'), dataReferencia:_dt(a.dataReferencia||a.referenceDate||a.data), origem:'Open Finance' }; }
-function mapTransactionToEntryOrExpense(t){ const valor=_num(t.valor!=null?t.valor:(t.amount!=null?t.amount:t.value)); const tipoRaw=_str(t.tipo||t.type||t.creditDebitType||'').toUpperCase();
-  const entrada = /CRED|CREDIT|ENTRADA|IN/.test(tipoRaw) || valor>0 && !/DEB|DEBIT|SAIDA|OUT/.test(tipoRaw);
-  return { direcao: entrada?'entrada':'saida', data:_dt(t.data||t.date||t.transactionDate), descricao:_str(t.descricao||t.description||t.merchant||''),
-    valor:Math.abs(valor), categoriaSugerida:_str(t.categoria||t.category||''), conta:_str(t.conta||t.account||t.accountId||''), origem:'Open Finance' }; }
-function mapCreditCardToCard(c){ return {
-  cartao:_str(c.cartao||c.card||c.name||c.brand||''), limite:_num(c.limite!=null?c.limite:c.creditLimit), faturaValor:_num(c.fatura!=null?c.fatura:(c.invoice!=null?c.invoice:c.billAmount)),
-  vencimento:_dt(c.vencimento||c.dueDate||c.invoiceDueDate), origem:'Open Finance' }; }
-
-// ── Normalização por tipo (para preview/armazenamento) ──
-function _normB3(tipo,row){
-  const base={ _origem:'B3', _importadoEm:new Date().toISOString() };
-  if(tipo==='posicao') return Object.assign(base, mapPositionToInvestment(row));
-  if(tipo==='movimentacao') return Object.assign(base, mapMovementToTransaction(row));
-  // garantias / eventos / ofertas / negociação: normalização genérica defensiva
-  return Object.assign(base, {
-    ativo:_str(row.ativo||row.ticker||row.symbol||row.nome||row.instrument||''), descricao:_str(row.descricao||row.description||row.evento||row.event||''),
-    quantidade:_num(row.quantidade!=null?row.quantidade:row.quantity), valor:_num(row.valor!=null?row.valor:row.value),
-    data:_dt(row.data||row.date||row.dataReferencia||row.referenceDate), instituicao:_str(row.instituicao||row.participante||row.institution||''), origem:'B3' });
-}
-function _normOF(tipo,row){
-  const base={ _origem:'Open Finance', _importadoEm:new Date().toISOString() };
-  if(tipo==='contas'||tipo==='saldos') return Object.assign(base, mapAccountToFinance(row));
-  if(tipo==='transacoes') return Object.assign(base, mapTransactionToEntryOrExpense(row));
-  if(tipo==='cartoes'||tipo==='faturas') return Object.assign(base, mapCreditCardToCard(row));
-  if(tipo==='investimentos') return Object.assign(base, { ativo:_str(row.ativo||row.instrument||row.nome||''), tipo:_str(row.tipo||row.type||''), quantidade:_num(row.quantidade!=null?row.quantidade:row.quantity), valor:_num(row.valor!=null?row.valor:row.value), instituicao:_str(row.instituicao||row.institution||''), origem:'Open Finance' });
-  // creditos
-  return Object.assign(base, { contrato:_str(row.contrato||row.contract||row.nome||''), tipo:_str(row.tipo||row.type||''), saldoDevedor:_num(row.saldoDevedor!=null?row.saldoDevedor:row.outstandingBalance), parcela:_num(row.parcela!=null?row.parcela:row.installmentAmount), instituicao:_str(row.instituicao||row.institution||''), origem:'Open Finance' });
-}
-
-// ── Logs resumidos (sem payload sensível completo) ──
-function _b3Log(status,origem,info){ _b3().logsSincronizacao.unshift({ data:new Date().toISOString(), status, origem:origem||'mock', info:_str(info).slice(0,120) }); if(_b3().logsSincronizacao.length>50) _b3().logsSincronizacao.length=50; }
-function _ofLog(status,origem,info){ _of().logsSincronizacao.unshift({ data:new Date().toISOString(), status, origem:origem||'mock', info:_str(info).slice(0,120) }); if(_of().logsSincronizacao.length>50) _of().logsSincronizacao.length=50; }
-
-// ── Recalcular resumos ──
-function _b3RecalcResumo(){ const b=_b3(), c=_b3cfg(); if(!c.resumo) return;
-  c.resumo.posicoes=b.posicoes.length; c.resumo.movimentacoes=b.movimentacoes.length; c.resumo.garantias=b.garantias.length;
-  c.resumo.eventosProvisionados=b.eventosProvisionados.length; c.resumo.ofertasPublicas=b.ofertasPublicas.length; c.resumo.negociacoes=b.negociacoes.length; }
-function _ofRecalcResumo(){ const o=_of(), c=_ofcfg(); if(!c.resumo) return;
-  c.resumo.contas=o.contas.length; c.resumo.saldos=o.saldos.length; c.resumo.transacoes=o.transacoes.length;
-  c.resumo.cartoes=o.cartoes.length; c.resumo.faturas=o.faturas.length; c.resumo.investimentos=o.investimentos.length; c.resumo.creditos=o.creditos.length; }
-
-// ═══ B3Service ═══
-const B3Service = {
-  status(){ const c=_b3cfg(); const cs=(c.consentimento&&c.consentimento.status)||'nao_iniciado';
-    let sync='backend_necessario';
-    if(cs==='revogado') sync='consentimento_revogado'; else if(cs==='nao_iniciado'||cs==='pendente') sync='consentimento_ausente';
-    else if(c.ultimaReferenciaD1===_yesterdayISO()) sync='atualizado'; else if(c.ultimaSincronizacao) sync='desatualizado'; else sync='aguardando_D1';
-    return _b3Resp({ mode: c.modo==='api'?'api':'mock', referenceDate:c.ultimaReferenciaD1||'', data:{ statusIntegracao:c.status, consentimento:cs, sincronizacao:sync, resumo:c.resumo } }); },
-  // Stubs de sincronização: SEMPRE backend_required (sem chamada real)
-  syncGuide(){ _b3Log('backend_required','guia','Simulação: API Guia exige backend'); return _b3Resp({ok:false,mode:'backend_required',data:null,error:B3_BACKEND_MSG}); },
-  syncPositions(){ _b3Log('backend_required','position','Simulação: Position exige backend'); return _b3Resp({ok:false,mode:'backend_required',data:null,error:B3_BACKEND_MSG}); },
-  syncMovements(){ _b3Log('backend_required','movement','Simulação: Movement exige backend'); return _b3Resp({ok:false,mode:'backend_required',data:null,error:B3_BACKEND_MSG}); },
-  importMockPayload(tipo, arr){ const col=B3_TIPO_COL[tipo]; if(!col) return _b3Resp({ok:false,mode:'manual',data:null,error:'Tipo B3 inválido.'});
-    const b=_b3(); const norm=arr.map(r=>_normB3(tipo,r));
-    // dedupe simples por ativo+instituicao+data
-    const seen=new Set(b[col].map(x=>`${x.ativo||''}|${x.instituicao||''}|${x.data||x.dataReferencia||''}`));
-    let add=0; norm.forEach(x=>{ const key=`${x.ativo||''}|${x.instituicao||''}|${x.data||x.dataReferencia||''}`; if(!seen.has(key)){ b[col].push(x); seen.add(key); add++; } });
-    _b3RecalcResumo(); const c=_b3cfg(); c.fonte='manual'; c.ultimaSincronizacao=new Date().toISOString(); c.ultimaReferenciaD1=_yesterdayISO(); if(c.status==='nao_configurada') c.status='mock_importado';
-    _b3Log('mock_importado',tipo,`${add} novo(s) de ${arr.length}`);
-    return _b3Resp({mode:'mock',referenceDate:c.ultimaReferenciaD1,data:{tipo,adicionados:add,recebidos:arr.length}}); },
-  mapPositionToInvestment, mapMovementToTransaction,
-};
-
+// ── Backend B3 (Worker) — detecção opcional; Firebase Auth + rede + DOM (mantido no app.js) ──
 // (Fase 14) Detecção OPCIONAL do Worker B3 — NÃO é chamada automaticamente no render.
 // Só age se D.integracoes.b3.backend.enabled e workerUrl (http/https) estiverem definidos.
 // Em qualquer falha, mantém o modo manual/mock e NUNCA quebra a Central de Integrações.
@@ -8238,35 +7724,6 @@ async function b3BackendTest(){
   const msg=LBL[res.mode] || ('Worker: '+(res.mode||'?')+(res.status?(' ('+res.status+')'):'')+(res.authenticated?' · autenticado':''));
   toast(msg, !!res.configured, '🔌');
 }
-
-const OpenFinanceService = {
-  status(){ const c=_ofcfg(); const cs=(c.consentimento&&c.consentimento.status)||'nao_iniciado';
-    let sync='backend_necessario';
-    if(cs==='revogado') sync='consentimento_revogado'; else if(cs==='expirado') sync='consentimento_expirado';
-    else if(cs==='nao_iniciado'||cs==='pendente') sync='consentimento_ausente'; else if(c.ultimaSincronizacao) sync='desatualizado'; else sync='backend_necessario';
-    return _ofResp({ mode: c.modo==='api'?'api':'mock', data:{ statusIntegracao:c.status, consentimento:cs, sincronizacao:sync, instituicao:(c.consentimento&&c.consentimento.instituicao)||'', resumo:c.resumo } }); },
-  startConsentStub(){ const c=_ofcfg(); if(c.consentimento){ c.consentimento.status='backend_necessario'; } _ofLog('backend_required','consent','Início de consentimento exige fluxo seguro/backend');
-    return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
-  revokeLocalConsent(){ const c=_ofcfg(); if(c.consentimento){ c.consentimento.status='revogado'; c.consentimento.dataRevogacao=new Date().toISOString(); } _ofLog('revogado','consent','Consentimento marcado como revogado (local)');
-    return _ofResp({mode:'manual',data:{consentimento:'revogado'}}); },
-  syncAccounts(){ _ofLog('backend_required','accounts','Simulação: contas exige backend'); return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
-  syncBalances(){ _ofLog('backend_required','balances','Simulação: saldos exige backend'); return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
-  syncTransactions(){ _ofLog('backend_required','transactions','Simulação: transações exige backend'); return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
-  syncCreditCards(){ _ofLog('backend_required','cards','Simulação: cartões exige backend'); return _ofResp({ok:false,mode:'backend_required',data:null,error:OF_BACKEND_MSG}); },
-  importMockPayload(tipo, arr){ if(!OF_TIPOS[tipo]) return _ofResp({ok:false,mode:'manual',data:null,error:'Tipo Open Finance inválido.'});
-    const o=_of(); const norm=arr.map(r=>_normOF(tipo,r));
-    const keyOf=x=>`${x.conta||x.cartao||x.ativo||x.contrato||''}|${x.instituicao||''}|${x.data||x.dataReferencia||x.vencimento||''}|${x.valor||x.saldo||x.saldoDevedor||''}`;
-    const seen=new Set(o[tipo].map(keyOf)); let add=0;
-    norm.forEach(x=>{ const k=keyOf(x); if(!seen.has(k)){ o[tipo].push(x); seen.add(k); add++; } });
-    _ofRecalcResumo(); const c=_ofcfg(); c.fonte='manual'; c.ultimaSincronizacao=new Date().toISOString(); if(c.status==='nao_configurada') c.status='mock_importado';
-    _ofLog('mock_importado',tipo,`${add} novo(s) de ${arr.length}`);
-    return _ofResp({mode:'mock',data:{tipo,adicionados:add,recebidos:arr.length}}); },
-  mapAccountToFinance, mapTransactionToEntryOrExpense, mapCreditCardToCard,
-};
-
-// ── Estado de UI ──
-let _b3UI={ open:false, tipo:'posicao', preview:null, err:'', info:'' };
-let _ofUI={ open:false, tipo:'contas', preview:null, err:'', info:'' };
 
 // ── Ações B3 (UI) ──
 function b3ToggleImport(){ _b3UI.open=!_b3UI.open; _b3UI.preview=null; _b3UI.err=''; renderIntegracoes(); }
@@ -8359,6 +7816,32 @@ function _ofInfoBlock(){
 
 // ── Painel B3 ──
 // Bloco "Backend (Worker)" do painel B3 (Fase 15) — opcional, padrão desabilitado.
+// Checklist de readiness do B3 (Fase 18) — informativo, derivado do estado local.
+function _b3ReadinessBlock(){
+  const b=(D.integracoes&&D.integracoes.b3&&D.integracoes.b3.backend)||{};
+  const authOk=(typeof firebase!=='undefined' && firebase.auth && !!firebase.auth().currentUser);
+  const urlOk=!!_safeUrl(b.workerUrl||'');
+  const enabled=!!b.enabled;
+  const mode=b.mode||'stub';
+  const row=(state,label,hint)=>{
+    const ic=state==='ok'?'✅':state==='warn'?'⚠️':state==='off'?'⛔':'⬜';
+    return `<div style="display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.5;color:var(--text2)"><span>${ic}</span><span><strong>${escapeHTML(label)}</strong>${hint?` — <span style="color:var(--text3)">${escapeHTML(hint)}</span>`:''}</span></div>`;
+  };
+  return `<div style="background:var(--card3);border-radius:var(--r10);padding:11px 13px;margin-top:12px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:8px">📋 Readiness de certificação B3</div>
+    ${row(authOk?'ok':'warn','Firebase Auth', authOk?'sessão ativa':'faça login para obter o ID Token')}
+    ${row(urlOk?'ok':'todo','Worker URL', urlOk?'configurada':'informe a URL do Worker')}
+    ${row(enabled?'ok':'off','Worker habilitado', enabled?'ativo':'desativado (modo manual/mock)')}
+    ${row('warn','CORS / Token', 'validados no Worker a cada chamada')}
+    ${row('todo','KV de cache', 'B3_SYNC_CACHE_KV — opcional; memória como fallback')}
+    ${row('off','B3 secrets', 'ausentes (Pacote de Acesso/certificação pendente)')}
+    ${row('ok','API Guia exigida', 'antes de Position/Movement (D-1)')}
+    ${row('off','Real calls', 'desativadas por padrão (B3_ENABLE_REAL_CALLS=false)')}
+    ${row('off','Cliente real', 'não implementado (real_client_not_implemented)')}
+    ${row('off','Produção', 'bloqueada nesta fase (unsupported_env)')}
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Último modo do backend: <strong style="color:var(--text2)">${escapeHTML(mode)}</strong></div>
+  </div>`;
+}
 function _b3BackendBlock(){
   const b=(D.integracoes&&D.integracoes.b3&&D.integracoes.b3.backend)||{};
   const last=b.lastCheck?new Date(b.lastCheck).toLocaleString('pt-BR'):'—';
@@ -8411,6 +7894,7 @@ function renderB3Panel(){
         <button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3RevogarConsent()">🚫 Consentimento revogado</button>
         ${tem?`<button class="btn btn-ghost" style="height:32px;font-size:12px" onclick="b3LimparDados()">🧹 Limpar dados importados</button>`:''}
       </div>
+      ${_b3ReadinessBlock()}
       ${_b3BackendBlock()}
       ${_b3InfoBlock()}
       ${importBox}
@@ -9192,42 +8676,6 @@ const BCB_SERIES = {
   ipca12meses:    13522, // IPCA acumulado 12 meses (%) → ~4.39%
 };
 
-async function bcbFetch(serie, n=1) {
-  const baseUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${serie}/dados/ultimos/${n}?formato=json`;
-  const enc = encodeURIComponent(baseUrl);
-
-  // Múltiplos proxies CORS — tenta em sequência até um funcionar
-  const endpoints = [
-    // corsproxy.io — muito confiável, não encoda a URL
-    `https://corsproxy.io/?${baseUrl}`,
-    // allorigins modo raw — retorna o corpo direto
-    `https://api.allorigins.win/raw?url=${enc}`,
-    // cors.sh — alternativa popular
-    `https://cors.sh/${baseUrl}`,
-    // Direto — pode funcionar dependendo da rede/browser
-    baseUrl,
-  ];
-
-  for(const url of endpoints) {
-    try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(()=>ctrl.abort(), 7000);
-      const headers = url.includes('cors.sh') ? {'x-cors-api-key':'temp_...'} : {};
-      const r = await fetch(url, {signal: ctrl.signal, headers});
-      clearTimeout(tid);
-      if(!r.ok) continue;
-      const text = await r.text();
-      let data;
-      try { data = JSON.parse(text); } catch { continue; }
-      // allorigins wraps in {contents}
-      if(data && !Array.isArray(data) && data.contents) {
-        try { data = JSON.parse(data.contents); } catch { continue; }
-      }
-      if(Array.isArray(data) && data.length > 0) return data[data.length-1];
-    } catch { continue; }
-  }
-  throw new Error('API do BCB inacessível — use os campos manuais abaixo.');
-}
 
 async function fetchBCB() {
   const btn  = document.getElementById('btn-bcb-fetch');

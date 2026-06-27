@@ -95,7 +95,7 @@ Núcleo financeiro é a base; os demais módulos são **acoplados por vínculos 
 | **Handlers inline** (20 `set*Field`, 22 `add*`, removes) | `setBemField`, `addProjeto`, `removeCurso`, … | ⛔ Precisam continuar globais (usados por `onchange`/`onclick`) |
 | **Integração entre módulos** (15 `criar*`) | `criarMetaDeBem`, `criarDecisaoDeObjetivo`, `criarBemDaCompra`, … | ⛔ Dependem de múltiplos ramos de `D` |
 | **Agenda** (14 `agendar*`) | `agendarGarantia`, `agendarCurso`, … | 🟡 Reusam `googleCalendarLink`; extraíveis com integrações depois |
-| **Relatórios** (9 `relDoc*`) | `relDocPatrimonio`, `relDocCarreira`, … | 🟡 Candidatos a `reports.js` numa próxima fase |
+| **Relatórios** | `_REL_TIPOS`, `relDocMensal/Anual/Metas/Decisoes/Compras/Geral`, `renderRelatorioAtivo`, `exportRelCSV` em **`reports.js`** | ✅ Extraídos (Fase 19); `relDocTrabalho/Carreira/Patrimonio`/`relSecB3OF` seguem em `app.js` |
 
 ## 5. Superfície global (funções que DEVEM permanecer globais)
 
@@ -125,10 +125,11 @@ escopo global e permitindo avanço sem risco.
 Roadmap sugerido (uma fatia por rodada, sempre com smoke test antes/depois):
 
 1. ✅ **Fase 12 (feita):** `utils.js` — sanitização, formatação, datas e parsing puros.
-2. 🔜 `constants.js` — mover blocos de constantes puras (`*_STATUS`, `*_CATS`, `_REL_TIPOS`, `DEFAULT_MENU`).
-3. 🔜 `reports.js` — layout e geradores `relDoc*` (dependem só de helpers + leitura de `D`).
-4. 🔜 `integrations.js` — `googleCalendarLink`, import CSV/OFX, indicadores BCB.
-5. 🔜 `b3of_mod.js` — extração futura de `B3Service`/`OpenFinanceService` e dos painéis/import mock B3/Open Finance (hoje em `app.js`). **Este arquivo ainda não existe**; é apenas um item de roadmap.
+2. ✅ `constants.js` (Fase 18) — extraídos blocos puros de Carreira (`CAR_*`), Patrimônio (`PAT_*`) e rótulos/tipos B3/Open Finance (`CONSENT_LABELS`, `B3_TIPOS`, `B3_TIPO_COL`). Carregado entre `utils.js` e `app.js`; demais blocos (`DEC_*`, `META_*`, `TRAB_*`, `DEFAULT_MENU`) seguem como próxima fatia.
+3. ✅ `reports.js` (Fase 19) — Central de Relatórios: `_REL_TIPOS`, helpers `_rel*`, geradores `relDocMensal/Anual/Metas/Decisoes/Compras/Geral`, `renderRelatorioAtivo`, `_csvCell`/`exportRelCSV`. Carregado entre `constants.js` e `app.js`; `relDocTrabalho/Carreira/Patrimonio`, `relSecB3OF` e os `*ResumoData` permanecem em `app.js` (acoplados aos módulos, resolvidos em runtime).
+4. ✅ `integrations.js` (Fase 20) — extraídas as integrações **isoladas**: Google Agenda link (`googleCalendarLink`/`_abrirAgenda`), parser OFX (`_parseOFX`) e BCB (`bcbFetch`). Render da Central de Integrações, painéis B3/Open Finance, import CSV/OFX (preview/confirmar), mappers mock e `agendar*` por módulo seguem em `app.js` (acoplados; resolvidos em runtime).
+5. ✅ `b3of_mod.js` (Fases 21a + 22) — **mappers puros** (`map*`/`_normB3`/`_normOF`) + **camada lógica** (acessores `_b3`/`_of`/`_b3cfg`/`_ofcfg`, `_b3Resp`/`_ofResp`, parse `_num`/`_dt`/`_str`/`_payloadToArray`, logs `_b3Log`/`_ofLog`, resumos, e os services **`B3Service`/`OpenFinanceService`**), expostos via `window.B3OF`/`window.B3Service`/`window.OpenFinanceService`. O **painel visual** B3/Open Finance (render, preview, `_b3UI`/`_ofUI`, handlers) permanece em `app.js`.
+6. 🔜 **`b3of_mod.js` etapa b** — extração futura de `B3Service`/`OpenFinanceService`, painéis e fluxo de import/preview mock B3/Open Finance (hoje em `app.js`).
 5. 🔜 Migração gradual de handlers inline para *event delegation* (`data-*` + `addEventListener`), módulo a módulo.
 6. 🔮 Só então, se desejado, avaliar `type="module"` com uma camada fina de `window` para compatibilidade.
 
@@ -231,10 +232,12 @@ sincronização real é deliberadamente bloqueada (`backend_required`).
 `{ ok, provider, mode('mock'|'manual'|'backend_required'|'api'), source, updatedAt, referenceDate, data, error }`.
 Toda sincronização real retorna `backend_required` com mensagem explicativa.
 
-> **Onde o código vive (estado real, pós-revisão da Fase 13):** `B3Service` e
-> `OpenFinanceService`, os painéis da Central de Integrações e a importação mock
-> estão **dentro de `app.js`**. **Não existe um arquivo `b3of_mod.js`** — ele é
-> apenas um item de roadmap de modularização futura (ver §6). B3 e Open Finance
+> **Onde o código vive (estado real, pós-Fase 22):** os mappers puros, a camada
+> lógica (acessores de estado, logs, resumos, parse) e os services
+> **`B3Service`/`OpenFinanceService`** vivem em **`b3of_mod.js`** (mock/stub, só
+> dados, nunca HTML), expostos via `window.B3OF`. O **render** dos painéis da
+> Central de Integrações e o fluxo de **preview/confirmar** seguem em **`app.js`**,
+> chamando a lógica do módulo. B3 e Open Finance
 > seguem como **mock/stub/documentação**: não há chamadas reais, e o **Worker B3
 > ainda não foi iniciado** — a integração real continua dependente de backend seguro.
 

@@ -4,6 +4,10 @@ const fs=require('fs'), vm=require('vm'), path=require('path');
 const root=__dirname;
 let src='var uiConfirm=function(){return Promise.resolve(true);};var toast=function(){};var scheduleAutoSave=function(){};var go=function(){};var renderAll=function(){};\n';
 src+=fs.readFileSync(path.join(root,'utils.js'),'utf8')+'\n';
+src+=fs.readFileSync(path.join(root,'constants.js'),'utf8')+'\n';
+src+=fs.readFileSync(path.join(root,'reports.js'),'utf8')+'\n';
+src+=fs.readFileSync(path.join(root,'integrations.js'),'utf8')+'\n';
+src+=fs.readFileSync(path.join(root,'b3of_mod.js'),'utf8')+'\n';
 src+=fs.readFileSync(path.join(root,'app.js'),'utf8');
 const store={};
 src+=`
@@ -41,6 +45,30 @@ src+=`
     setBemField(b.id,'nome','<img src=x onerror=alert(1)>'); setPatAba('bens'); renderPatrimonio();
     const body=document.getElementById('patrimonio-body').innerHTML;
     ok('xss-render', !/<img src=x onerror/.test(body) && /&lt;img/.test(body));
+    // 10) constants.js carregado antes de app.js (constantes puras disponíveis como globais)
+    ok('constants', typeof CAR_HORIZONTES==='object' && Array.isArray(PAT_BEM_CATS) && typeof B3_TIPOS==='object' && typeof CONSENT_LABELS==='object');
+    // 11) reports.js carregado: funções de relatório globais + geração com usuário vazio + CSV anti-fórmula
+    ok('reports-fns', typeof renderRelatorioAtivo==='function' && typeof exportRelCSV==='function' && Array.isArray(_REL_TIPOS));
+    ok('reports-doc', typeof relDocGeral()==='string' && relDocGeral().length>0);
+    ok('reports-csv', _csvCell('=1').indexOf("\\"'")===0);
+    // 12) integrations.js carregado: funções globais + Google Agenda gera link válido + OFX não quebra
+    ok('integr-fns', typeof googleCalendarLink==='function' && typeof _abrirAgenda==='function' && typeof _parseOFX==='function' && typeof bcbFetch==='function');
+    const _gl=googleCalendarLink({title:'x & y',details:'d',startDate:'2026-01-02'});
+    ok('integr-gcal', /calendar\\.google\\.com/.test(_gl) && /action=TEMPLATE/.test(_gl) && _gl.indexOf(' ')===-1);
+    ok('integr-ofx', Array.isArray(_parseOFX('<OFX></OFX>')));
+    // 13) b3of_mod.js carregado: mappers puros B3/OF globais + dispatchers + origem marcada
+    ok('b3of-fns', typeof mapPositionToInvestment==='function' && typeof mapTransactionToEntryOrExpense==='function' && typeof _normB3==='function' && typeof _normOF==='function');
+    const _pi=mapPositionToInvestment({ticker:'PETR4',quantity:100,value:'1.234,56'});
+    ok('b3of-pos', _pi.ativo==='PETR4' && _pi.quantidade===100 && _pi.valor===1234.56 && _pi.origem==='B3');
+    const _of=mapTransactionToEntryOrExpense({type:'DEBIT',amount:'50,00',description:'Mercado'});
+    ok('b3of-of', _of.direcao==='saida' && _of.valor===50 && _of.origem==='Open Finance');
+    // 14) Fase 22: services e namespace globais vindos de b3of_mod.js + import mock funciona
+    ok('b3of-services', typeof B3Service==='object' && typeof OpenFinanceService==='object' && typeof B3OF==='object' && typeof B3OF.b3Config==='function');
+    D.b3.posicoes=[]; const _imp=B3Service.importMockPayload('posicao',[{ticker:'ITUB4',quantity:5,value:30}]);
+    ok('b3of-import', _imp && _imp.ok!==false && D.b3.posicoes.length===1 && D.b3.posicoes[0].origem==='B3');
+    const _ofi=OpenFinanceService.importMockPayload('transacoes',[{type:'CREDIT',amount:'200,00',description:'x'}]);
+    ok('of-import', _ofi && _ofi.ok!==false && D.openFinance.transacoes.length===1);
+    ok('b3of-noHTML', !/[<]div|[<]table/.test(JSON.stringify(B3Service.status())));
   }catch(err){ out.push('✗ ERRO: '+(err&&err.stack||err)); }
   console.log(out.join('\\n'));
   console.log(out.every(l=>l.startsWith('✓'))?'\\n✅ SMOKE-CORE OK':'\\n⚠️ FALHAS');

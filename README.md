@@ -24,11 +24,16 @@ CommonJS para os scripts Node) e o **Worker B3** (`worker/`, Cloudflare Worker, 
 ├── index.html             — Login / cadastro / redefinição de senha (Firebase Auth)
 ├── app.html               — Interface principal (markup + estilos + wiring Firebase)
 ├── app.js                 — Lógica da aplicação e renderização
-├── utils.js               — Helpers globais puros (carregado ANTES de app.js; publicado no deploy)
+├── utils.js               — Helpers globais puros (carregado ANTES de constants.js/app.js)
+├── constants.js           — Constantes puras (carregado ENTRE utils.js e app.js; publicado no deploy)
+├── reports.js             — Central de Relatórios (gera docs/PDF/CSV; carregado ANTES de app.js)
+├── integrations.js        — Integrações frontend-only (Google Agenda link, OFX, BCB; carregado ANTES de app.js)
+├── b3of_mod.js            — Camada lógica B3/OF: mappers + services mock/stub + estado/logs/resumos (carregado ANTES de app.js)
 ├── smoke-core.js          — Smoke test (CommonJS, usa require) — roda com `node smoke-core.js`
 ├── firestore.rules        — Regras de segurança (publicar no Firebase Console)
-├── deploy.ps1             — Deploy seguro (publica index/app/app.js/utils.js/README)
+├── deploy.ps1             — Deploy seguro (publica index/app/app.js/utils.js/constants.js/reports.js/integrations.js/b3of_mod.js/README)
 ├── .gitignore             — Arquivos que não devem ser versionados
+├── .nojekyll              — Desliga o processamento Jekyll do GitHub Pages
 ├── README.md
 ├── ARCHITECTURE.md
 │
@@ -42,10 +47,17 @@ CommonJS para os scripts Node) e o **Worker B3** (`worker/`, Cloudflare Worker, 
         ├── index.js        — entrada do Worker (roteador)
         ├── routes/b3.js
         ├── services/b3Client.js
+        ├── services/b3Sync.js
+        ├── services/rateLimit.js
+        ├── services/audit.js
         ├── services/firebaseAuth.js
         └── utils/responses.js
         └── utils/security.js
 ```
+
+> 🌐 **GitHub Pages:** o frontend é 100% estático e é servido direto da raiz. O `.nojekyll`
+> evita o processamento Jekyll. O Worker (`worker/`) **não** é executado pelo GitHub Pages —
+> é publicado à parte pelo Wrangler; o frontend abre normalmente com o Worker desativado.
 
 > ⚠️ **Não achate a pasta `worker/`.** Os arquivos do Worker importam por caminho
 > relativo (`./utils/responses.js`, `./services/firebaseAuth.js`, `../utils/...`), então
@@ -62,6 +74,10 @@ CommonJS para os scripts Node) e o **Worker B3** (`worker/`, Cloudflare Worker, 
 ```bash
 # Frontend (na RAIZ — CommonJS):
 node --check utils.js
+node --check constants.js
+node --check reports.js
+node --check integrations.js
+node --check b3of_mod.js
 node --check app.js
 node smoke-core.js
 
@@ -168,6 +184,10 @@ Prioridade técnica (segurança primeiro):
 27. ✅ **(Fase 15) Autenticação real do Worker + cliente B3 de certificação** — o Worker passou a **validar de verdade o Firebase ID Token**: assinatura **RS256** contra o **JWKS público do Google** (com cache em memória respeitando `Cache-Control`) e claims `iss`/`aud`/`sub`/`exp`/`iat`. Respostas de auth padronizadas (`Token ausente.` / `Token inválido ou expirado.`), modo DEV não verificado restrito a `B3_ENV=local` + `B3_DEV_ALLOW_UNVERIFIED=true` (logado como `dev_unverified`, ignorado em certificação). `b3Client` ganhou config segura (`getB3Config`/`assertB3CertificationConfig` — expõe só booleanos, bloqueia `production`), helpers **D-1/API Guia** (`b3ReferenceDate`/`isB3DataAvailable`/`shouldSyncB3`) e respostas `certification_config_missing`/`certification_stub`/`unsupported_env`. **Chamadas reais desativadas por padrão** (`B3_ENABLE_REAL_CALLS=false`). Gate de origem nos endpoints B3 (rejeita `Origin` fora da allowlist). No frontend, subseção **"Backend (Worker)"** no painel B3 (URL + habilitar + testar conexão + status), anexando o **Firebase ID Token** sem nunca salvá-lo/exibi-lo. Detalhes em **`worker/README.md`**.
 28. ✅ **(Fase 16) Governança do Worker B3** — rate limit por `(uid, endpoint)` com fallback em memória e **KV opcional** (`B3_RATE_LIMIT_KV`): `/b3/status` 30/5min, `sync-guide` 5/dia, `sync-positions`/`sync-movements` 3/dia, `revoke-local` 10/dia; estouro → `429` `rate_limited` com `Retry-After`/`X-RateLimit-*`. **Controle D-1/anti-repetição** por `(uidHash, type, referenceDate)` guardando só metadados (`alreadySyncedToday`). **Hash de uid** (SHA-256 + salt opcional), **`safeLog` por whitelist** (+`durationMs`), **auditoria** resumida (`AUDIT {…}`) e **métricas** em memória com endpoint admin `GET /b3/metrics` (token + allowlist; `404` se desabilitado). Sem token → `401` (não `429`); `Origin` fora da allowlist → `403` sem consumir limite; `/health` livre. No frontend, o painel B3 passou a exibir `rate_limited`/`Retry-After`. Ainda **sem chamadas reais** à B3.
 29. ✅ **(Fase 17) Pré-certificação B3** — anti-repetição **rígido** por `(uidHash, type, referenceDate)` com estratégia `B3_REPEAT_SYNC_STRATEGY` (default **`cache`**): repetição no mesmo D-1 retorna `cache_hit` (reusa resumo do cache), `already_synced` (`block`) ou stub marcado (`allow_stub_only`, só sem real calls). **Cache D-1** em binding separado `B3_SYNC_CACHE_KV` (fallback memória), guardando **apenas resumo numérico** (`count`/`productsUpdated`), TTL 48h — nunca payload. **API Guia obrigatória** antes de `sync-positions`/`sync-movements` (senão `guide_required`). Gate `B3_ENABLE_REAL_CALLS` reforçado (default `false`; com `true` e sem cliente real → `real_client_not_implemented`; `production` → `unsupported_env`). Novos modos/métricas (`mode_cache_hit`/`already_synced`/`guide_required`/`real_client_not_implemented`, `syncCacheHits`, `syncBlockedRepeats`) e auditoria `b3.<action>.<mode>`. Frontend mapeia os novos modos para mensagens amigáveis. Ainda **sem chamadas reais** por padrão.
+29.1. ✅ **(Fase 19) Modularização — `reports.js`** — extraída a Central de Relatórios do `app.js` (~347 linhas) para `reports.js`: `_REL_TIPOS`, helpers de layout (`_relDoc`/`_relSection`/`_relKpis`/`_relTable`/`_relEmpty`), geradores `relDocMensal/Anual/Metas/Decisoes/Compras/Geral`, `renderRelatorioAtivo`/`_relToggleControls` e exportação CSV (`_csvCell`/`exportRelCSV`, com proteção contra fórmula). Script clássico carregado **`utils → constants → reports → app`**; `relDocTrabalho/Carreira/Patrimonio`, `relSecB3OF` e os `*ResumoData` permanecem em `app.js` (acoplados; resolvidos em runtime). `app.js`: ~9.865 → ~9.519 linhas.
+29.2. ✅ **(Fase 20) Modularização — `integrations.js`** — extraídas do `app.js` as funções de integração **isoladas**: Google Agenda por link (`googleCalendarLink`, `_abrirAgenda`), parser **OFX** local (`_parseOFX`) e indicadores **BCB** (`bcbFetch`, fontes públicas com fallback). Script clássico carregado **`utils → constants → reports → integrations → app`**. Permanecem em `app.js` (acoplados ao render da Central de Integrações / runtime): `renderIntegracoes`/`_integCard`, painéis B3/Open Finance, fluxo de import CSV/OFX (preview/confirmar), mappers mock B3/OF, `agendar*` por módulo, `_integ`/`_categoriza`, `fetchBCB`. `app.js`: ~9.518 → ~9.456 linhas.
+29.3. ✅ **(Fase 21, etapa a) Modularização — `b3of_mod.js`** — extraídos do `app.js` os **mappers puros** mock B3/Open Finance: `mapPositionToInvestment`, `mapMovementToTransaction`, `mapAccountToFinance`, `mapTransactionToEntryOrExpense`, `mapCreditCardToCard` e os dispatchers `_normB3`/`_normOF` (payload mock → sugestão, com origem marcada). Script clássico carregado **`utils → constants → reports → integrations → b3of_mod → app`**. Permanecem em `app.js` (etapa b): render da Central de Integrações, `B3Service`/`OpenFinanceService`, preview/confirmar, acessores de estado (`_b3`/`_of`/logs/resumos) e os helpers `_str`/`_num`/`_dt` (resolvidos em runtime). Sem chamada real, sem token/segredo. `app.js`: ~9.455 → ~9.415 linhas.
+29.4. ✅ **(Fase 22) `b3of_mod.js` etapa B** — movida a **camada lógica** mock/stub B3/Open Finance do `app.js` para `b3of_mod.js`: acessores de estado (`_b3`/`_of`/`_b3cfg`/`_ofcfg`), builders de resposta (`_b3Resp`/`_ofResp`), utilidades de parse (`_num`/`_dt`/`_str`/`_payloadToArray`/datas), logs resumidos (`_b3Log`/`_ofLog`, sem payload), recálculo de resumos e os services **`B3Service`/`OpenFinanceService`** (retornam só dados, nunca HTML; `backend_required` quando aplicável). Exposição global via `window.B3Service`/`window.OpenFinanceService`/`window.B3OF` (merge preservando os mappers da etapa A). O **render visual** (painéis B3/OF, preview, cards, `_b3UI`/`_ofUI`, handlers) **permanece em `app.js`**. Sem chamada real, sem token/segredo. `app.js`: ~9.414 → ~9.269 linhas.
 30. 🔜 **Backend & melhorias futuras** — implementar o `b3Client` **real** contra o ambiente de **certificação** (Pacote de Acesso → API Guia → Position/Movement) reaproveitando cache D-1/anti-repetição/rate limit, com `B3_ENABLE_REAL_CALLS=true` controlado; persistir cache/rate limit em KV/Durable Objects; depois Open Finance (OAuth/mTLS); modularização (`constants.js`, `reports.js`, `integrations.js`, `b3of_mod.js`); anexos via Firebase Storage; FIPE/mercado; Gmail/Calendar real; push.
 
 ### Fases 12.1 + 13 — resumo

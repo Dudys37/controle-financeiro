@@ -34,6 +34,10 @@ $FILES = @(
     @{ local = "app.html";   remote = "app.html" },
     @{ local = "app.js";     remote = "app.js" },
     @{ local = "utils.js";   remote = "utils.js" },
+    @{ local = "constants.js"; remote = "constants.js" },
+    @{ local = "reports.js";   remote = "reports.js" },
+    @{ local = "integrations.js"; remote = "integrations.js" },
+    @{ local = "b3of_mod.js";  remote = "b3of_mod.js" },
     @{ local = "README.md";  remote = "README.md" }
 )
 

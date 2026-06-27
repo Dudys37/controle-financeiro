@@ -1,6 +1,9 @@
-# Segredos e ambiente — NUNCA versionar
+# ── Secrets / ambiente — NUNCA versionar ──
 .env
 .env.*
+.dev.vars
+worker/.dev.vars
+worker/wrangler.toml
 *.local
 deploy.local.ps1
 secrets.*
@@ -9,12 +12,24 @@ firebase-debug.log
 firebase-debug.*.log
 .firebase/
 
-# Autenticação legada (descontinuada)
+# ── Node / Worker ──
+node_modules/
+worker/node_modules/
+dist/
+worker/dist/
+
+# ── Certificados / chaves ──
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ── Autenticação legada (descontinuada) ──
 auth.js
 
-# Sistema / editores
+# ── SO / editores ──
 .DS_Store
 Thumbs.db
-node_modules/
 .vscode/
 .idea/
